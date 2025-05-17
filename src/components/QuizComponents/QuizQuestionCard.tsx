@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import {
   Card,
   CardContent,
@@ -14,7 +14,6 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { ChevronLeft, ChevronRight, CheckCircle, XCircle, Pause } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { playSound } from '@/utils/SoundEffects';
 
 export interface QuizQuestion {
   question: string;
@@ -52,13 +51,7 @@ const QuizQuestionCard: React.FC<QuizQuestionCardProps> = ({
 }) => {
   const { t, language } = useLanguage();
   
-  // Modified to use playSound correctly with just one argument
-  useEffect(() => {
-    if (showFeedback) {
-      const isCorrect = selectedAnswer === question.correctAnswer;
-      playSound(isCorrect ? 'correct' : 'incorrect');
-    }
-  }, [showFeedback, selectedAnswer, question.correctAnswer]);
+  // Removed the useEffect with playSound
   
   return (
     <div className="max-w-2xl mx-auto">

@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
@@ -8,6 +8,19 @@ import { Menu, LogIn, LogOut, Home, BookOpen, PencilRuler, BarChart2 } from 'luc
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+
+interface StudentInfo {
+  id: string;
+  name: string;
+  gradeLevel: 'k-3' | '4-6' | '7-9';
+  age: number;
+}
+
+interface RecentActivity {
+  subject: string;
+  topic: string;
+}
 
 const Header = () => {
   const { user, signOut } = useAuth();
@@ -15,6 +28,56 @@ const Header = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [currentStudent, setCurrentStudent] = useState<StudentInfo | null>(null);
+  const [recentActivity, setRecentActivity] = useState<RecentActivity | null>(null);
+  
+  useEffect(() => {
+    const fetchStudentData = async () => {
+      if (!user) return;
+      
+      try {
+        // Fetch the current student
+        const { data: students, error } = await supabase
+          .from('students')
+          .select('id, name, age, grade_level')
+          .eq('parent_id', user.id)
+          .limit(1);
+          
+        if (error) {
+          console.error('Error fetching student:', error);
+          return;
+        }
+        
+        if (students && students.length > 0) {
+          setCurrentStudent({
+            id: students[0].id,
+            name: students[0].name,
+            gradeLevel: students[0].grade_level as 'k-3' | '4-6' | '7-9',
+            age: students[0].age
+          });
+          
+          // Fetch most recent learning activity
+          const { data: activities } = await supabase
+            .from('learning_activities')
+            .select('subject, topic')
+            .eq('student_id', students[0].id)
+            .order('last_interaction_at', { ascending: false })
+            .limit(1);
+            
+          if (activities && activities.length > 0) {
+            setRecentActivity({
+              subject: activities[0].subject,
+              topic: activities[0].topic
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Error in fetchStudentData:', error);
+      }
+    };
+    
+    fetchStudentData();
+  }, [user]);
   
   const handleSignOut = async () => {
     try {
@@ -32,6 +95,34 @@ const Header = () => {
   
   const handleMobileNavigation = (path: string) => {
     navigate(path);
+    setMobileMenuOpen(false);
+  };
+  
+  const navigateToLessons = () => {
+    if (currentStudent) {
+      navigate('/lessons', { 
+        state: { 
+          gradeLevel: currentStudent.gradeLevel 
+        }
+      });
+    } else {
+      navigate('/lessons');
+    }
+    setMobileMenuOpen(false);
+  };
+  
+  const navigateToQuiz = () => {
+    if (currentStudent && recentActivity) {
+      navigate('/quiz', { 
+        state: { 
+          subject: recentActivity.subject,
+          topic: recentActivity.topic,
+          gradeLevel: currentStudent.gradeLevel
+        }
+      });
+    } else {
+      navigate('/quiz');
+    }
     setMobileMenuOpen(false);
   };
   
@@ -56,15 +147,19 @@ const Header = () => {
                 {t('nav.home')}
               </Link>
             </Button>
-            <Button variant="ghost" asChild>
-              <Link to="/lessons" className={location.pathname === '/lessons' ? 'text-eduPurple' : ''}>
-                {t('nav.lessons')}
-              </Link>
+            <Button 
+              variant="ghost" 
+              onClick={navigateToLessons}
+              className={location.pathname === '/lessons' ? 'text-eduPurple' : ''}
+            >
+              {t('nav.lessons')}
             </Button>
-            <Button variant="ghost" asChild>
-              <Link to="/quiz" className={location.pathname === '/quiz' ? 'text-eduPurple' : ''}>
-                {t('nav.quiz')}
-              </Link>
+            <Button 
+              variant="ghost" 
+              onClick={navigateToQuiz}
+              className={location.pathname === '/quiz' ? 'text-eduPurple' : ''}
+            >
+              {t('nav.quiz')}
             </Button>
             {user && (
               <Button variant="ghost" asChild>
@@ -130,7 +225,7 @@ const Header = () => {
                 <Button 
                   variant="ghost" 
                   className="w-full justify-start"
-                  onClick={() => handleMobileNavigation('/lessons')}
+                  onClick={navigateToLessons}
                 >
                   <BookOpen className="mr-2 h-4 w-4" />
                   {t('nav.lessons')}
@@ -138,7 +233,7 @@ const Header = () => {
                 <Button 
                   variant="ghost" 
                   className="w-full justify-start"
-                  onClick={() => handleMobileNavigation('/quiz')}
+                  onClick={navigateToQuiz}
                 >
                   <PencilRuler className="mr-2 h-4 w-4" />
                   {t('nav.quiz')}

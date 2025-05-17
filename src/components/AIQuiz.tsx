@@ -10,7 +10,6 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { studentProgressService } from "@/services/studentProgressService";
 import { toast } from "sonner";
 import { fetchQuizQuestions, saveQuizProgress, getQuizProgress } from "@/services/quizService";
-import { playSound } from "@/utils/SoundEffects";
 
 export interface AIQuizProps {
   subject: string;
@@ -307,8 +306,7 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete, limitProgress = false 
       setScore(finalScore);
       setQuizComplete(true);
       
-      // Play celebration sound
-      playSound('celebration');
+      // Remove celebration sound playback
       
       // Call the onComplete callback if provided
       if (onComplete) {
