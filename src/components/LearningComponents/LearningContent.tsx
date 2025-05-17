@@ -127,6 +127,7 @@ const LearningContent: React.FC<LearningContentProps> = ({
   
   // Use student's grade level if available
   const effectiveGradeLevel = studentInfo?.gradeLevel || gradeLevel;
+  const studentId = studentInfo?.id || '';
   
   return (
     <div className="max-w-4xl mx-auto">
@@ -187,7 +188,7 @@ const LearningContent: React.FC<LearningContentProps> = ({
               gradeLevel={effectiveGradeLevel} 
               topic={topic}
               limitProgress={!user}
-              studentId={studentInfo?.id}
+              studentId={studentId}
             />
           </TabsContent>
           <TabsContent value="quiz">
@@ -197,7 +198,7 @@ const LearningContent: React.FC<LearningContentProps> = ({
               topic={topic}
               onComplete={(score) => onQuizComplete(score)}
               limitProgress={!user}
-              studentId={studentInfo?.id}
+              studentId={studentId}
             />
           </TabsContent>
           <TabsContent value="game">
@@ -206,7 +207,7 @@ const LearningContent: React.FC<LearningContentProps> = ({
               gradeLevel={effectiveGradeLevel} 
               topic={topic}
               limitProgress={!user}
-              studentId={studentInfo?.id}
+              studentId={studentId}
             />
           </TabsContent>
         </div>

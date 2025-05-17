@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,7 +14,8 @@ interface AIGameProps {
   gradeLevel: 'k-3' | '4-6' | '7-9';
   topic: string;
   onComplete?: () => void;
-  limitProgress?: boolean; // Added this prop to match what's being passed in LearningContent.tsx
+  limitProgress?: boolean;
+  studentId?: string; // Added studentId prop to the interface
 }
 
 interface GameContent {

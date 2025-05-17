@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,6 +17,7 @@ interface AILessonProps {
   topic: string;
   onComplete?: () => void;
   limitProgress?: boolean;
+  studentId?: string; // Added studentId prop to the interface
 }
 
 const AILesson = ({ subject, gradeLevel, topic, onComplete, limitProgress = false }: AILessonProps) => {

@@ -18,6 +18,7 @@ export interface AIQuizProps {
   topic: string;
   onComplete?: (score: number) => void;
   limitProgress?: boolean;
+  studentId?: string; // Added studentId prop to the interface
 }
 
 const AIQuiz = ({ subject, gradeLevel, topic, onComplete, limitProgress = false }: AIQuizProps) => {
