@@ -7,7 +7,6 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -16,7 +15,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { GraduationCap, User, Plus, School } from 'lucide-react';
+import { GraduationCap, User, Plus, School, AlertCircle } from 'lucide-react';
 
 interface Student {
   id: string;
@@ -32,30 +31,40 @@ const Dashboard = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   
   useEffect(() => {
     const fetchStudents = async () => {
-      if (user) {
-        try {
-          const { data, error } = await supabase
-            .from('students')
-            .select('*')
-            .eq('parent_id', user.id);
-          
-          if (error) {
-            throw error;
-          }
-          
-          if (data) {
-            setStudents(data as Student[]);
-          }
-        } catch (error: any) {
-          toast.error(language === 'id' 
-            ? 'Gagal memuat data siswa: ' + error.message 
-            : 'Failed to load student data: ' + error.message);
-        } finally {
-          setLoading(false);
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+      
+      setLoading(true);
+      setFetchError(null);
+      
+      try {
+        const { data, error } = await supabase
+          .from('students')
+          .select('*')
+          .eq('parent_id', user.id);
+        
+        if (error) {
+          throw error;
         }
+        
+        if (data) {
+          setStudents(data as Student[]);
+        }
+      } catch (error: any) {
+        console.error('Error fetching students:', error);
+        setFetchError(error.message);
+        toast.error(language === 'id' 
+          ? 'Gagal memuat data siswa: ' + error.message 
+          : 'Failed to load student data: ' + error.message);
+      } finally {
+        setLoading(false);
       }
     };
     
@@ -66,11 +75,14 @@ const Dashboard = () => {
     name: z.string().min(2, {
       message: language === 'id' ? "Nama minimal 2 karakter" : "Name must be at least 2 characters",
     }),
-    age: z.coerce.number().min(5, {
-      message: language === 'id' ? "Umur minimal 5 tahun" : "Age must be at least 5 years",
-    }).max(15, {
-      message: language === 'id' ? "Umur maksimal 15 tahun" : "Age must be at most 15 years",
-    }).optional(),
+    age: z.preprocess(
+      (val) => val === '' ? undefined : Number(val),
+      z.number().min(5, {
+        message: language === 'id' ? "Umur minimal 5 tahun" : "Age must be at least 5 years",
+      }).max(15, {
+        message: language === 'id' ? "Umur maksimal 15 tahun" : "Age must be at most 15 years",
+      }).optional()
+    ),
     gradeLevel: z.enum(['k-3', '4-6', '7-9'], {
       required_error: language === 'id' ? "Pilih tingkat kelas" : "Select a grade level",
     }),
@@ -86,9 +98,16 @@ const Dashboard = () => {
   });
   
   const onSubmit = async (data: z.infer<typeof formSchema>) => {
+    if (!user) {
+      toast.error(language === 'id' 
+        ? 'Anda harus masuk untuk menambahkan siswa' 
+        : 'You must be logged in to add students');
+      return;
+    }
+    
+    setIsSubmitting(true);
+    
     try {
-      if (!user) return;
-      
       const { error } = await supabase.from('students').insert({
         name: data.name,
         age: data.age || null,
@@ -99,10 +118,12 @@ const Dashboard = () => {
       if (error) throw error;
       
       // Refresh students list
-      const { data: newData } = await supabase
+      const { data: newData, error: fetchError } = await supabase
         .from('students')
         .select('*')
         .eq('parent_id', user.id);
+      
+      if (fetchError) throw fetchError;
       
       if (newData) {
         setStudents(newData as Student[]);
@@ -117,9 +138,12 @@ const Dashboard = () => {
         : 'Successfully added student!');
         
     } catch (error: any) {
+      console.error('Error adding student:', error);
       toast.error(language === 'id' 
         ? 'Gagal menambahkan siswa: ' + error.message 
         : 'Failed to add student: ' + error.message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -135,6 +159,29 @@ const Dashboard = () => {
   const goToLessons = (student: Student) => {
     navigate('/lessons', { state: { gradeLevel: student.grade_level, studentId: student.id } });
   };
+
+  if (!user) {
+    // Redirect to auth if not logged in
+    useEffect(() => {
+      navigate('/auth');
+    }, [navigate]);
+    
+    // Show loading while redirecting
+    return (
+      <>
+        <Header />
+        <main className="flex-grow flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin w-12 h-12 border-4 border-eduPurple border-t-transparent rounded-full mx-auto mb-4"></div>
+            <p className="text-muted-foreground">
+              {language === 'id' ? 'Mengarahkan ke halaman login...' : 'Redirecting to login page...'}
+            </p>
+          </div>
+        </main>
+        <Footer />
+      </>
+    );
+  }
   
   return (
     <>
@@ -170,6 +217,15 @@ const Dashboard = () => {
                       {language === 'id' ? 'Email' : 'Email'}:
                     </span>
                     <span className="font-medium">{user?.email}</span>
+                  </div>
+                  <div>
+                    <span className="text-sm text-muted-foreground block">
+                      {language === 'id' ? 'Nama' : 'Name'}:
+                    </span>
+                    <span className="font-medium">
+                      {user?.user_metadata?.full_name || 
+                      (language === 'id' ? '(Nama tidak tersedia)' : '(Name not available)')}
+                    </span>
                   </div>
                   <div>
                     <span className="text-sm text-muted-foreground block">
@@ -238,7 +294,7 @@ const Dashboard = () => {
                               max={15} 
                               placeholder={language === 'id' ? "Usia siswa" : "Student age"} 
                               {...field}
-                              value={field.value || ''}
+                              value={field.value === undefined ? '' : field.value}
                               onChange={(e) => {
                                 const value = e.target.value === '' ? undefined : parseInt(e.target.value, 10);
                                 field.onChange(value);
@@ -290,8 +346,19 @@ const Dashboard = () => {
                     />
                     
                     <DialogFooter>
-                      <Button type="submit" className="bg-eduPurple hover:bg-eduPurple-dark">
-                        {language === 'id' ? 'Tambah Siswa' : 'Add Student'}
+                      <Button 
+                        type="submit" 
+                        className="bg-eduPurple hover:bg-eduPurple-dark"
+                        disabled={isSubmitting}
+                      >
+                        {isSubmitting ? (
+                          <span className="flex items-center">
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                            {language === 'id' ? 'Menambahkan...' : 'Adding...'}
+                          </span>
+                        ) : (
+                          language === 'id' ? 'Tambah Siswa' : 'Add Student'
+                        )}
                       </Button>
                     </DialogFooter>
                   </form>
@@ -307,6 +374,25 @@ const Dashboard = () => {
                 {language === 'id' ? 'Memuat data...' : 'Loading data...'}
               </p>
             </div>
+          ) : fetchError ? (
+            <Card className="border-red-200 bg-red-50 p-6 text-center">
+              <CardContent className="pt-6 pb-4">
+                <AlertCircle className="h-12 w-12 mx-auto text-red-500 mb-4" />
+                <h3 className="text-lg font-medium text-red-800">
+                  {language === 'id' ? 'Terjadi Kesalahan' : 'An Error Occurred'}
+                </h3>
+                <p className="text-red-600 mt-2">
+                  {language === 'id' ? 'Gagal memuat data siswa' : 'Failed to load student data'}
+                </p>
+                <Button 
+                  variant="outline" 
+                  className="mt-4"
+                  onClick={() => window.location.reload()}
+                >
+                  {language === 'id' ? 'Coba Lagi' : 'Try Again'}
+                </Button>
+              </CardContent>
+            </Card>
           ) : (
             <>
               {students.length === 0 ? (

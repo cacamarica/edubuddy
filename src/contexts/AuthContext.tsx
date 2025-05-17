@@ -12,6 +12,7 @@ interface AuthContextProps {
   signUp: (email: string, password: string, fullName: string) => Promise<{error: any | null}>;
   signOut: () => Promise<void>;
   loading: boolean;
+  isAuthReady: boolean;
 }
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
@@ -20,6 +21,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isAuthReady, setIsAuthReady] = useState(false); // Track when auth is initialized
   const { t, language } = useLanguage();
 
   useEffect(() => {
@@ -29,6 +31,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
         setLoading(false);
+        setIsAuthReady(true);
       }
     );
 
@@ -37,6 +40,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
       setLoading(false);
+      setIsAuthReady(true);
     });
 
     return () => {
@@ -45,6 +49,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const signIn = async (email: string, password: string) => {
+    setLoading(true);
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
@@ -64,26 +69,33 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
           if (signInError) {
             toast.error(language === 'id' ? 'Gagal masuk: ' + signInError.message : 'Failed to sign in: ' + signInError.message);
+            setLoading(false);
             return { error: signInError };
           }
           
           toast.success(language === 'id' ? 'Berhasil masuk!' : 'Successfully signed in!');
+          setLoading(false);
           return { error: null };
         }
         
         toast.error(language === 'id' ? 'Gagal masuk: ' + error.message : 'Failed to sign in: ' + error.message);
+        setLoading(false);
         return { error };
       }
       
       toast.success(language === 'id' ? 'Berhasil masuk!' : 'Successfully signed in!');
+      setLoading(false);
       return { error: null };
     } catch (error: any) {
       toast.error(language === 'id' ? 'Terjadi kesalahan' : 'An error occurred');
+      console.error('Sign in error:', error);
+      setLoading(false);
       return { error };
     }
   };
 
   const signUp = async (email: string, password: string, fullName: string) => {
+    setLoading(true);
     try {
       const { error, data } = await supabase.auth.signUp({ 
         email, 
@@ -99,6 +111,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       if (error) {
         toast.error(language === 'id' ? 'Gagal mendaftar: ' + error.message : 'Failed to sign up: ' + error.message);
+        setLoading(false);
         return { error };
       }
       
@@ -129,20 +142,31 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         );
       }
       
+      setLoading(false);
       return { error: null };
     } catch (error: any) {
       toast.error(language === 'id' ? 'Terjadi kesalahan' : 'An error occurred');
+      console.error('Sign up error:', error);
+      setLoading(false);
       return { error };
     }
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    toast.success(language === 'id' ? 'Berhasil keluar!' : 'Successfully signed out!');
+    setLoading(true);
+    try {
+      await supabase.auth.signOut();
+      toast.success(language === 'id' ? 'Berhasil keluar!' : 'Successfully signed out!');
+    } catch (error) {
+      console.error('Sign out error:', error);
+      toast.error(language === 'id' ? 'Gagal keluar' : 'Failed to sign out');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, signIn, signUp, signOut, loading }}>
+    <AuthContext.Provider value={{ user, session, signIn, signUp, signOut, loading, isAuthReady }}>
       {children}
     </AuthContext.Provider>
   );

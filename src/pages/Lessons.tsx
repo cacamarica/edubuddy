@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
@@ -8,19 +7,30 @@ import LearningBuddy from '@/components/LearningBuddy';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Award, ChevronLeft, Star, Sparkles } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const Lessons = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { language } = useLanguage();
   const [gradeLevel, setGradeLevel] = useState<'k-3' | '4-6' | '7-9'>('k-3');
+  const [studentId, setStudentId] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [stars, setStars] = useState(0);
   const [loaded, setLoaded] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   
   useEffect(() => {
-    // Get grade level from location state or default to 'k-3'
+    // Get grade level and studentId from location state
     if (location.state?.gradeLevel) {
       setGradeLevel(location.state.gradeLevel);
+    }
+    
+    if (location.state?.studentId) {
+      setStudentId(location.state.studentId);
     }
     
     // Simulate loading user data
@@ -28,21 +38,44 @@ const Lessons = () => {
       setProgress(30);
       setStars(12);
       setLoaded(true);
+      setIsLoading(false);
     }, 1000);
   }, [location.state]);
   
   const gradeName = {
-    'k-3': 'Early Learners (K-3)',
-    '4-6': 'Intermediate (4-6)',
-    '7-9': 'Advanced (7-9)'
+    'k-3': language === 'id' ? 'Pemula (K-3)' : 'Early Learners (K-3)',
+    '4-6': language === 'id' ? 'Menengah (4-6)' : 'Intermediate (4-6)',
+    '7-9': language === 'id' ? 'Lanjut (7-9)' : 'Advanced (7-9)'
   };
   
   const handleGoBack = () => {
-    navigate('/');
+    // If coming from a student profile in dashboard, return to dashboard
+    if (studentId && user) {
+      navigate('/dashboard');
+    } else {
+      // Otherwise go to home page
+      navigate('/');
+    }
   };
 
   const handleGoToAILearning = () => {
-    navigate('/ai-learning', { state: { gradeLevel } });
+    // Check if user is authenticated before allowing AI learning
+    if (!user) {
+      toast.error(
+        language === 'id' 
+          ? 'Silakan masuk untuk mengakses Pembelajaran AI'
+          : 'Please sign in to access AI Learning'
+      );
+      navigate('/auth', { state: { gradeLevel, action: 'signin' } });
+      return;
+    }
+    
+    navigate('/ai-learning', { 
+      state: { 
+        gradeLevel,
+        studentId
+      } 
+    });
   };
 
   // Render recommended lessons based on grade level
@@ -132,6 +165,23 @@ const Lessons = () => {
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex flex-col min-h-screen">
+        <Header />
+        <main className="flex-grow flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin w-12 h-12 border-4 border-eduPurple border-t-transparent rounded-full mx-auto mb-4"></div>
+            <p className="text-muted-foreground">
+              {language === 'id' ? 'Memuat pelajaran...' : 'Loading lessons...'}
+            </p>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col min-h-screen">
       <Header />
@@ -147,18 +197,25 @@ const Lessons = () => {
               onClick={handleGoBack}
             >
               <ChevronLeft className="h-4 w-4 mr-1" />
-              Back
+              {language === 'id' ? 'Kembali' : 'Back'}
             </Button>
             
             <div className="flex flex-col md:flex-row md:items-center md:justify-between">
               <div>
                 <h1 className="text-3xl font-display font-bold">{gradeName[gradeLevel]}</h1>
-                <p className="text-muted-foreground">Choose a subject to continue your learning adventure!</p>
+                <p className="text-muted-foreground">
+                  {language === 'id' 
+                    ? 'Pilih mata pelajaran untuk melanjutkan petualangan belajarmu!'
+                    : 'Choose a subject to continue your learning adventure!'
+                  }
+                </p>
               </div>
               
               <div className="mt-4 md:mt-0 flex items-center gap-4">
                 <div className="flex flex-col">
-                  <span className="text-sm text-muted-foreground">Overall Progress</span>
+                  <span className="text-sm text-muted-foreground">
+                    {language === 'id' ? 'Progress Keseluruhan' : 'Overall Progress'}
+                  </span>
                   <div className="w-48 flex items-center gap-2">
                     <Progress value={progress} className="h-2" />
                     <span className="text-sm font-medium">{progress}%</span>
@@ -184,15 +241,22 @@ const Lessons = () => {
           <div className="container px-4 md:px-6">
             <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-white">
               <div className="flex-1">
-                <h2 className="text-2xl font-display font-bold mb-2">AI Learning Adventure</h2>
-                <p className="opacity-90">Create custom lessons, quizzes, and games about any topic with our AI learning assistant!</p>
+                <h2 className="text-2xl font-display font-bold mb-2">
+                  {language === 'id' ? 'Petualangan Pembelajaran AI' : 'AI Learning Adventure'}
+                </h2>
+                <p className="opacity-90">
+                  {language === 'id'
+                    ? 'Buat pelajaran kustom, kuis, dan permainan tentang topik apapun dengan asisten pembelajaran AI kami!'
+                    : 'Create custom lessons, quizzes, and games about any topic with our AI learning assistant!'
+                  }
+                </p>
               </div>
               <Button 
                 onClick={handleGoToAILearning}
                 className="bg-white text-eduPurple hover:bg-gray-100"
               >
                 <Sparkles className="mr-2 h-4 w-4" />
-                Try AI Learning
+                {language === 'id' ? 'Coba Pembelajaran AI' : 'Try AI Learning'}
               </Button>
             </div>
           </div>
@@ -209,7 +273,9 @@ const Lessons = () => {
             
             {/* Recent Activity */}
             <div className="mt-12">
-              <h2 className="text-2xl font-display font-bold mb-4">Recent Activity</h2>
+              <h2 className="text-2xl font-display font-bold mb-4">
+                {language === 'id' ? 'Aktivitas Terbaru' : 'Recent Activity'}
+              </h2>
               
               {loaded ? (
                 <div className="border rounded-lg overflow-hidden">
@@ -220,8 +286,12 @@ const Lessons = () => {
                           <Star className="h-5 w-5 text-eduPurple" />
                         </div>
                         <div>
-                          <p className="font-medium">Addition Quiz Completed</p>
-                          <p className="text-sm text-muted-foreground">Math • 2 days ago</p>
+                          <p className="font-medium">
+                            {language === 'id' ? 'Kuis Penjumlahan Selesai' : 'Addition Quiz Completed'}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {language === 'id' ? 'Matematika • 2 hari yang lalu' : 'Math • 2 days ago'}
+                          </p>
                         </div>
                       </div>
                       <span className="text-sm font-medium text-green-600">8/10 correct</span>
@@ -233,8 +303,12 @@ const Lessons = () => {
                           <Award className="h-5 w-5 text-eduPurple" />
                         </div>
                         <div>
-                          <p className="font-medium">Badge Earned: Math Explorer</p>
-                          <p className="text-sm text-muted-foreground">Achievements • 3 days ago</p>
+                          <p className="font-medium">
+                            {language === 'id' ? 'Lencana Diperoleh: Penjelajah Matematika' : 'Badge Earned: Math Explorer'}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {language === 'id' ? 'Pencapaian • 3 hari yang lalu' : 'Achievements • 3 days ago'}
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -245,8 +319,12 @@ const Lessons = () => {
                           <Star className="h-5 w-5 text-eduPurple" />
                         </div>
                         <div>
-                          <p className="font-medium">Completed Lesson: Parts of Speech</p>
-                          <p className="text-sm text-muted-foreground">English • 4 days ago</p>
+                          <p className="font-medium">
+                            {language === 'id' ? 'Pelajaran Selesai: Bagian Kalimat' : 'Completed Lesson: Parts of Speech'}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {language === 'id' ? 'Bahasa Inggris • 4 hari yang lalu' : 'English • 4 days ago'}
+                          </p>
                         </div>
                       </div>
                       <span className="text-sm font-medium text-eduPurple">+5 stars</span>
@@ -277,7 +355,9 @@ const Lessons = () => {
         {/* Learning Recommendations */}
         <section className="py-10 bg-eduPastel-gray">
           <div className="container px-4 md:px-6">
-            <h2 className="text-2xl font-display font-bold mb-6">Recommended Next Steps</h2>
+            <h2 className="text-2xl font-display font-bold mb-6">
+              {language === 'id' ? 'Rekomendasi Langkah Selanjutnya' : 'Recommended Next Steps'}
+            </h2>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {getRecommendedLessons().map((item, i) => (
@@ -289,6 +369,7 @@ const Lessons = () => {
                       gradeLevel, 
                       subject: item.subject, 
                       topic: item.title,
+                      studentId,
                       autoStart: true
                     } 
                   })}
@@ -301,7 +382,7 @@ const Lessons = () => {
                     size="sm" 
                     className="mt-2 w-full justify-start text-eduPurple hover:text-eduPurple-dark hover:bg-white/50"
                   >
-                    Start Lesson
+                    {language === 'id' ? 'Mulai Pelajaran' : 'Start Lesson'}
                   </Button>
                 </div>
               ))}
