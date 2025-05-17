@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Pencil, Trash2, PlusCircle, UserPlus } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, UserPlus, Loader } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -398,7 +398,7 @@ const StudentProfile = ({ onStudentChange, currentStudentId }: StudentProfilePro
                     className="bg-eduPurple hover:bg-eduPurple-dark"
                     disabled={isSaving}
                   >
-                    {isSaving && <SpinnerIcon className="mr-2 h-4 w-4 animate-spin" />}
+                    {isSaving && <Loader className="mr-2 h-4 w-4 animate-spin" />}
                     {isAddingStudent ? translations.addStudent : translations.updateStudent}
                   </Button>
                 </div>
