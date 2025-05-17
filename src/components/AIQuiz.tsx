@@ -45,6 +45,12 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
     }
   }, [shuffledQuestions, currentQuestion]);
 
+  // Reset selected answer when current question changes
+  useEffect(() => {
+    // Reset selected answer to null when changing questions or loading new questions
+    setSelectedAnswer(null);
+  }, [currentQuestion, shuffledQuestions]);
+
   // Shuffle questions when they change
   useEffect(() => {
     if (questions.length > 0) {
@@ -157,7 +163,7 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
   
   const handleNextQuestion = () => {
     setShowFeedback(false);
-    setSelectedAnswer(null);
+    setSelectedAnswer(null); // Ensure selection is cleared when moving to next question
     
     if (currentQuestion < shuffledQuestions.length - 1) {
       setCurrentQuestion(currentQuestion + 1);
@@ -184,6 +190,7 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
   const handlePrevQuestion = () => {
     if (currentQuestion > 0) {
       setCurrentQuestion(currentQuestion - 1);
+      // Get the previously selected answer from the answers array
       setSelectedAnswer(answers[currentQuestion - 1]);
       setShowFeedback(false);
     }
