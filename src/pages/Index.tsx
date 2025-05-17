@@ -19,7 +19,6 @@ const Index = () => {
     if (!hasVisited) {
       setTimeout(() => {
         toast.success("Welcome to EduBuddy! Start your learning adventure today!", {
-          position: "bottom-right",
           duration: 5000,
         });
         localStorage.setItem('hasVisited', 'true');
