@@ -39,9 +39,8 @@ const PaginatedActivities: React.FC<PaginatedActivitiesProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [filter, setFilter] = useState<string | null>(null);
   const navigate = useNavigate();
-
   // Filter activities based on selected filter
-  const filteredActivities = filter 
+  const filteredActivities = filter && filter !== 'all' 
     ? activities.filter(activity => 
         filter === 'activity_type' ? true : activity[filter as keyof LearningActivity] === filter)
     : activities;
@@ -221,9 +220,8 @@ const PaginatedActivities: React.FC<PaginatedActivitiesProps> = ({
           }}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder={language === 'id' ? "Filter" : "Filter"} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="">
+            </SelectTrigger>          <SelectContent>
+              <SelectItem value="all">
                 {language === 'id' ? 'Semua' : 'All'}
               </SelectItem>
               <SelectItem value="quiz">

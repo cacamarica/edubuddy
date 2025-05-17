@@ -18,41 +18,47 @@ interface Student {
   age: number;
   gradeLevel: 'k-3' | '4-6' | '7-9';
   avatar?: string;
+  email?: string;
+  password?: string;
+  hasAccount?: boolean;
 }
 
 interface StudentProfileProps {
   onStudentChange?: (student: Student) => void;
   currentStudentId?: string;
+  readOnly?: boolean;
 }
 
 const DEFAULT_AVATARS = [
   '👦', '👧', '👨‍🎓', '👩‍🎓', '🧒', '👶', '🧑'
 ];
 
-const StudentProfile = ({ onStudentChange, currentStudentId }: StudentProfileProps) => {
+const StudentProfile = ({ onStudentChange, currentStudentId, readOnly = false }: StudentProfileProps) => {
   const [students, setStudents] = useState<Student[]>([]);
   const [activeStudent, setActiveStudent] = useState<Student | null>(null);
   const [isAddingStudent, setIsAddingStudent] = useState(false);
   const [isEditingStudent, setIsEditingStudent] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [newStudent, setNewStudent] = useState<Omit<Student, 'id'>>({
+  const [isSaving, setIsSaving] = useState(false);  const [newStudent, setNewStudent] = useState<Omit<Student, 'id'>>({
     name: '',
     age: 6,
     gradeLevel: 'k-3',
-    avatar: DEFAULT_AVATARS[0]
+    avatar: DEFAULT_AVATARS[0],
+    email: '',
+    password: '',
+    hasAccount: false
   });
 
   const { user } = useAuth();
   const { language } = useLanguage();
-
   // Fetch students from database if user is logged in, otherwise use local storage
   useEffect(() => {
+    let isMounted = true;
     const fetchStudents = async () => {
       setIsLoading(true);
       
-      if (user) {
-        try {
+      try {
+        if (user) {
           // Fetch from database
           const { data, error } = await supabase
             .from('students')
@@ -62,7 +68,7 @@ const StudentProfile = ({ onStudentChange, currentStudentId }: StudentProfilePro
           if (error) {
             console.error('Error fetching students:', error);
             toast.error(language === 'id' ? 'Gagal memuat data siswa' : 'Failed to load student data');
-          } else if (data) {
+          } else if (data && isMounted) {
             const formattedStudents = data.map(item => ({
               id: item.id,
               name: item.name,
@@ -78,23 +84,35 @@ const StudentProfile = ({ onStudentChange, currentStudentId }: StudentProfilePro
               setIsAddingStudent(true);
             }
           }
-        } catch (err) {
-          console.error('Unexpected error in fetchStudents:', err);
+        } else {
+          // Use local storage fallback
+          const savedStudents = localStorage.getItem('eduAppStudents');
+          const localStudents = savedStudents ? JSON.parse(savedStudents) : [
+            { id: '1', name: 'Emma', age: 7, gradeLevel: 'k-3', avatar: '👧' }
+          ];
+          
+          if (isMounted) {
+            setStudents(localStudents);
+          }
         }
-      } else {
-        // Use local storage fallback
-        const savedStudents = localStorage.getItem('eduAppStudents');
-        const localStudents = savedStudents ? JSON.parse(savedStudents) : [
-          { id: '1', name: 'Emma', age: 7, gradeLevel: 'k-3', avatar: '👧' }
-        ];
-        
-        setStudents(localStudents);
+      } catch (err) {
+        console.error('Unexpected error in fetchStudents:', err);
+        if (isMounted) {
+          toast.error(language === 'id' ? 'Terjadi kesalahan. Silakan coba lagi.' : 'An error occurred. Please try again.');
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
-      
-      setIsLoading(false);
     };
     
     fetchStudents();
+    
+    // Cleanup function to prevent state updates on unmounted component
+    return () => {
+      isMounted = false;
+    };
   }, [user, language]);
 
   // Set active student on mount or when currentStudentId changes
@@ -117,25 +135,64 @@ const StudentProfile = ({ onStudentChange, currentStudentId }: StudentProfilePro
       localStorage.setItem('eduAppStudents', JSON.stringify(students));
     }
   }, [students, user]);
-
   const handleAddStudent = async () => {
     if (!newStudent.name.trim()) {
       toast.error(language === 'id' ? 'Harap masukkan nama siswa' : 'Please enter a student name');
       return;
     }
     
+    // Validate email and password if creating an account
+    if (newStudent.hasAccount) {
+      if (!newStudent.email?.trim()) {
+        toast.error(language === 'id' ? 'Harap masukkan email siswa' : 'Please enter a student email');
+        return;
+      }
+      
+      if (!newStudent.password || newStudent.password.length < 6) {
+        toast.error(language === 'id' ? 'Kata sandi harus memiliki minimal 6 karakter' : 'Password must be at least 6 characters');
+        return;
+      }
+    }
+    
     setIsSaving(true);
     
     try {
       if (user) {
+        let studentAuthId = null;
+        
+        // Create auth account for student if requested
+        if (newStudent.hasAccount && newStudent.email && newStudent.password) {
+          const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+            email: newStudent.email,
+            password: newStudent.password,
+            email_confirm: true, // Auto-confirm email
+            user_metadata: {
+              role: 'student',
+              parent_id: user.id
+            }
+          });
+          
+          if (authError) {
+            console.error('Error creating student account:', authError);
+            toast.error(language === 'id' 
+              ? 'Gagal membuat akun siswa. Email mungkin sudah digunakan.' 
+              : 'Failed to create student account. Email might already be in use.');
+            setIsSaving(false);
+            return;
+          }
+          
+          studentAuthId = authData.user?.id;
+        }
+        
         // Add to database
-        const { data, error } = await supabase
-          .from('students')
+        const { data, error } = await supabase          .from('students')
           .insert([{
             name: newStudent.name,
             age: newStudent.age,
             grade_level: newStudent.gradeLevel,
-            parent_id: user.id
+            parent_id: user.id,
+            auth_id: studentAuthId,
+            email: newStudent.hasAccount ? newStudent.email : undefined
           }])
           .select()
           .single();
@@ -143,13 +200,15 @@ const StudentProfile = ({ onStudentChange, currentStudentId }: StudentProfilePro
         if (error) {
           throw error;
         }
-        
+          // Create student object with available fields
         const student = {
           id: data.id,
           name: data.name,
-          age: data.age,
+          age: data.age || newStudent.age,
           gradeLevel: data.grade_level as 'k-3' | '4-6' | '7-9',
-          avatar: newStudent.avatar
+          avatar: newStudent.avatar,
+          email: newStudent.hasAccount ? newStudent.email : undefined,
+          hasAccount: !!studentAuthId
         };
         
         setStudents([...students, student]);
@@ -172,6 +231,11 @@ const StudentProfile = ({ onStudentChange, currentStudentId }: StudentProfilePro
       setIsAddingStudent(false);
       setNewStudent({ name: '', age: 6, gradeLevel: 'k-3', avatar: DEFAULT_AVATARS[0] });
       toast.success(language === 'id' ? 'Profil siswa berhasil dibuat!' : 'Student profile successfully created!');
+      
+      // Show additional toast for account creation
+      if (newStudent.hasAccount) {
+        toast.success(translations.studentAccountCreated, { duration: 5000 });
+      }
     } catch (error) {
       console.error('Error adding student:', error);
       toast.error(language === 'id' ? 'Gagal menambahkan siswa' : 'Failed to add student');
@@ -300,7 +364,6 @@ const StudentProfile = ({ onStudentChange, currentStudentId }: StudentProfilePro
     setIsAddingStudent(false);
     setIsEditingStudent(false);
   };
-
   const translations = {
     studentProfiles: language === 'id' ? 'Profil Siswa' : 'Student Profiles',
     manageProfiles: language === 'id' ? 'Kelola profil siswa dan pilih siswa aktif' : 'Manage student profiles and select active student',
@@ -310,16 +373,22 @@ const StudentProfile = ({ onStudentChange, currentStudentId }: StudentProfilePro
     studentName: language === 'id' ? 'Nama Siswa' : 'Student Name',
     age: language === 'id' ? 'Usia' : 'Age',
     gradeLevel: language === 'id' ? 'Tingkat Kelas' : 'Grade Level',
+    createAccount: language === 'id' ? 'Buat akun untuk siswa' : 'Create account for student',
+    studentEmail: language === 'id' ? 'Email Siswa' : 'Student Email',
+    password: language === 'id' ? 'Kata Sandi' : 'Password',
+    emailInfo: language === 'id' ? 'Siswa dapat menggunakan email ini untuk login' : 'Student can use this email to login',
+    passwordPlaceholder: language === 'id' ? 'Minimal 6 karakter' : 'Minimum 6 characters',
     cancel: language === 'id' ? 'Batal' : 'Cancel',
     addStudent: language === 'id' ? 'Tambah Siswa' : 'Add Student',
     updateStudent: language === 'id' ? 'Perbarui Siswa' : 'Update Student',
     activeStudent: language === 'id' ? 'Siswa Aktif' : 'Active Student',
     otherStudents: language === 'id' ? 'Siswa Lainnya' : 'Other Students',
     noStudent: language === 'id' ? 'Tidak ada profil siswa yang dipilih' : 'No student profile selected',
-    loginToSave: language === 'id' ? 'Login untuk menyimpan progres siswa' : 'Login to save student progress'
-  };
-
+    loginToSave: language === 'id' ? 'Login untuk menyimpan progres siswa' : 'Login to save student progress',
+    studentAccountCreated: language === 'id' ? 'Akun siswa berhasil dibuat!' : 'Student account successfully created!'
+  };// Render loading state
   if (isLoading) {
+    console.log('StudentProfile is loading');
     return (
       <Card>
         <CardContent className="flex justify-center items-center py-12">
@@ -328,6 +397,8 @@ const StudentProfile = ({ onStudentChange, currentStudentId }: StudentProfilePro
       </Card>
     );
   }
+  
+  console.log('StudentProfile rendering, students count:', students.length);
 
   return (
     <Card>
@@ -386,8 +457,7 @@ const StudentProfile = ({ onStudentChange, currentStudentId }: StudentProfilePro
                     onChange={(e) => setNewStudent({...newStudent, age: parseInt(e.target.value)})}
                     className="mt-1"
                   />
-                </div>
-                <div>
+                </div>                <div>
                   <Label htmlFor="grade">{translations.gradeLevel}</Label>
                   <Select
                     value={newStudent.gradeLevel}
@@ -403,6 +473,57 @@ const StudentProfile = ({ onStudentChange, currentStudentId }: StudentProfilePro
                     </SelectContent>
                   </Select>
                 </div>
+                
+                {/* Allow student to have their own account - Only shown when adding new student */}
+                {isAddingStudent && user && (
+                  <div className="space-y-4 pt-2 border-t mt-2">
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="hasAccount"
+                        checked={newStudent.hasAccount}
+                        onChange={(e) => setNewStudent({...newStudent, hasAccount: e.target.checked})}
+                        className="h-4 w-4 rounded border-gray-300 text-eduPurple focus:ring-eduPurple"
+                      />
+                      <Label htmlFor="hasAccount" className="ml-2">
+                        {language === 'id' ? 'Buat akun untuk siswa' : 'Create account for student'}
+                      </Label>
+                    </div>
+                    
+                    {newStudent.hasAccount && (
+                      <>
+                        <div>
+                          <Label htmlFor="email">{language === 'id' ? 'Email Siswa' : 'Student Email'}</Label>
+                          <Input
+                            id="email"
+                            type="email"
+                            value={newStudent.email || ''}
+                            onChange={(e) => setNewStudent({...newStudent, email: e.target.value})}
+                            placeholder={language === 'id' ? 'Masukkan email siswa' : 'Enter student email'}
+                            className="mt-1"
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {language === 'id'
+                              ? 'Siswa dapat menggunakan email ini untuk login'
+                              : 'Student can use this email to login'}
+                          </p>
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="password">{language === 'id' ? 'Kata Sandi' : 'Password'}</Label>
+                          <Input
+                            id="password"
+                            type="password"
+                            value={newStudent.password || ''}
+                            onChange={(e) => setNewStudent({...newStudent, password: e.target.value})}
+                            placeholder={language === 'id' ? 'Minimal 6 karakter' : 'Minimum 6 characters'}
+                            className="mt-1"
+                          />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
                 <div className="flex justify-end space-x-2 pt-2">
                   <Button variant="ghost" onClick={cancelForm} disabled={isSaving}>
                     {translations.cancel}
@@ -419,17 +540,18 @@ const StudentProfile = ({ onStudentChange, currentStudentId }: StudentProfilePro
               </div>
             </div>
           ) : (
-            <>
-              <div className="flex justify-between items-center">
+            <>              <div className="flex justify-between items-center">
                 <h3 className="text-lg font-medium">{translations.activeStudent}</h3>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => setIsAddingStudent(true)}
-                  className="flex items-center gap-1"
-                >
-                  <UserPlus className="h-4 w-4" /> {language === 'id' ? 'Tambah Siswa' : 'Add Student'}
-                </Button>
+                {!readOnly && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setIsAddingStudent(true)}
+                    className="flex items-center gap-1"
+                  >
+                    <UserPlus className="h-4 w-4" /> {language === 'id' ? 'Tambah Siswa' : 'Add Student'}
+                  </Button>
+                )}
               </div>
               
               {activeStudent ? (
@@ -444,27 +566,27 @@ const StudentProfile = ({ onStudentChange, currentStudentId }: StudentProfilePro
                         {language === 'id' ? 'Usia' : 'Age'}: {activeStudent.age} • {getGradeLabel(activeStudent.gradeLevel)}
                       </p>
                     </div>
-                  </div>
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" onClick={startEditing}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      onClick={() => handleRemoveStudent(activeStudent.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  </div>                  {!readOnly && (
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" onClick={startEditing}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => handleRemoveStudent(activeStudent.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="text-center py-4 text-muted-foreground">
                   {translations.noStudent}
                 </div>
               )}
-              
-              {students.length > 1 && (
+                {students.length > 1 && !readOnly && (
                 <>
                   <h3 className="text-lg font-medium pt-2">{translations.otherStudents}</h3>
                   <ScrollArea className="h-48">

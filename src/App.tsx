@@ -14,6 +14,7 @@ import About from "./pages/About";
 import Auth from "./pages/Auth";
 import FAQ from "./pages/FAQ";
 import AccountSettings from "./pages/AccountSettings";
+import StudentProfilePage from "./pages/StudentProfilePage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -44,6 +45,31 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+// Parent only route component
+const ParentOnlyRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading, isAuthReady, userRole } = useAuth();
+  
+  if (!isAuthReady || loading) {
+    // Show loading spinner while auth is initializing
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Spinner size="lg" />
+      </div>
+    );
+  }
+  
+  if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
+  
+  // Redirect students to their profile page
+  if (userRole === 'student') {
+    return <Navigate to="/student-profile" replace />;
+  }
+  
+  return <>{children}</>;
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -51,10 +77,15 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/lessons" element={<Lessons />} />
-          <Route path="/quiz" element={<Quiz />} />
-          <Route path="/dashboard" element={
-            <ProtectedRoute>
+          <Route path="/quiz" element={<Quiz />} />          <Route path="/dashboard" element={
+            <ParentOnlyRoute>
               <Dashboard />
+            </ParentOnlyRoute>
+          } />
+          
+          <Route path="/student-profile" element={
+            <ProtectedRoute>
+              <StudentProfilePage />
             </ProtectedRoute>
           } />
           <Route path="/ai-learning" element={<AILearning />} />

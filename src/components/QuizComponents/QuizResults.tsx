@@ -6,6 +6,7 @@ import { QuizQuestion } from './QuizQuestionCard';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { studentProgressService } from '@/services/studentProgressService';
+import { badgeService } from '@/services/badgeService';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { playSound } from '@/utils/SoundEffects';
@@ -77,8 +78,31 @@ const QuizResults: React.FC<QuizResultsProps> = ({
           stars_earned: validatedScore, // Use validated score
           completed_at: new Date().toISOString()
         });
+          console.log('Quiz results saved to database');
         
-        console.log('Quiz results saved to database');
+        // Award badges based on performance
+        // 1. First Quiz Badge
+        await badgeService.checkAndAwardBadges({
+          studentId: student.id,
+          badgeType: 'first_quiz'
+        });
+        
+        // 2. Subject-specific Quiz Badge
+        await badgeService.checkAndAwardBadges({
+          studentId: student.id,
+          badgeType: 'quiz_completion',
+          subject
+        });
+        
+        // 3. Perfect Score Badge
+        if (validatedScore === totalQuestions) {
+          await badgeService.checkAndAwardBadges({
+            studentId: student.id,
+            badgeType: 'perfect_score',
+            score: validatedScore,
+            totalQuestions
+          });
+        }
       } catch (error) {
         console.error('Error saving quiz results:', error);
       }

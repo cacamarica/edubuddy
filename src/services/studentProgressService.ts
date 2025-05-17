@@ -42,6 +42,7 @@ export interface Badge {
   name: string;
   description: string;
   image_url?: string;
+  type?: string;
   created_at?: string;
 }
 

@@ -13,6 +13,9 @@ interface AuthContextProps {
   signOut: () => Promise<void>;
   loading: boolean;
   isAuthReady: boolean;
+  userRole: 'parent' | 'student' | 'admin' | null;
+  isParent: boolean;
+  isStudent: boolean;
 }
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
@@ -22,6 +25,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAuthReady, setIsAuthReady] = useState(false); // Track when auth is initialized
+  const [userRole, setUserRole] = useState<'parent' | 'student' | 'admin' | null>(null);
   const { t, language } = useLanguage();
 
   useEffect(() => {
@@ -164,9 +168,39 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setLoading(false);
     }
   };
+  // Determine if user is a parent or student
+  const isParent = !!user && (!user.user_metadata?.role || user.user_metadata?.role === 'parent');
+  const isStudent = !!user && user.user_metadata?.role === 'student';
+
+  // Set user role based on metadata
+  useEffect(() => {
+    if (user) {
+      if (user.user_metadata?.role === 'student') {
+        setUserRole('student');
+      } else if (user.user_metadata?.role === 'admin') {
+        setUserRole('admin');
+      } else {
+        // Default role is parent
+        setUserRole('parent');
+      }
+    } else {
+      setUserRole(null);
+    }
+  }, [user]);
 
   return (
-    <AuthContext.Provider value={{ user, session, signIn, signUp, signOut, loading, isAuthReady }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      session, 
+      signIn, 
+      signUp, 
+      signOut, 
+      loading, 
+      isAuthReady,
+      userRole,
+      isParent,
+      isStudent
+    }}>
       {children}
     </AuthContext.Provider>
   );

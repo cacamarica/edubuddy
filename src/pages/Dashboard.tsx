@@ -1,202 +1,290 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Separator } from '@/components/ui/separator';
+import { BookOpen, Settings, UserPlus, Users, ChevronLeft } from 'lucide-react';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { studentProgressService, StudentBadge } from '@/services/studentProgressService';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useLanguage } from '@/contexts/LanguageContext';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { PieChart, LineChart, BarChart, Trophy, CalendarDays, UserPlus, Settings } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import StudentProfileSelector from '@/components/DashboardComponents/StudentProfileSelector';
-import StudentProgressSummary from '@/components/DashboardComponents/StudentProgressSummary';
 import RecentActivities from '@/components/DashboardComponents/RecentActivities';
+import PaginatedActivities from '@/components/DashboardComponents/PaginatedActivities';
+import PaginatedBadges from '@/components/DashboardComponents/PaginatedBadges';
 import AIRecommendations from '@/components/DashboardComponents/AIRecommendations';
+import StudentProgressSummary from '@/components/DashboardComponents/StudentProgressSummary';
+import StudentProfileSelector from '@/components/DashboardComponents/StudentProfileSelector';
 import StudentProfile from '@/components/StudentProfile';
-import { useNavigate } from 'react-router-dom';
+import ErrorBoundary from '@/components/ErrorBoundary';
+import { Spinner } from '@/components/ui/spinner';
+
+// Fallback component to show when StudentProfile fails to load
+const StudentProfileFallback = ({ onBack }: { onBack: () => void }) => {
+  const { language } = useLanguage();
+  return (
+    <Card>
+      <CardContent className="text-center py-8">
+        <h3 className="text-lg font-medium mb-4">
+          {language === 'id' ? 'Terjadi kesalahan' : 'An error occurred'}
+        </h3>
+        <p className="mb-4">
+          {language === 'id' 
+            ? 'Tidak dapat memuat profil siswa. Silakan coba lagi.' 
+            : 'Could not load student profiles. Please try again.'}
+        </p>
+        <Button onClick={onBack}>
+          {language === 'id' ? 'Kembali ke Dasbor' : 'Back to Dashboard'}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+};
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
-  const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   const [showStudentProfile, setShowStudentProfile] = useState(false);
+  const [currentStudentId, setCurrentStudentId] = useState<string | undefined>(undefined);  const [isLoading, setIsLoading] = useState(false);
+  const [badges, setBadges] = useState<StudentBadge[]>([]);
+  const [isLoadingBadges, setIsLoadingBadges] = useState(false);
   const { language } = useLanguage();
-  const navigate = useNavigate();
+  const { user } = useAuth();
   
-  const handleStudentChange = (studentId: string) => {
-    setSelectedStudentId(studentId);
+  useEffect(() => {
+    const fetchBadges = async () => {
+      if (!currentStudentId) return;
+      
+      setIsLoadingBadges(true);
+      try {
+        const badgesData = await studentProgressService.getStudentBadges(currentStudentId);
+        setBadges(badgesData);
+      } catch (error) {
+        console.error('Error fetching badges:', error);
+      } finally {
+        setIsLoadingBadges(false);
+      }
+    };
+    
+    if (currentStudentId) {
+      fetchBadges();
+    }
+  }, [currentStudentId]);
+    const handleStudentChange = (studentId: string) => {
+    setCurrentStudentId(studentId);
+  };
+    const handleShowStudentProfile = () => {
+    setIsLoading(true);
+    setShowStudentProfile(true);
+    // Simulate small load time to show transition
+    setTimeout(() => setIsLoading(false), 800);
   };
   
-  const translations = {
-    dashboard: language === 'id' ? 'Dasbor' : 'Dashboard',
-    overview: language === 'id' ? 'Ringkasan' : 'Overview',
-    analytics: language === 'id' ? 'Analitik' : 'Analytics',
-    progress: language === 'id' ? 'Kemajuan' : 'Progress',
-    achievements: language === 'id' ? 'Pencapaian' : 'Achievements',
-    profiles: language === 'id' ? 'Profil' : 'Profiles',
-    selectStudent: language === 'id' ? 'Pilih Siswa' : 'Select Student',
-    overview_desc: language === 'id' ? 'Ringkasan kegiatan belajar siswa' : 'Summary of student learning activities',
-    manageProfiles: language === 'id' ? 'Kelola Profil Siswa' : 'Manage Student Profiles',
-    backToDashboard: language === 'id' ? 'Kembali ke Dasbor' : 'Back to Dashboard',
-    accountSettings: language === 'id' ? 'Pengaturan Akun' : 'Account Settings',
-  };
-  
-  return (
-    <div className="flex flex-col min-h-screen">
+  const handleBackToDashboard = () => {
+    setShowStudentProfile(false);
+  };  return (
+    <div className="min-h-screen flex flex-col">
       <Header />
-      
-      <main className="flex-grow py-8">
-        <div className="container px-4 md:px-6">
-          <div className="mb-8 flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold font-display">{translations.dashboard}</h1>
-              <p className="text-muted-foreground">{translations.overview_desc}</p>
-            </div>
-            
-            <div className="flex gap-2">
-              <Button 
-                onClick={() => navigate('/account-settings')}
-                variant="outline"
-                className="flex items-center gap-2"
-              >
-                <Settings className="w-4 h-4" />
-                {translations.accountSettings}
-              </Button>
-              
-              <Button 
-                onClick={() => setShowStudentProfile(true)} 
-                className="bg-eduPurple hover:bg-eduPurple-dark flex items-center gap-2"
-              >
-                <UserPlus className="w-4 h-4" />
-                {translations.manageProfiles}
-              </Button>
-            </div>
+      <div className="container mx-auto px-4 py-6 flex-grow">
+        {showStudentProfile ? (
+        <div className="space-y-6">
+          <div className="flex items-center space-x-2 mb-4">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleBackToDashboard} 
+              className="flex items-center gap-1"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              {language === 'id' ? 'Kembali ke Dasbor' : 'Back to Dashboard'}
+            </Button>
+            <h1 className="text-2xl font-bold">
+              {language === 'id' ? 'Kelola Profil Siswa' : 'Manage Student Profile'}
+            </h1>
           </div>
-          
-          <div className="grid gap-6">
-            {showStudentProfile ? (
-              <>
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-xl font-bold font-display">{translations.manageProfiles}</h2>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => setShowStudentProfile(false)}
-                  >
-                    {translations.backToDashboard}
-                  </Button>
-                </div>
-                <StudentProfile 
-                  onStudentChange={(student) => {
-                    handleStudentChange(student.id);
-                    setShowStudentProfile(false);
-                  }}
-                  currentStudentId={selectedStudentId}
-                />
-              </>
+            <ErrorBoundary fallback={<StudentProfileFallback onBack={handleBackToDashboard} />}>
+            {isLoading ? (
+              <Card>
+                <CardContent className="flex justify-center items-center py-12">
+                  <Spinner size="lg" />
+                </CardContent>
+              </Card>
             ) : (
-              <>
-                <StudentProfileSelector 
-                  onStudentChange={handleStudentChange} 
-                  initialStudentId={selectedStudentId} 
-                />
-                
-                {selectedStudentId ? (
-                  <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                    <TabsList className="grid grid-cols-4 w-full md:w-auto">
-                      <TabsTrigger value="overview" className="flex items-center gap-2">
-                        <PieChart className="h-4 w-4" />
-                        <span className="hidden sm:inline">{translations.overview}</span>
-                      </TabsTrigger>
-                      <TabsTrigger value="analytics" className="flex items-center gap-2">
-                        <BarChart className="h-4 w-4" />
-                        <span className="hidden sm:inline">{translations.analytics}</span>
-                      </TabsTrigger>
-                      <TabsTrigger value="progress" className="flex items-center gap-2">
-                        <LineChart className="h-4 w-4" />
-                        <span className="hidden sm:inline">{translations.progress}</span>
-                      </TabsTrigger>
-                      <TabsTrigger value="achievements" className="flex items-center gap-2">
-                        <Trophy className="h-4 w-4" />
-                        <span className="hidden sm:inline">{translations.achievements}</span>
-                      </TabsTrigger>
-                    </TabsList>
-                    
-                    <div className="mt-6">
-                      <TabsContent value="overview" className="space-y-6">
-                        <div className="grid md:grid-cols-2 gap-6">
-                          <StudentProgressSummary studentId={selectedStudentId} />
-                          <AIRecommendations studentId={selectedStudentId} />
-                        </div>
-                        <RecentActivities studentId={selectedStudentId} />
-                      </TabsContent>
-                      
-                      <TabsContent value="analytics">
-                        <Card>
-                          <CardHeader>
-                            <CardTitle>{language === 'id' ? 'Analisa Pembelajaran' : 'Learning Analytics'}</CardTitle>
-                            <CardDescription>
-                              {language === 'id' ? 'Analisa mendalam tentang pola pembelajaran' : 'In-depth analysis of learning patterns'}
-                            </CardDescription>
-                          </CardHeader>
-                          <CardContent className="grid gap-6">
-                            <div className="p-6 border rounded-md flex flex-col items-center justify-center">
-                              <CalendarDays className="h-12 w-12 text-muted-foreground mb-4" />
-                              <p className="text-center text-muted-foreground">
-                                {language === 'id' 
-                                  ? 'Analisa akan tersedia setelah lebih banyak data terkumpul.' 
-                                  : 'Analytics will be available once more data is collected.'}
-                              </p>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </TabsContent>
-                      
-                      <TabsContent value="progress">
-                        <div className="grid gap-6">
-                          <Card>
-                            <CardHeader>
-                              <CardTitle>{language === 'id' ? 'Detail Kemajuan' : 'Detailed Progress'}</CardTitle>
-                              <CardDescription>
-                                {language === 'id' ? 'Kemajuan lengkap dari waktu ke waktu' : 'Complete progress over time'}
-                              </CardDescription>
-                            </CardHeader>
-                            <CardContent className="h-80">
-                              <StudentProgressSummary studentId={selectedStudentId} />
-                            </CardContent>
-                          </Card>
-                        </div>
-                      </TabsContent>
-                      
-                      <TabsContent value="achievements">
-                        <Card>
-                          <CardHeader>
-                            <CardTitle>{language === 'id' ? 'Pencapaian Siswa' : 'Student Achievements'}</CardTitle>
-                            <CardDescription>
-                              {language === 'id' ? 'Lencana dan pencapaian pembelajaran' : 'Badges and learning achievements'}
-                            </CardDescription>
-                          </CardHeader>
-                          <CardContent>
-                            <RecentActivities studentId={selectedStudentId} />
-                          </CardContent>
-                        </Card>
-                      </TabsContent>
-                    </div>
-                  </Tabs>
-                ) : (
-                  <Card className="py-12">
-                    <CardContent>
-                      <div className="text-center text-muted-foreground">
-                        {language === 'id' 
-                          ? 'Pilih profil siswa untuk melihat dasbor' 
-                          : 'Select a student profile to view the dashboard'}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-              </>
+              <StudentProfile 
+                onStudentChange={(student) => setCurrentStudentId(student.id)} 
+                currentStudentId={currentStudentId}
+              />
             )}
-          </div>
+          </ErrorBoundary>
         </div>
-      </main>
-      
+      ) : (
+        <div className="space-y-6">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-2">
+            <h1 className="text-2xl font-bold">
+              {language === 'id' ? 'Dasbor' : 'Dashboard'}
+            </h1>
+            <Button 
+              onClick={handleShowStudentProfile}
+              className="flex items-center gap-2"
+            >
+              <Users className="h-4 w-4" />
+              {language === 'id' ? 'Kelola Profil Siswa' : 'Manage Student Profiles'}
+            </Button>
+          </div>
+            <StudentProgressSummary 
+            studentId={currentStudentId || ''}
+          />
+          
+          <div className="mb-4">
+            <h2 className="text-xl font-semibold mb-2">
+              {language === 'id' ? 'Pilih Siswa' : 'Select Student'}
+            </h2>
+            <div className="max-w-md">
+              <StudentProfileSelector 
+                onStudentChange={handleStudentChange}
+                initialStudentId={currentStudentId}
+              />
+            </div>
+          </div>
+            <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="space-y-4">
+            <TabsList>
+              <TabsTrigger value="overview">
+                {language === 'id' ? 'Ikhtisar' : 'Overview'}
+              </TabsTrigger>
+              <TabsTrigger value="activities">
+                {language === 'id' ? 'Aktivitas' : 'Activities'}
+              </TabsTrigger>
+              <TabsTrigger value="achievements">
+                {language === 'id' ? 'Pencapaian' : 'Achievements'}
+              </TabsTrigger>
+              <TabsTrigger value="recommendations">
+                {language === 'id' ? 'Rekomendasi' : 'Recommendations'}
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="overview" className="space-y-4">
+              {/* Just show StudentProgressSummary in overview tab */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>
+                    {language === 'id' ? 'Ringkasan Kemajuan' : 'Progress Summary'}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {isLoading ? (
+                    <div className="flex justify-center py-8">
+                      <Spinner />
+                    </div>
+                  ) : currentStudentId ? (
+                    <StudentProgressSummary studentId={currentStudentId || ''} />
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      {language === 'id' 
+                        ? 'Pilih siswa untuk melihat kemajuan' 
+                        : 'Select a student to view progress'}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+            
+            <TabsContent value="activities" className="space-y-4">
+              {/* Activities tab showing just activities */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>
+                    {language === 'id' ? 'Semua Aktivitas' : 'All Activities'}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {isLoading ? (
+                    <div className="flex justify-center py-8">
+                      <Spinner />
+                    </div>
+                  ) : currentStudentId ? (
+                    <RecentActivities studentId={currentStudentId} />
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      {language === 'id' 
+                        ? 'Pilih siswa untuk melihat aktivitas' 
+                        : 'Select a student to view activities'}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+            
+            <TabsContent value="achievements" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>
+                    {language === 'id' ? 'Pencapaian' : 'Achievements'}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {isLoading ? (
+                    <div className="flex justify-center py-8">
+                      <Spinner />
+                    </div>
+                  ) : currentStudentId ? (
+                    <div id="badges-container" className="badges-wrapper">
+                      {isLoadingBadges ? (
+                        <div className="text-center py-8">
+                          <Spinner />
+                          <p className="mt-2 text-sm text-muted-foreground">
+                            {language === 'id' ? 'Memuat pencapaian...' : 'Loading achievements...'}
+                          </p>
+                        </div>
+                      ) : badges.length > 0 ? (
+                        <PaginatedBadges 
+                          badges={badges} 
+                          isLoading={false} 
+                        />
+                      ) : (
+                        <div className="text-center py-8 text-muted-foreground">
+                          {language === 'id' 
+                            ? 'Belum ada pencapaian. Mulai belajar untuk mendapatkan lencana!' 
+                            : 'No achievements yet. Start learning to earn badges!'}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      {language === 'id' 
+                        ? 'Pilih siswa untuk melihat pencapaian' 
+                        : 'Select a student to view achievements'}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+            
+            <TabsContent value="recommendations" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>
+                    {language === 'id' ? 'Rekomendasi AI' : 'AI Recommendations'}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {isLoading ? (
+                    <div className="flex justify-center py-8">
+                      <Spinner />
+                    </div>
+                  ) : currentStudentId ? (
+                    <AIRecommendations studentId={currentStudentId || ''} />
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      {language === 'id' 
+                        ? 'Pilih siswa untuk melihat rekomendasi' 
+                        : 'Select a student to view recommendations'}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </div>
+      )}    </div>
       <Footer />
     </div>
   );

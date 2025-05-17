@@ -17,7 +17,8 @@ This document provides technical details and guidance for developers working on 
 12. [Adding New Features](#adding-new-features)
 13. [Testing](#testing)
 14. [Deployment](#deployment)
-15. [Common Issues](#common-issues)
+15. [Error Handling and ErrorBoundary](#error-handling-and-errorboundary)
+16. [Common Issues](#common-issues)
 
 ## Technology Stack
 
@@ -383,3 +384,63 @@ npm run build
 - Supabase edge functions have execution time limits
 - Optimize functions to complete within the allocated time
 - Consider breaking complex operations into multiple functions
+
+### Frontend Console Errors
+
+#### CORS Policy Errors with Cloudflare Insights
+- The Cloudflare Insights script may be blocked by CORS policy when the app is deployed
+- These errors come from the hosting platform and not from our local code
+- If these errors cause problems, you can add a Content Security Policy (CSP) header to your hosting configuration
+- Example CSP: `connect-src 'self' https://cloudflareinsights.com;`
+
+#### jQuery Migrate Warnings
+- jQuery Migrate warnings may appear in the console
+- These warnings typically come from third-party scripts or the hosting platform
+- They are informational and do not impact application functionality
+
+#### Runtime Message Port Errors
+- Messages like "Could not establish connection. Receiving end does not exist" are often related to browser extensions
+- These errors do not affect the application and can be safely ignored
+
+#### Select.Item Component Errors
+- Make sure all `SelectItem` components have a non-empty value prop
+- Empty string values (`value=""`) can cause rendering issues or React warnings
+- Always use a meaningful value (or "all" for showing all items) instead of an empty string
+
+## Error Handling and ErrorBoundary
+
+### ErrorBoundary Pattern
+
+We've implemented the ErrorBoundary pattern to gracefully handle runtime errors in React components. This prevents the entire application from crashing when a component fails to render.
+
+#### Using the ErrorBoundary
+
+```tsx
+import ErrorBoundary from '@/components/ErrorBoundary';
+
+// Create a fallback UI component
+const ComponentFallback = ({ onRetry }) => (
+  <div>
+    <h3>Something went wrong</h3>
+    <p>Could not load the component</p>
+    <button onClick={onRetry}>Try Again</button>
+  </div>
+);
+
+// Wrap your component with ErrorBoundary
+<ErrorBoundary fallback={<ComponentFallback onRetry={() => {/* retry logic */}} />}>
+  <YourComponent />
+</ErrorBoundary>
+```
+
+#### Best Practices
+
+1. **Wrap complex components**: Add ErrorBoundary around complex or data-dependent components, especially when they rely on external services.
+
+2. **Provide helpful fallbacks**: Design fallback UIs that inform users about the error and offer recovery options.
+
+3. **Wrap at appropriate levels**: Don't wrap the entire app in a single ErrorBoundary. Use multiple boundaries at appropriate component levels to isolate failures.
+
+4. **Log errors**: The ErrorBoundary logs errors to the console, but you might want to send them to an error tracking service for production monitoring.
+
+5. **Consider key props for reset**: When you need to force a remount of a component that previously errored, you can use a key prop with a new value.
