@@ -21,17 +21,21 @@ serve(async (req) => {
     // Ensure count is within acceptable range (10-60)
     const questionCount = Math.max(10, Math.min(60, count));
     
-    // Create a more detailed prompt for OpenAI to generate more comprehensive content
+    // Create a more detailed prompt for OpenAI to generate content appropriate to grade level
     const prompt = `
     Create ${questionCount} quiz questions about "${topic}" in ${subject} for grade ${gradeLevel} students in ${language === 'id' ? 'Indonesian' : 'English'} language. 
     
+    Consider the following grade level guidance:
+    ${getGradeLevelGuidance(gradeLevel, language)}
+    
     Each question should:
-    - Be age-appropriate for the grade level
+    - Be age-appropriate for the grade level specified (${gradeLevel})
     - Have 4 possible answer options
     - Have exactly one correct answer
     - Include a detailed explanation of why the correct answer is right and why the others are wrong
     - Be diverse in difficulty and focus on different aspects of the topic
     - Include some scenario-based questions where relevant
+    - Be well structured and follow educational best practices for the specified grade level
 
     Return the questions in the following JSON format:
     [
@@ -99,3 +103,30 @@ serve(async (req) => {
     });
   }
 });
+
+// Helper function to provide grade-specific guidance
+function getGradeLevelGuidance(gradeLevel: string, language: string): string {
+  if (language === 'id') {
+    switch(gradeLevel) {
+      case 'k-3':
+        return 'Ini untuk siswa kelas K-3 (5-8 tahun). Gunakan bahasa sederhana, fokus pada konsep dasar, dengan pertanyaan yang jelas dan singkat. Materi harus konkret, bukan abstrak. Gunakan gambar dan contoh sederhana jika memungkinkan.';
+      case '4-6':
+        return 'Ini untuk siswa kelas 4-6 (9-11 tahun). Dapat menggunakan konsep yang lebih kompleks, kosakata yang lebih kaya, dan beberapa pemikiran kritis. Siswa dalam kelompok usia ini mampu mengingat fakta dan menerapkan pengetahuan dalam skenario sederhana.';
+      case '7-9':
+        return 'Ini untuk siswa kelas 7-9 (12-14 tahun). Dapat mencakup konsep abstrak, penalaran logis, dan analisis yang lebih mendalam. Siswa dalam kelompok usia ini mampu berpikir kritis dan menerapkan pengetahuan di berbagai konteks.';
+      default:
+        return 'Sesuaikan tingkat kesulitan dengan usia siswa, menggunakan bahasa dan konsep yang sesuai perkembangan.';
+    }
+  } else {
+    switch(gradeLevel) {
+      case 'k-3':
+        return 'This is for K-3 students (ages 5-8). Use simple language, focus on basic concepts, with clear and short questions. Material should be concrete, not abstract. Use pictures and simple examples where possible.';
+      case '4-6':
+        return 'This is for grades 4-6 students (ages 9-11). Can use more complex concepts, richer vocabulary, and some critical thinking. Students in this age group are capable of recalling facts and applying knowledge in simple scenarios.';
+      case '7-9':
+        return 'This is for grades 7-9 students (ages 12-14). Can include abstract concepts, logical reasoning, and deeper analysis. Students in this age group are capable of critical thinking and applying knowledge across various contexts.';
+      default:
+        return 'Adapt difficulty level to the students\' age, using developmentally appropriate language and concepts.';
+    }
+  }
+}

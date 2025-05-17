@@ -39,13 +39,13 @@ const Header = () => {
     <header className="bg-white border-b border-b-gray-200 sticky top-0 z-50">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <div className="flex items-center">
-          <Link to="/" className="flex items-center">
-            <span className="sr-only">EduBuddy</span>
-            {/* Logo */}
-            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-eduPurple to-eduBlue flex items-center justify-center text-white font-bold text-lg mr-2">
-              E
+          <Link to="/" className="flex items-center gap-2">
+            <div className="rounded-full bg-eduPurple p-1">
+              <BookOpen className="h-5 w-5 text-white" />
             </div>
-            <span className="text-xl font-bold font-display">EduBuddy</span>
+            <span className="font-display text-xl font-bold text-eduPurple-dark">
+              EduBuddy
+            </span>
           </Link>
         </div>
         
@@ -113,7 +113,7 @@ const Header = () => {
             </SheetTrigger>
             <SheetContent>
               <SheetHeader>
-                <SheetTitle className="text-xl font-display">EduApp</SheetTitle>
+                <SheetTitle className="text-xl font-display">EduBuddy</SheetTitle>
                 <SheetDescription>
                   {t('nav.menu')}
                 </SheetDescription>

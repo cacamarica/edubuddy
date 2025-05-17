@@ -32,7 +32,7 @@ const QuizSetup: React.FC<QuizSetupProps> = ({
   const navigate = useNavigate();
   
   // Calculate max allowed questions for limited access
-  const maxLimitedQuestions = Math.max(1, Math.floor(60 * 0.3)); // 30% of 60 questions
+  const maxLimitedQuestions = Math.max(10, Math.floor(60 * 0.3)); // 30% of 60 questions
   
   return (
     <Card>

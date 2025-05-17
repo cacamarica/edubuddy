@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSearchParams } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 
 interface LearningContentProps {
   subject: string;
@@ -20,6 +21,13 @@ interface LearningContentProps {
   onTabChange: (tab: string) => void;
   onReset: () => void;
   onQuizComplete: (score: number) => void;
+}
+
+interface StudentInfo {
+  id: string;
+  name: string;
+  age: number;
+  gradeLevel: 'k-3' | '4-6' | '7-9';
 }
 
 const LearningContent: React.FC<LearningContentProps> = ({
@@ -37,9 +45,43 @@ const LearningContent: React.FC<LearningContentProps> = ({
   const location = useLocation();
   const [searchParams] = useSearchParams();
   
-  // State for progress limitation
+  // State for progress limitation and student info
   const [showLimitedContentWarning, setShowLimitedContentWarning] = useState(false);
+  const [studentInfo, setStudentInfo] = useState<StudentInfo | null>(null);
   
+  // Get student ID from URL or state
+  const getStudentId = () => {
+    return searchParams.get('studentId') || 
+           (location.state && location.state.studentId) || 
+           '';
+  };
+
+  // Fetch student information if studentId is provided
+  useEffect(() => {
+    const fetchStudentInfo = async () => {
+      const studentId = getStudentId();
+      
+      if (studentId) {
+        const { data, error } = await supabase
+          .from('students')
+          .select('id, name, age, grade_level')
+          .eq('id', studentId)
+          .single();
+          
+        if (!error && data) {
+          setStudentInfo({
+            id: data.id,
+            name: data.name,
+            age: data.age || 6,
+            gradeLevel: data.grade_level as 'k-3' | '4-6' | '7-9'
+          });
+        }
+      }
+    };
+    
+    fetchStudentInfo();
+  }, [searchParams]);
+
   // Show warning if user is not logged in
   useEffect(() => {
     if (!user) {
@@ -47,14 +89,6 @@ const LearningContent: React.FC<LearningContentProps> = ({
     }
   }, [user]);
 
-  // Get student ID from URL or state for passing to the AILesson component
-  const getStudentId = () => {
-    const studentId = searchParams.get('studentId') || 
-                     (location.state && location.state.studentId) || 
-                     '';
-    return studentId;
-  };
-  
   const translations = {
     learningAbout: language === 'id' ? 'Belajar Tentang' : 'Learning About',
     newTopic: language === 'id' ? 'Topik Baru' : 'New Topic',
@@ -67,7 +101,8 @@ const LearningContent: React.FC<LearningContentProps> = ({
     limitedAccessDescription: language === 'id' 
       ? 'Anda hanya dapat mengakses 30% konten. Masuk untuk mengakses semua konten.'
       : 'You can only access 30% of content. Sign in to unlock all content.',
-    signIn: language === 'id' ? 'Masuk' : 'Sign In'
+    signIn: language === 'id' ? 'Masuk' : 'Sign In',
+    personalizedFor: language === 'id' ? 'Dipersonalisasi untuk' : 'Personalized for'
   };
   
   const handleSignIn = () => {
@@ -90,12 +125,22 @@ const LearningContent: React.FC<LearningContentProps> = ({
     }
   }, [location, navigate, searchParams]);
   
+  // Use student's grade level if available
+  const effectiveGradeLevel = studentInfo?.gradeLevel || gradeLevel;
+  
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-6 flex justify-between items-center">
-        <h2 className="text-2xl font-display font-bold">
-          {translations.learningAbout} {topic} <span className="text-muted-foreground">({subject})</span>
-        </h2>
+        <div>
+          <h2 className="text-2xl font-display font-bold">
+            {translations.learningAbout} {topic} <span className="text-muted-foreground">({subject})</span>
+          </h2>
+          {studentInfo && (
+            <p className="text-sm text-eduPurple mt-1">
+              {translations.personalizedFor} {studentInfo.name} ({studentInfo.age} {language === 'id' ? 'tahun' : 'years'}, {language === 'id' ? 'Kelas' : 'Grade'} {studentInfo.gradeLevel})
+            </p>
+          )}
+        </div>
         <Button 
           variant="primary" 
           size="sm" 
@@ -139,26 +184,29 @@ const LearningContent: React.FC<LearningContentProps> = ({
           <TabsContent value="lesson">
             <AILesson 
               subject={subject} 
-              gradeLevel={gradeLevel} 
+              gradeLevel={effectiveGradeLevel} 
               topic={topic}
               limitProgress={!user}
+              studentId={studentInfo?.id}
             />
           </TabsContent>
           <TabsContent value="quiz">
             <AIQuiz 
               subject={subject} 
-              gradeLevel={gradeLevel} 
+              gradeLevel={effectiveGradeLevel} 
               topic={topic}
               onComplete={(score) => onQuizComplete(score)}
               limitProgress={!user}
+              studentId={studentInfo?.id}
             />
           </TabsContent>
           <TabsContent value="game">
             <AIGame 
               subject={subject} 
-              gradeLevel={gradeLevel} 
+              gradeLevel={effectiveGradeLevel} 
               topic={topic}
               limitProgress={!user}
+              studentId={studentInfo?.id}
             />
           </TabsContent>
         </div>

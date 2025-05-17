@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -31,7 +32,8 @@ const Dashboard = () => {
     profiles: language === 'id' ? 'Profil' : 'Profiles',
     selectStudent: language === 'id' ? 'Pilih Siswa' : 'Select Student',
     overview_desc: language === 'id' ? 'Ringkasan kegiatan belajar siswa' : 'Summary of student learning activities',
-    manageProfiles: language === 'id' ? 'Kelola Profil Siswa' : 'Manage Student Profiles'
+    manageProfiles: language === 'id' ? 'Kelola Profil Siswa' : 'Manage Student Profiles',
+    backToDashboard: language === 'id' ? 'Kembali ke Dasbor' : 'Back to Dashboard'
   };
   
   return (
@@ -51,7 +53,7 @@ const Dashboard = () => {
               className="bg-eduPurple hover:bg-eduPurple-dark flex items-center gap-2"
             >
               <UserPlus className="w-4 h-4" />
-              {language === 'id' ? 'Kelola Profil' : 'Manage Profiles'}
+              {translations.manageProfiles}
             </Button>
           </div>
           
@@ -64,7 +66,7 @@ const Dashboard = () => {
                     variant="outline" 
                     onClick={() => setShowStudentProfile(false)}
                   >
-                    {language === 'id' ? 'Kembali ke Dasbor' : 'Back to Dashboard'}
+                    {translations.backToDashboard}
                   </Button>
                 </div>
                 <StudentProfile 
