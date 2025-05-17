@@ -6,7 +6,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { getAIEducationContent } from '@/services/aiEducationService';
-import { CheckCircle, XCircle, Star, Award, PencilRuler, ArrowLeft, ArrowRight, SkipBack, RotateCcw } from 'lucide-react';
+import { CheckCircle, XCircle, Star, Award, PencilRuler, ArrowLeft, ArrowRight, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface AIQuizProps {
@@ -55,7 +55,7 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
 
   // Use an effect to reset currentQuestion if it's invalid
   useEffect(() => {
-    if (shuffledQuestions.length > 0 && !shuffledQuestions[currentQuestion]) {
+    if (shuffledQuestions.length > 0 && currentQuestion >= shuffledQuestions.length) {
       setCurrentQuestion(0);
     }
   }, [shuffledQuestions, currentQuestion]);
@@ -71,6 +71,9 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
       
       setShuffledQuestions(selectedQuestions);
       setAnswers(new Array(selectedQuestions.length).fill(null));
+      setCurrentQuestion(0); // Reset current question when questions change
+      setSelectedAnswer(null); // Reset selected answer
+      setShowFeedback(false); // Reset feedback
     }
   }, [questions, shuffleArray, questionCount]);
 
@@ -85,8 +88,17 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
         topic
       });
       
-      setQuestions(result.content || []);
-      setCurrentQuestion(0);
+      // Ensure we have valid questions array
+      if (result && result.content && Array.isArray(result.content)) {
+        setQuestions(result.content || []);
+      } else if (result && result.content && Array.isArray(result.content.questions)) {
+        // Handle nested questions structure
+        setQuestions(result.content.questions || []);
+      } else {
+        console.error("Unexpected quiz content format:", result);
+        setHasError(true);
+        toast.error("Quiz content couldn't be processed. Please try again.");
+      }
     } catch (error) {
       console.error("Failed to generate quiz:", error);
       toast.error("Oops! We couldn't create your quiz right now. Please try again!");
@@ -108,12 +120,14 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
   const handleCheckAnswer = () => {
     setShowFeedback(true);
     
-    const isCorrect = selectedAnswer === shuffledQuestions[currentQuestion].correctAnswer;
-    
-    if (isCorrect) {
-      toast.success("Great job! That's correct! ✨", {
-        position: "bottom-right",
-      });
+    if (shuffledQuestions.length > 0 && currentQuestion < shuffledQuestions.length) {
+      const isCorrect = selectedAnswer === shuffledQuestions[currentQuestion].correctAnswer;
+      
+      if (isCorrect) {
+        toast.success("Great job! That's correct! ✨", {
+          position: "bottom-right",
+        });
+      }
     }
   };
   
@@ -126,7 +140,7 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
     } else {
       // Quiz complete
       const correctAnswers = answers.filter(
-        (answer, index) => answer === shuffledQuestions[index].correctAnswer
+        (answer, index) => answer === shuffledQuestions[index]?.correctAnswer
       ).length;
       setScore(correctAnswers);
       setQuizComplete(true);
@@ -153,14 +167,19 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
   
   const handleRestartQuiz = () => {
     // Re-shuffle questions for a different experience
-    const newShuffled = shuffleArray(questions).slice(0, questionCount);
-    setShuffledQuestions(newShuffled);
-    
-    setCurrentQuestion(0);
-    setSelectedAnswer(null);
-    setAnswers(new Array(newShuffled.length).fill(null));
-    setShowFeedback(false);
-    setQuizComplete(false);
+    if (questions.length > 0) {
+      const newShuffled = shuffleArray(questions).slice(0, questionCount);
+      setShuffledQuestions(newShuffled);
+      
+      setCurrentQuestion(0);
+      setSelectedAnswer(null);
+      setAnswers(new Array(newShuffled.length).fill(null));
+      setShowFeedback(false);
+      setQuizComplete(false);
+    } else {
+      // If no questions, trigger generateQuiz
+      generateQuiz();
+    }
   };
 
   const handleTryAgain = () => {
@@ -168,6 +187,11 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
     setShuffledQuestions([]);
     setCurrentQuestion(0);
     setHasError(false);
+    // Reset state to initial
+    setSelectedAnswer(null);
+    setAnswers([]);
+    setShowFeedback(false);
+    setQuizComplete(false);
   };
 
   const handleQuestionCountChange = (count: number) => {
@@ -283,25 +307,27 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
             </div>
           </div>
           
-          <div className="bg-eduPastel-blue p-4 rounded-lg">
-            <h3 className="font-semibold mb-2">Questions you might want to review:</h3>
-            <ul className="list-disc pl-5 space-y-1">
-              {answers.map((answer, index) => {
-                const question = shuffledQuestions[index];
-                if (answer !== question.correctAnswer) {
-                  return (
-                    <li key={index}>
-                      <span className="font-medium">{question.question}</span>
-                      <p className="text-sm text-muted-foreground">
-                        Correct answer: {question.options[question.correctAnswer]}
-                      </p>
-                    </li>
-                  );
-                }
-                return null;
-              }).filter(Boolean)}
-            </ul>
-          </div>
+          {answers.some((answer, index) => answer !== shuffledQuestions[index]?.correctAnswer) && (
+            <div className="bg-eduPastel-blue p-4 rounded-lg">
+              <h3 className="font-semibold mb-2">Questions you might want to review:</h3>
+              <ul className="list-disc pl-5 space-y-1">
+                {answers.map((answer, index) => {
+                  const question = shuffledQuestions[index];
+                  if (question && answer !== question.correctAnswer) {
+                    return (
+                      <li key={index}>
+                        <span className="font-medium">{question.question}</span>
+                        <p className="text-sm text-muted-foreground">
+                          Correct answer: {question.options[question.correctAnswer]}
+                        </p>
+                      </li>
+                    );
+                  }
+                  return null;
+                }).filter(Boolean)}
+              </ul>
+            </div>
+          )}
         </CardContent>
         <CardFooter className="flex flex-col sm:flex-row gap-2 justify-center">
           <Button
@@ -328,7 +354,7 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
   }
 
   // Error handling - if questions exist but current question is invalid
-  if (hasError || (shuffledQuestions.length > 0 && !shuffledQuestions[currentQuestion])) {
+  if (hasError || (shuffledQuestions.length > 0 && currentQuestion >= shuffledQuestions.length)) {
     return (
       <Card>
         <CardContent className="pt-6 flex flex-col items-center justify-center h-64">
@@ -339,6 +365,17 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
           >
             Try Again
           </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Safety check
+  if (!shuffledQuestions[currentQuestion]) {
+    return (
+      <Card>
+        <CardContent className="pt-6 flex flex-col items-center justify-center h-64">
+          <p className="text-center font-display text-lg">Loading question...</p>
         </CardContent>
       </Card>
     );
@@ -385,7 +422,7 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
         )}
         
         <RadioGroup 
-          value={selectedAnswer?.toString()} 
+          value={selectedAnswer !== null ? selectedAnswer.toString() : undefined} 
           onValueChange={(value) => handleAnswerSelect(parseInt(value))}
           className="space-y-4"
         >

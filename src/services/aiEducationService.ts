@@ -19,6 +19,8 @@ export async function getAIEducationContent({
   includeImages = true
 }: AIContentRequestParams) {
   try {
+    console.log(`Fetching ${contentType} content for ${topic} in ${subject} (grade: ${gradeLevel})`);
+    
     const { data, error } = await supabase.functions.invoke('ai-edu-content', {
       body: {
         contentType,
@@ -30,7 +32,12 @@ export async function getAIEducationContent({
       }
     });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase function error:', error);
+      throw error;
+    }
+    
+    console.log(`Successfully received ${contentType} content`);
     return data;
   } catch (error) {
     console.error('Error fetching AI education content:', error);

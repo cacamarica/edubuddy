@@ -220,45 +220,79 @@ serve(async (req) => {
           // Extract JSON if it's wrapped in markdown code blocks
           if (content.includes('```json')) {
             content = content.split('```json')[1].split('```')[0].trim();
+          } else if (content.includes('```')) {
+            // Try to extract any code block
+            content = content.split('```')[1].split('```')[0].trim();
           }
-          content = JSON.parse(content);
+          
+          // Try to parse JSON
+          try {
+            content = JSON.parse(content);
+          } catch (parseError) {
+            console.error('JSON parse error:', parseError);
+            // If JSON parsing fails, structure the content properly
+            if (contentType === 'quiz' && typeof content === 'string') {
+              // For quiz, create a fallback structure with the content as text
+              content = { questions: [] };
+            }
+          }
           
           // Add images to content if requested
-          if (includeImages && contentType === 'lesson') {
-            // Add images to each section
-            content.mainContent = content.mainContent.map((section: any, index: number) => {
-              // Only add image to some sections for visual variety
-              if (index % 2 === 0 || Math.random() > 0.5) {
-                return {
-                  ...section,
-                  image: getRandomImage(subject, `Image illustrating ${section.heading}`)
-                };
-              }
-              return section;
-            });
+          if (includeImages && contentType === 'lesson' && typeof content === 'object') {
+            // Add images to each section if mainContent exists
+            if (content.mainContent && Array.isArray(content.mainContent)) {
+              content.mainContent = content.mainContent.map((section: any, index: number) => {
+                // Only add image to some sections for visual variety
+                if (index % 2 === 0 || Math.random() > 0.5) {
+                  return {
+                    ...section,
+                    image: section.image || getRandomImage(subject, `Image illustrating ${section.heading}`)
+                  };
+                }
+                return section;
+              });
             
-            // Add image to activity
-            content.activity = {
-              ...content.activity,
-              image: getRandomImage(subject, `Activity for ${topic}`)
-            };
-          } else if (includeImages && contentType === 'quiz') {
-            // Add images to some quiz questions
-            content = content.map((question: any, index: number) => {
-              // Only add images to some questions
-              if (index % 3 === 0) {
-                return {
-                  ...question,
-                  image: getRandomImage(subject, `Image for question about ${topic}`)
+              // Add image to activity if it exists
+              if (content.activity) {
+                content.activity = {
+                  ...content.activity,
+                  image: content.activity.image || getRandomImage(subject, `Activity for ${topic}`)
                 };
               }
-              return question;
-            });
+            }
+          } else if (includeImages && contentType === 'quiz') {
+            // For quiz content
+            if (Array.isArray(content)) {
+              // Direct array of questions
+              content = content.map((question: any, index: number) => {
+                // Only add images to some questions
+                if (index % 3 === 0) {
+                  return {
+                    ...question,
+                    image: question.image || getRandomImage(subject, `Image for question about ${topic}`)
+                  };
+                }
+                return question;
+              });
+              
+              // Wrap in a proper structure
+              content = { questions: content };
+            } else if (content.questions && Array.isArray(content.questions)) {
+              // Already has questions array
+              content.questions = content.questions.map((question: any, index: number) => {
+                if (index % 3 === 0) {
+                  return {
+                    ...question,
+                    image: question.image || getRandomImage(subject, `Image for question about ${topic}`)
+                  };
+                }
+                return question;
+              });
+            }
           }
         }
       } catch (e) {
         console.log('Could not parse JSON from OpenAI response, returning raw content');
-        // If parsing fails, return the raw content
       }
   
       // Return the AI-generated content
