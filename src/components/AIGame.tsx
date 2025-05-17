@@ -1,17 +1,19 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { getAIEducationContent } from '@/services/aiEducationService';
-import { Gamepad, Award } from 'lucide-react';
+import { Gamepad, Award, LogIn } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 interface AIGameProps {
   subject: string;
   gradeLevel: 'k-3' | '4-6' | '7-9';
   topic: string;
   onComplete?: () => void;
+  limitProgress?: boolean; // Added this prop to match what's being passed in LearningContent.tsx
 }
 
 interface GameContent {
@@ -25,11 +27,13 @@ interface GameContent {
   };
 }
 
-const AIGame = ({ subject, gradeLevel, topic, onComplete }: AIGameProps) => {
+const AIGame = ({ subject, gradeLevel, topic, onComplete, limitProgress = false }: AIGameProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [gameContent, setGameContent] = useState<GameContent | null>(null);
   const [gameStarted, setGameStarted] = useState(false);
   const { t, language } = useLanguage();
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
   const generateGame = async () => {
     setIsLoading(true);
@@ -57,6 +61,23 @@ const AIGame = ({ subject, gradeLevel, topic, onComplete }: AIGameProps) => {
   };
 
   const handleStartGame = () => {
+    // Check if user can start the game (if limiting progress for non-logged in users)
+    if (limitProgress && !user) {
+      toast.info(
+        language === 'id'
+          ? 'Masuk untuk mengakses semua fitur permainan'
+          : 'Sign in to access all game features',
+        {
+          duration: 5000,
+          action: {
+            label: language === 'id' ? 'Masuk' : 'Sign In',
+            onClick: () => navigate('/auth', { state: { action: 'signin' } }),
+          },
+        }
+      );
+      return;
+    }
+    
     setGameStarted(true);
     toast.success(language === 'id' ? 
       "Permainan dimulai! Selamat bersenang-senang sambil belajar!" : 
@@ -95,7 +116,27 @@ const AIGame = ({ subject, gradeLevel, topic, onComplete }: AIGameProps) => {
             {t('game.description')} {topic} {t('game.in')} {subject}
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex justify-center">
+        <CardContent className="flex flex-col gap-4">
+          {limitProgress && !user && (
+            <div className="bg-eduPastel-purple p-4 rounded-lg mb-4">
+              <h3 className="font-semibold font-display text-lg mb-2">
+                {language === 'id' ? 'Akses Terbatas' : 'Limited Access'}
+              </h3>
+              <p className="mb-4">
+                {language === 'id' 
+                  ? 'Masuk untuk mengakses semua fitur permainan!' 
+                  : 'Sign in to access all game features!'}
+              </p>
+              <Button 
+                onClick={() => navigate('/auth', { state: { action: 'signin' } })}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <LogIn className="h-4 w-4" />
+                {language === 'id' ? 'Masuk Sekarang' : 'Sign In Now'}
+              </Button>
+            </div>
+          )}
           <Button onClick={generateGame} className="bg-eduPurple hover:bg-eduPurple-dark">
             <Gamepad className="mr-2 h-4 w-4" />
             {t('game.create')}
@@ -148,6 +189,13 @@ const AIGame = ({ subject, gradeLevel, topic, onComplete }: AIGameProps) => {
             )}
           </div>
         )}
+      </CardContent>
+      <CardContent className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg mt-4">
+        <p className="text-yellow-800 font-medium">
+          {language === 'id' 
+            ? 'Beberapa fitur permainan terbatas. Masuk untuk akses penuh.' 
+            : 'Some game features are limited. Sign in for full access.'}
+        </p>
       </CardContent>
       <CardFooter className="flex justify-center">
         {!gameStarted ? (

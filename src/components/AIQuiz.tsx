@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { getAIEducationContent } from '@/services/aiEducationService';
 import { toast } from 'sonner';
@@ -7,15 +6,19 @@ import QuizSetup from './QuizComponents/QuizSetup';
 import QuizQuestionCard, { QuizQuestion } from './QuizComponents/QuizQuestionCard';
 import QuizResults from './QuizComponents/QuizResults';
 import QuizError from './QuizComponents/QuizError';
+import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface AIQuizProps {
   subject: string;
   gradeLevel: 'k-3' | '4-6' | '7-9';
   topic: string;
   onComplete?: (score: number, total?: number) => void;
+  limitProgress?: boolean; // Added this prop to match what's being passed in LearningContent.tsx
 }
 
-const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
+const AIQuiz = ({ subject, gradeLevel, topic, onComplete, limitProgress = false }: AIQuizProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [shuffledQuestions, setShuffledQuestions] = useState<QuizQuestion[]>([]);
@@ -27,6 +30,20 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
   const [score, setScore] = useState(0);
   const [hasError, setHasError] = useState(false);
   const [questionCount, setQuestionCount] = useState(10); // Default number of questions
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { language } = useLanguage();
+  
+  // Add logic to limit quiz questions for non-logged in users
+  useEffect(() => {
+    if (questions.length > 0 && limitProgress && !user) {
+      // For non-logged in users, limit to 30% of questions (minimum 1)
+      const limitedCount = Math.max(1, Math.floor(questions.length * 0.3));
+      if (questionCount > limitedCount) {
+        setQuestionCount(limitedCount);
+      }
+    }
+  }, [questions, user, limitProgress, questionCount]);
 
   // Shuffle array helper function
   const shuffleArray = useCallback((array: any[]) => {
@@ -241,8 +258,17 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
         topic={topic}
         subject={subject}
         questionCount={questionCount}
-        onQuestionCountChange={setQuestionCount}
+        onQuestionCountChange={(count) => {
+          // Only allow changing up to the limit for non-logged in users
+          if (!user && limitProgress) {
+            const maxAllowed = Math.max(1, Math.floor(10 * 0.3)); // Using 10 as default total questions
+            setQuestionCount(Math.min(count, maxAllowed));
+          } else {
+            setQuestionCount(count);
+          }
+        }}
         onStartQuiz={generateQuiz}
+        limited={!user && limitProgress}
       />
     );
   }

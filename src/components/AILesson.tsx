@@ -14,6 +14,7 @@ interface AILessonProps {
   gradeLevel: 'k-3' | '4-6' | '7-9';
   topic: string;
   onComplete?: () => void;
+  limitProgress?: boolean; // Added this prop to match what's being passed in LearningContent.tsx
 }
 
 interface LessonImage {
@@ -43,7 +44,7 @@ interface LessonContent {
   images?: LessonImage[];
 }
 
-const AILesson = ({ subject, gradeLevel, topic, onComplete }: AILessonProps) => {
+const AILesson = ({ subject, gradeLevel, topic, onComplete, limitProgress = false }: AILessonProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [lessonContent, setLessonContent] = useState<LessonContent | null>(null);
   const [currentSection, setCurrentSection] = useState(0);
@@ -56,9 +57,9 @@ const AILesson = ({ subject, gradeLevel, topic, onComplete }: AILessonProps) => 
   // Calculating the maximum allowed section for non-logged in users (30% of content)
   const getMaxAllowedSection = () => {
     if (!lessonContent) return 0;
-    if (user) return lessonContent.mainContent.length - 1; // No limit for logged in users
+    if (user || !limitProgress) return lessonContent.mainContent.length - 1; // No limit for logged in users or when limitation is disabled
     
-    // For non-logged in users, limit to 30% of the content (at least 1 section)
+    // For non-logged in users with limitation enabled, limit to 30% of the content (at least 1 section)
     return Math.max(0, Math.floor(lessonContent.mainContent.length * 0.3) - 1);
   };
 
@@ -124,8 +125,8 @@ const AILesson = ({ subject, gradeLevel, topic, onComplete }: AILessonProps) => 
     if (lessonContent) {
       // Check if the user can proceed to the next section
       if (currentSection < lessonContent.mainContent.length - 1) {
-        // Check if they've reached their limit (for non-logged in users)
-        if (currentSection >= maxAllowedSection && !user) {
+        // Check if they've reached their limit (for non-logged in users with limitation)
+        if (limitProgress && currentSection >= maxAllowedSection && !user) {
           // Show login prompt for non-logged in users who hit the limit
           toast.info(
             language === 'id'
@@ -364,7 +365,7 @@ const AILesson = ({ subject, gradeLevel, topic, onComplete }: AILessonProps) => 
           )}
           
           {/* Free vs. Premium Content Divider */}
-          {!user && currentSection === maxAllowedSection && (
+          {!user && limitProgress && currentSection === maxAllowedSection && (
             <div className="mt-8 border-t pt-6 text-center">
               <div className="bg-eduPastel-purple p-4 rounded-lg">
                 <h3 className="font-semibold font-display text-lg mb-2">
