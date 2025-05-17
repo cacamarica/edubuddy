@@ -7,6 +7,7 @@ interface AIContentRequestParams {
   gradeLevel?: 'k-3' | '4-6' | '7-9';
   topic?: string;
   question?: string;
+  includeImages?: boolean;
 }
 
 export async function getAIEducationContent({
@@ -14,7 +15,8 @@ export async function getAIEducationContent({
   subject,
   gradeLevel,
   topic,
-  question
+  question,
+  includeImages = true
 }: AIContentRequestParams) {
   try {
     const { data, error } = await supabase.functions.invoke('ai-edu-content', {
@@ -23,7 +25,8 @@ export async function getAIEducationContent({
         subject,
         gradeLevel,
         topic,
-        question
+        question,
+        includeImages
       }
     });
 

@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { getAIEducationContent } from '@/services/aiEducationService';
-import { CheckCircle, XCircle, Star, Award, PencilRuler } from 'lucide-react';
+import { CheckCircle, XCircle, Star, Award, PencilRuler, ArrowLeft, ArrowRight, SkipBack, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface AIQuizProps {
@@ -15,16 +16,24 @@ interface AIQuizProps {
   onComplete?: (score: number, total: number) => void;
 }
 
+interface QuizImage {
+  url: string;
+  alt: string;
+}
+
 interface QuizQuestion {
   question: string;
   options: string[];
   correctAnswer: number;
   explanation: string;
+  image?: QuizImage;
+  scenario?: string;
 }
 
 const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
+  const [shuffledQuestions, setShuffledQuestions] = useState<QuizQuestion[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [answers, setAnswers] = useState<(number | null)[]>([]);
@@ -32,13 +41,38 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
   const [quizComplete, setQuizComplete] = useState(false);
   const [score, setScore] = useState(0);
   const [hasError, setHasError] = useState(false);
+  const [questionCount, setQuestionCount] = useState(10); // Default number of questions to show
+
+  // Shuffle array helper function
+  const shuffleArray = useCallback((array: any[]) => {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  }, []);
 
   // Use an effect to reset currentQuestion if it's invalid
   useEffect(() => {
-    if (questions.length > 0 && !questions[currentQuestion]) {
+    if (shuffledQuestions.length > 0 && !shuffledQuestions[currentQuestion]) {
       setCurrentQuestion(0);
     }
-  }, [questions, currentQuestion]);
+  }, [shuffledQuestions, currentQuestion]);
+
+  // Shuffle questions and prepare for quiz
+  useEffect(() => {
+    if (questions.length > 0) {
+      // Shuffle all questions
+      const allShuffled = shuffleArray(questions);
+      
+      // Take the first questionCount questions for this quiz session
+      const selectedQuestions = allShuffled.slice(0, Math.min(questionCount, allShuffled.length));
+      
+      setShuffledQuestions(selectedQuestions);
+      setAnswers(new Array(selectedQuestions.length).fill(null));
+    }
+  }, [questions, shuffleArray, questionCount]);
 
   const generateQuiz = async () => {
     setIsLoading(true);
@@ -51,8 +85,7 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
         topic
       });
       
-      setQuestions(result.content);
-      setAnswers(new Array(result.content.length).fill(null));
+      setQuestions(result.content || []);
       setCurrentQuestion(0);
     } catch (error) {
       console.error("Failed to generate quiz:", error);
@@ -75,7 +108,7 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
   const handleCheckAnswer = () => {
     setShowFeedback(true);
     
-    const isCorrect = selectedAnswer === questions[currentQuestion].correctAnswer;
+    const isCorrect = selectedAnswer === shuffledQuestions[currentQuestion].correctAnswer;
     
     if (isCorrect) {
       toast.success("Great job! That's correct! ✨", {
@@ -88,21 +121,21 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
     setShowFeedback(false);
     setSelectedAnswer(null);
     
-    if (currentQuestion < questions.length - 1) {
+    if (currentQuestion < shuffledQuestions.length - 1) {
       setCurrentQuestion(currentQuestion + 1);
     } else {
       // Quiz complete
       const correctAnswers = answers.filter(
-        (answer, index) => answer === questions[index].correctAnswer
+        (answer, index) => answer === shuffledQuestions[index].correctAnswer
       ).length;
       setScore(correctAnswers);
       setQuizComplete(true);
       
-      if (onComplete) onComplete(correctAnswers, questions.length);
+      if (onComplete) onComplete(correctAnswers, shuffledQuestions.length);
       
       // Show confetti for good scores
-      if (correctAnswers >= questions.length * 0.6) {
-        toast.success(`Quiz complete! You got ${correctAnswers} out of ${questions.length} correct!`, {
+      if (correctAnswers >= shuffledQuestions.length * 0.6) {
+        toast.success(`Quiz complete! You got ${correctAnswers} out of ${shuffledQuestions.length} correct!`, {
           position: "top-center",
           duration: 5000,
         });
@@ -119,17 +152,26 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
   };
   
   const handleRestartQuiz = () => {
+    // Re-shuffle questions for a different experience
+    const newShuffled = shuffleArray(questions).slice(0, questionCount);
+    setShuffledQuestions(newShuffled);
+    
     setCurrentQuestion(0);
     setSelectedAnswer(null);
-    setAnswers(new Array(questions.length).fill(null));
+    setAnswers(new Array(newShuffled.length).fill(null));
     setShowFeedback(false);
     setQuizComplete(false);
   };
 
   const handleTryAgain = () => {
     setQuestions([]);
+    setShuffledQuestions([]);
     setCurrentQuestion(0);
     setHasError(false);
+  };
+
+  const handleQuestionCountChange = (count: number) => {
+    setQuestionCount(count);
   };
 
   if (isLoading) {
@@ -144,7 +186,7 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
     );
   }
 
-  if (questions.length === 0) {
+  if (shuffledQuestions.length === 0) {
     return (
       <Card>
         <CardHeader>
@@ -153,7 +195,23 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
             Test your knowledge about {topic} in {subject}
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex justify-center">
+        <CardContent className="flex flex-col items-center gap-6">
+          <div className="text-center">
+            <p className="mb-4">How many questions would you like to answer?</p>
+            <div className="flex flex-wrap justify-center gap-2">
+              {[5, 10, 15, 20, 30].map((count) => (
+                <Button 
+                  key={count}
+                  variant={questionCount === count ? "default" : "outline"}
+                  className={questionCount === count ? "bg-eduPurple" : ""}
+                  onClick={() => handleQuestionCountChange(count)}
+                >
+                  {count} questions
+                </Button>
+              ))}
+            </div>
+          </div>
+          
           <Button onClick={generateQuiz} className="bg-eduPurple hover:bg-eduPurple-dark">
             <PencilRuler className="mr-2 h-4 w-4" />
             Start Quiz
@@ -176,11 +234,11 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="flex flex-col items-center justify-center gap-4">
-            {score >= questions.length * 0.8 ? (
+            {score >= shuffledQuestions.length * 0.8 ? (
               <div className="h-24 w-24 rounded-full bg-yellow-100 flex items-center justify-center">
                 <Star className="h-16 w-16 text-yellow-500 fill-yellow-500" />
               </div>
-            ) : score >= questions.length * 0.6 ? (
+            ) : score >= shuffledQuestions.length * 0.6 ? (
               <div className="h-24 w-24 rounded-full bg-green-100 flex items-center justify-center">
                 <CheckCircle className="h-16 w-16 text-green-500" />
               </div>
@@ -192,12 +250,12 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
             
             <div>
               <p className="text-4xl font-display font-bold">
-                {score} / {questions.length}
+                {score} / {shuffledQuestions.length}
               </p>
               <p className="text-muted-foreground">
-                {score >= questions.length * 0.8
+                {score >= shuffledQuestions.length * 0.8
                   ? "Amazing job! You're a quiz superstar! 🌟"
-                  : score >= questions.length * 0.6
+                  : score >= shuffledQuestions.length * 0.6
                     ? "Great work! You're doing well! 👏"
                     : "Good try! Let's practice more! 💪"}
               </p>
@@ -214,7 +272,7 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
                 <p className="text-sm font-medium mt-1">{score} Stars</p>
               </div>
               
-              {score >= questions.length * 0.8 && (
+              {score >= shuffledQuestions.length * 0.8 && (
                 <div className="flex flex-col items-center">
                   <div className="badge h-12 w-12 bg-eduPurple text-white flex items-center justify-center rounded-full">
                     <Award className="h-6 w-6" />
@@ -224,18 +282,41 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
               )}
             </div>
           </div>
+          
+          <div className="bg-eduPastel-blue p-4 rounded-lg">
+            <h3 className="font-semibold mb-2">Questions you might want to review:</h3>
+            <ul className="list-disc pl-5 space-y-1">
+              {answers.map((answer, index) => {
+                const question = shuffledQuestions[index];
+                if (answer !== question.correctAnswer) {
+                  return (
+                    <li key={index}>
+                      <span className="font-medium">{question.question}</span>
+                      <p className="text-sm text-muted-foreground">
+                        Correct answer: {question.options[question.correctAnswer]}
+                      </p>
+                    </li>
+                  );
+                }
+                return null;
+              }).filter(Boolean)}
+            </ul>
+          </div>
         </CardContent>
         <CardFooter className="flex flex-col sm:flex-row gap-2 justify-center">
           <Button
             variant="outline"
             onClick={handleRestartQuiz}
+            className="flex items-center gap-2"
           >
+            <RotateCcw className="h-4 w-4" />
             Try Again
           </Button>
           <Button
             className="bg-eduPurple hover:bg-eduPurple-dark"
             onClick={() => {
               setQuestions([]);
+              setShuffledQuestions([]);
               setQuizComplete(false);
             }}
           >
@@ -247,7 +328,7 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
   }
 
   // Error handling - if questions exist but current question is invalid
-  if (hasError || (questions.length > 0 && !questions[currentQuestion])) {
+  if (hasError || (shuffledQuestions.length > 0 && !shuffledQuestions[currentQuestion])) {
     return (
       <Card>
         <CardContent className="pt-6 flex flex-col items-center justify-center h-64">
@@ -266,32 +347,49 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
   return (
     <Card>
       <CardHeader>
+        {shuffledQuestions[currentQuestion].scenario && (
+          <div className="mb-4 p-4 bg-eduPastel-blue rounded-lg">
+            <p className="italic">{shuffledQuestions[currentQuestion].scenario}</p>
+          </div>
+        )}
         <CardTitle className="text-xl md:text-2xl font-display text-center">
-          {questions[currentQuestion].question}
+          {shuffledQuestions[currentQuestion].question}
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="mb-6">
           <div className="flex justify-between items-center mb-2">
             <span className="text-sm font-medium">
-              Question {currentQuestion + 1} of {questions.length}
+              Question {currentQuestion + 1} of {shuffledQuestions.length}
             </span>
             <span className="text-sm font-medium">
-              {Math.round(((currentQuestion + 1) / questions.length) * 100)}%
+              {Math.round(((currentQuestion + 1) / shuffledQuestions.length) * 100)}%
             </span>
           </div>
           <Progress 
-            value={((currentQuestion + 1) / questions.length) * 100} 
+            value={((currentQuestion + 1) / shuffledQuestions.length) * 100} 
             className="h-2" 
           />
         </div>
+        
+        {shuffledQuestions[currentQuestion].image && (
+          <div className="mb-6 flex justify-center">
+            <div className="w-full max-w-md rounded-lg overflow-hidden shadow-md">
+              <img 
+                src={shuffledQuestions[currentQuestion].image!.url} 
+                alt={shuffledQuestions[currentQuestion].image!.alt || "Question image"}
+                className="w-full h-auto object-contain"
+              />
+            </div>
+          </div>
+        )}
         
         <RadioGroup 
           value={selectedAnswer?.toString()} 
           onValueChange={(value) => handleAnswerSelect(parseInt(value))}
           className="space-y-4"
         >
-          {questions[currentQuestion].options.map((option, index) => (
+          {shuffledQuestions[currentQuestion].options.map((option, index) => (
             <div key={index} className="flex items-center space-x-2">
               <RadioGroupItem 
                 value={index.toString()} 
@@ -302,7 +400,7 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
               <Label 
                 htmlFor={`option-${index}`}
                 className={`font-display text-lg p-2 rounded-md w-full ${
-                  showFeedback && index === questions[currentQuestion].correctAnswer 
+                  showFeedback && index === shuffledQuestions[currentQuestion].correctAnswer 
                     ? 'bg-green-100 text-green-800'
                     : showFeedback && index === selectedAnswer
                       ? 'bg-red-100 text-red-800'
@@ -311,10 +409,10 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
               >
                 <div className="flex items-center justify-between">
                   <span>{option}</span>
-                  {showFeedback && index === questions[currentQuestion].correctAnswer && (
+                  {showFeedback && index === shuffledQuestions[currentQuestion].correctAnswer && (
                     <CheckCircle className="h-5 w-5 text-green-600" />
                   )}
-                  {showFeedback && index === selectedAnswer && index !== questions[currentQuestion].correctAnswer && (
+                  {showFeedback && index === selectedAnswer && index !== shuffledQuestions[currentQuestion].correctAnswer && (
                     <XCircle className="h-5 w-5 text-red-600" />
                   )}
                 </div>
@@ -326,7 +424,7 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
         {showFeedback && (
           <div className="mt-6 p-4 bg-eduPastel-yellow rounded-lg">
             <p className="font-display">
-              {questions[currentQuestion].explanation}
+              {shuffledQuestions[currentQuestion].explanation}
             </p>
           </div>
         )}
@@ -336,13 +434,22 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
           variant="outline"
           onClick={handlePrevQuestion}
           disabled={currentQuestion === 0}
+          className="flex items-center gap-2"
         >
+          <ArrowLeft className="h-4 w-4" />
           Previous
         </Button>
         
         {showFeedback ? (
-          <Button onClick={handleNextQuestion} className="bg-eduPurple hover:bg-eduPurple-dark">
-            {currentQuestion < questions.length - 1 ? "Next" : "Finish Quiz"}
+          <Button onClick={handleNextQuestion} className="bg-eduPurple hover:bg-eduPurple-dark flex items-center gap-2">
+            {currentQuestion < shuffledQuestions.length - 1 ? (
+              <>
+                Next
+                <ArrowRight className="h-4 w-4" />
+              </>
+            ) : (
+              "Finish Quiz"
+            )}
           </Button>
         ) : (
           <Button 

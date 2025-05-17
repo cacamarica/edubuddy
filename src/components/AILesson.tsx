@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { getAIEducationContent } from '@/services/aiEducationService';
-import { BookOpen, Star } from 'lucide-react';
+import { BookOpen, Star, Image, ArrowLeft, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface AILessonProps {
@@ -14,18 +14,31 @@ interface AILessonProps {
   onComplete?: () => void;
 }
 
+interface LessonImage {
+  url: string;
+  alt: string;
+  caption?: string;
+}
+
+interface LessonContentSection {
+  heading: string;
+  text: string;
+  image?: LessonImage;
+}
+
 interface LessonContent {
   title: string;
   introduction: string;
-  mainContent: Array<{
-    heading: string;
-    text: string;
-  }>;
+  mainContent: LessonContentSection[];
   funFacts: string[];
   activity: {
     title: string;
     instructions: string;
+    image?: LessonImage;
   };
+  conclusion?: string;
+  summary?: string;
+  images?: LessonImage[];
 }
 
 const AILesson = ({ subject, gradeLevel, topic, onComplete }: AILessonProps) => {
@@ -33,6 +46,7 @@ const AILesson = ({ subject, gradeLevel, topic, onComplete }: AILessonProps) => 
   const [lessonContent, setLessonContent] = useState<LessonContent | null>(null);
   const [currentSection, setCurrentSection] = useState(0);
   const [lessonCompleted, setLessonCompleted] = useState(false);
+  const [readingTime, setReadingTime] = useState('10-15 minutes');
 
   const generateLesson = async () => {
     setIsLoading(true);
@@ -44,7 +58,31 @@ const AILesson = ({ subject, gradeLevel, topic, onComplete }: AILessonProps) => 
         topic
       });
       
-      setLessonContent(result.content);
+      // Process the content to ensure it has the right format
+      const processedContent = {
+        ...result.content,
+        // Ensure all sections have the expected properties
+        mainContent: result.content.mainContent.map((section: any) => ({
+          ...section,
+          // If image is not provided, default to null or a placeholder
+          image: section.image || null
+        }))
+      };
+      
+      setLessonContent(processedContent);
+      
+      // Estimate reading time based on content length
+      const totalText = 
+        processedContent.introduction + 
+        processedContent.mainContent.reduce((acc: string, section: LessonContentSection) => acc + section.text, '') +
+        (processedContent.conclusion || '');
+      
+      // Rough estimate: average reading speed is ~200-250 words per minute
+      const wordCount = totalText.split(/\s+/).length;
+      const minutes = Math.ceil(wordCount / 200);
+      
+      setReadingTime(`${minutes}-${minutes + 5} minutes`);
+      
     } catch (error) {
       console.error("Failed to generate lesson:", error);
       toast.error("Oops! We couldn't create your lesson right now. Please try again!");
@@ -56,6 +94,7 @@ const AILesson = ({ subject, gradeLevel, topic, onComplete }: AILessonProps) => 
   const handleNextSection = () => {
     if (lessonContent && currentSection < lessonContent.mainContent.length - 1) {
       setCurrentSection(currentSection + 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
       setLessonCompleted(true);
       toast.success("You completed the lesson! Great job!", {
@@ -68,6 +107,7 @@ const AILesson = ({ subject, gradeLevel, topic, onComplete }: AILessonProps) => 
   const handlePrevSection = () => {
     if (currentSection > 0) {
       setCurrentSection(currentSection - 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -92,7 +132,11 @@ const AILesson = ({ subject, gradeLevel, topic, onComplete }: AILessonProps) => 
             Discover exciting facts and fun activities about {topic} in {subject}
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex justify-center">
+        <CardContent className="flex flex-col items-center gap-4">
+          <p className="text-center text-muted-foreground">
+            This comprehensive lesson will take approximately {readingTime} to complete and includes images 
+            and activities to help you understand {topic}.
+          </p>
           <Button onClick={generateLesson} className="bg-eduPurple hover:bg-eduPurple-dark">
             <BookOpen className="mr-2 h-4 w-4" />
             Start Lesson
@@ -110,7 +154,14 @@ const AILesson = ({ subject, gradeLevel, topic, onComplete }: AILessonProps) => 
           <CardDescription>Great job learning about {topic}!</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
+          <div className="space-y-6">
+            {lessonContent.summary && (
+              <div className="bg-eduPastel-blue p-4 rounded-lg">
+                <h3 className="font-semibold font-display text-lg">Summary</h3>
+                <p>{lessonContent.summary}</p>
+              </div>
+            )}
+            
             <div className="bg-eduPastel-yellow p-4 rounded-lg">
               <h3 className="font-semibold font-display text-lg">Fun Facts</h3>
               <ul className="list-disc pl-5 space-y-2">
@@ -122,7 +173,24 @@ const AILesson = ({ subject, gradeLevel, topic, onComplete }: AILessonProps) => 
             
             <div className="bg-eduPastel-green p-4 rounded-lg">
               <h3 className="font-semibold font-display text-lg">{lessonContent.activity.title}</h3>
-              <p>{lessonContent.activity.instructions}</p>
+              <p className="mb-4">{lessonContent.activity.instructions}</p>
+              
+              {lessonContent.activity.image && (
+                <div className="mt-4 flex flex-col items-center">
+                  <div className="w-full max-w-md rounded-lg overflow-hidden">
+                    <img 
+                      src={lessonContent.activity.image.url} 
+                      alt={lessonContent.activity.image.alt} 
+                      className="w-full h-auto object-cover"
+                    />
+                  </div>
+                  {lessonContent.activity.image.caption && (
+                    <p className="text-sm text-muted-foreground mt-2">
+                      {lessonContent.activity.image.caption}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </CardContent>
@@ -144,37 +212,82 @@ const AILesson = ({ subject, gradeLevel, topic, onComplete }: AILessonProps) => 
   }
 
   return (
-    <Card>
+    <Card className="overflow-hidden">
       <CardHeader>
-        <CardTitle className="text-xl md:text-2xl font-display">{lessonContent.title}</CardTitle>
-        {currentSection === 0 && <CardDescription>{lessonContent.introduction}</CardDescription>}
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-xl md:text-2xl font-display">{lessonContent.title}</CardTitle>
+          <span className="text-sm text-muted-foreground bg-eduPastel-purple px-2 py-1 rounded-full">
+            Reading time: {readingTime}
+          </span>
+        </div>
+        {currentSection === 0 && (
+          <CardDescription className="mt-4">{lessonContent.introduction}</CardDescription>
+        )}
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          <h3 className="font-semibold font-display text-lg">{lessonContent.mainContent[currentSection].heading}</h3>
-          <p>{lessonContent.mainContent[currentSection].text}</p>
+        <div className="space-y-6">
+          <h3 className="font-semibold font-display text-xl">{lessonContent.mainContent[currentSection].heading}</h3>
+          <div className="prose max-w-none">
+            {lessonContent.mainContent[currentSection].text.split('\n\n').map((paragraph, idx) => (
+              <p key={idx} className="my-4">{paragraph}</p>
+            ))}
+          </div>
           
-          <div className="w-full bg-muted h-2 rounded-full mt-6">
+          {lessonContent.mainContent[currentSection].image && (
+            <div className="my-6 flex flex-col items-center">
+              <div className="w-full rounded-lg overflow-hidden shadow-md bg-white p-2">
+                <div className="relative aspect-video">
+                  <img 
+                    src={lessonContent.mainContent[currentSection].image?.url} 
+                    alt={lessonContent.mainContent[currentSection].image?.alt || "Lesson illustration"}
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                {lessonContent.mainContent[currentSection].image?.caption && (
+                  <p className="text-sm text-center text-muted-foreground mt-2 italic">
+                    {lessonContent.mainContent[currentSection].image.caption}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+          
+          {currentSection === lessonContent.mainContent.length - 1 && lessonContent.conclusion && (
+            <div className="mt-8 border-t pt-4">
+              <h3 className="font-semibold font-display text-lg">Conclusion</h3>
+              <p>{lessonContent.conclusion}</p>
+            </div>
+          )}
+          
+          <div className="w-full bg-muted h-2 rounded-full mt-8">
             <div 
               className="bg-eduPurple h-2 rounded-full" 
               style={{ width: `${((currentSection + 1) / lessonContent.mainContent.length) * 100}%` }}
             ></div>
           </div>
-          <p className="text-center text-sm text-muted-foreground">
-            Section {currentSection + 1} of {lessonContent.mainContent.length}
-          </p>
+          <div className="flex justify-between text-sm text-muted-foreground">
+            <span>Section {currentSection + 1} of {lessonContent.mainContent.length}</span>
+            <span>{Math.round(((currentSection + 1) / lessonContent.mainContent.length) * 100)}% complete</span>
+          </div>
         </div>
       </CardContent>
-      <CardFooter className="flex justify-between">
+      <CardFooter className="flex justify-between pt-6 border-t mt-6">
         <Button 
           onClick={handlePrevSection}
           disabled={currentSection === 0}
           variant="outline"
+          className="flex items-center gap-2"
         >
+          <ArrowLeft className="h-4 w-4" />
           Previous
         </Button>
-        <Button onClick={handleNextSection} className="bg-eduPurple hover:bg-eduPurple-dark">
-          {currentSection < lessonContent.mainContent.length - 1 ? "Next" : "Complete Lesson"}
+        <Button onClick={handleNextSection} className="bg-eduPurple hover:bg-eduPurple-dark flex items-center gap-2">
+          {currentSection < lessonContent.mainContent.length - 1 ? (
+            <>
+              Next
+              <ArrowRight className="h-4 w-4" />
+            </>
+          ) : "Complete Lesson"}
         </Button>
       </CardFooter>
     </Card>

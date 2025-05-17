@@ -13,6 +13,7 @@ import { ChevronLeft, BookOpen, PencilRuler, Gamepad, Sparkles } from 'lucide-re
 import AILesson from '@/components/AILesson';
 import AIQuiz from '@/components/AIQuiz';
 import AIGame from '@/components/AIGame';
+import StudentProfile from '@/components/StudentProfile';
 import { toast } from 'sonner';
 
 // Common subject options based on grade level
@@ -53,6 +54,14 @@ const topicSuggestions = {
   }
 };
 
+interface Student {
+  id: string;
+  name: string;
+  age: number;
+  gradeLevel: 'k-3' | '4-6' | '7-9';
+  avatar?: string;
+}
+
 const AILearning = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -63,7 +72,18 @@ const AILearning = () => {
   const [topic, setTopic] = useState<string>(location.state?.topic || '');
   const [contentReady, setContentReady] = useState(false);
   const [activeTab, setActiveTab] = useState('lesson');
-  const [stars, setStars] = useState(0);
+  const [stars, setStars] = useState(() => {
+    const savedStars = localStorage.getItem('eduAppStars');
+    return savedStars ? parseInt(savedStars) : 0;
+  });
+  const [currentStudent, setCurrentStudent] = useState<Student | null>(null);
+  const [showProfileManager, setShowProfileManager] = useState(false);
+  const [customTopic, setCustomTopic] = useState('');
+
+  // Save stars to localStorage when they change
+  useEffect(() => {
+    localStorage.setItem('eduAppStars', stars.toString());
+  }, [stars]);
 
   // Handle auto-start of content if navigated with specific topic
   useEffect(() => {
@@ -85,6 +105,13 @@ const AILearning = () => {
     }
   }, [gradeLevel, subject]);
 
+  // Update grade level when student profile changes
+  useEffect(() => {
+    if (currentStudent) {
+      setGradeLevel(currentStudent.gradeLevel);
+    }
+  }, [currentStudent]);
+
   const handleGoBack = () => {
     navigate('/lessons');
   };
@@ -94,8 +121,12 @@ const AILearning = () => {
   };
 
   const handleCreateContent = () => {
-    if (topic.trim()) {
+    const finalTopic = customTopic.trim() ? customTopic : topic;
+    if (finalTopic.trim()) {
+      setTopic(finalTopic);
       setContentReady(true);
+    } else {
+      toast.error("Please enter a topic or select one from the suggestions");
     }
   };
 
@@ -107,6 +138,13 @@ const AILearning = () => {
   const handleReset = () => {
     setContentReady(false);
     setTopic('');
+    setCustomTopic('');
+  };
+
+  const handleStudentChange = (student: Student) => {
+    setCurrentStudent(student);
+    setGradeLevel(student.gradeLevel);
+    setShowProfileManager(false);
   };
 
   const gradeName = {
@@ -148,102 +186,124 @@ const AILearning = () => {
                 </p>
               </div>
               
-              {stars > 0 && (
-                <div className="mt-4 md:mt-0 bg-white px-4 py-2 rounded-lg shadow flex items-center gap-2">
-                  <Sparkles className="h-5 w-5 text-yellow-500" />
-                  <span className="font-semibold">{stars} Stars Earned</span>
-                </div>
-              )}
+              <div className="mt-4 md:mt-0 flex flex-col md:flex-row gap-2 md:items-center">
+                {currentStudent && (
+                  <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-lg shadow">
+                    <div className="w-8 h-8 rounded-full bg-eduPastel-purple flex items-center justify-center text-lg">
+                      {currentStudent.avatar || '👦'}
+                    </div>
+                    <span className="font-medium">{currentStudent.name}</span>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => setShowProfileManager(!showProfileManager)}
+                      className="ml-1"
+                    >
+                      {showProfileManager ? 'Hide' : 'Change'}
+                    </Button>
+                  </div>
+                )}
+                
+                {stars > 0 && (
+                  <div className="bg-white px-4 py-2 rounded-lg shadow flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-yellow-500" />
+                    <span className="font-semibold">{stars} Stars Earned</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </section>
         
-        <section className="py-12">
+        {showProfileManager && (
+          <section className="py-4">
+            <div className="container px-4 md:px-6">
+              <StudentProfile 
+                onStudentChange={handleStudentChange} 
+                currentStudentId={currentStudent?.id} 
+              />
+            </div>
+          </section>
+        )}
+        
+        <section className="py-8">
           <div className="container px-4 md:px-6">
             {!contentReady ? (
-              <Card className="max-w-2xl mx-auto">
-                <CardHeader>
-                  <CardTitle className="text-xl md:text-2xl font-display">Create Your Learning Content</CardTitle>
-                  <CardDescription>
-                    Tell us what you want to learn about and we'll create custom content just for you!
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="gradeLevel">Grade Level</Label>
-                    <div className="flex flex-wrap gap-2">
-                      {['k-3', '4-6', '7-9'].map((grade) => (
-                        <Button 
-                          key={grade}
-                          type="button"
-                          variant={gradeLevel === grade ? "default" : "outline"}
-                          className={gradeLevel === grade ? "bg-eduPurple hover:bg-eduPurple-dark" : ""}
-                          onClick={() => {
-                            setGradeLevel(grade as 'k-3' | '4-6' | '7-9');
-                          }}
-                        >
-                          {gradeName[grade as keyof typeof gradeName]}
-                        </Button>
-                      ))}
-                    </div>
+              <div className="grid gap-6 md:grid-cols-3">
+                {!currentStudent && (
+                  <div className="md:col-span-3">
+                    <StudentProfile onStudentChange={handleStudentChange} />
                   </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="subject">Subject</Label>
-                    <div className="flex flex-wrap gap-2">
-                      {subjectOptions[gradeLevel].map((subjectOption) => (
-                        <Button 
-                          key={subjectOption}
-                          type="button"
-                          variant={subject === subjectOption ? "default" : "outline"}
-                          className={subject === subjectOption ? "bg-eduPurple hover:bg-eduPurple-dark" : ""}
-                          onClick={() => setSubject(subjectOption)}
-                        >
-                          {subjectOption}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="topic">Topic</Label>
-                    <Input 
-                      id="topic"
-                      placeholder="Enter a topic like 'Dinosaurs' or 'Addition'"
-                      value={topic}
-                      onChange={(e) => setTopic(e.target.value)}
-                    />
-                    <div className="mt-2">
-                      <p className="text-sm text-muted-foreground mb-2">Suggested topics for {subject}:</p>
+                )}
+                
+                <Card className="md:col-span-3">
+                  <CardHeader>
+                    <CardTitle className="text-xl md:text-2xl font-display">Create Your Learning Content</CardTitle>
+                    <CardDescription>
+                      Tell us what you want to learn about and we'll create custom content just for you!
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="subject">Subject</Label>
                       <div className="flex flex-wrap gap-2">
-                        {getTopicSuggestionsForSubject(subject)?.map((suggestion) => (
+                        {subjectOptions[gradeLevel].map((subjectOption) => (
                           <Button 
-                            key={suggestion}
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleTopicSelect(suggestion)}
-                            className="bg-eduPastel-purple hover:bg-eduPastel-purple/80"
+                            key={subjectOption}
+                            type="button"
+                            variant={subject === subjectOption ? "default" : "outline"}
+                            className={subject === subjectOption ? "bg-eduPurple hover:bg-eduPurple-dark" : ""}
+                            onClick={() => setSubject(subjectOption)}
                           >
-                            {suggestion}
+                            {subjectOption}
                           </Button>
                         ))}
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-                <CardFooter className="flex justify-center">
-                  <Button 
-                    onClick={handleCreateContent} 
-                    disabled={!topic.trim()}
-                    className="bg-eduPurple hover:bg-eduPurple-dark"
-                  >
-                    <Sparkles className="mr-2 h-4 w-4" />
-                    Create Learning Content
-                  </Button>
-                </CardFooter>
-              </Card>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="topic">Topic</Label>
+                      <Input 
+                        id="customTopic"
+                        placeholder="Enter any topic you want to learn about..."
+                        value={customTopic}
+                        onChange={(e) => setCustomTopic(e.target.value)}
+                      />
+                      <div className="mt-2">
+                        <p className="text-sm text-muted-foreground mb-2">Or select a suggested topic for {subject}:</p>
+                        <div className="flex flex-wrap gap-2">
+                          {getTopicSuggestionsForSubject(subject)?.map((suggestion) => (
+                            <Button 
+                              key={suggestion}
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setTopic(suggestion);
+                                setCustomTopic('');
+                              }}
+                              className="bg-eduPastel-purple hover:bg-eduPastel-purple/80"
+                            >
+                              {suggestion}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                  <CardFooter className="flex justify-center">
+                    <Button 
+                      onClick={handleCreateContent} 
+                      disabled={!topic.trim() && !customTopic.trim()}
+                      className="bg-eduPurple hover:bg-eduPurple-dark"
+                    >
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      Create Learning Content
+                    </Button>
+                  </CardFooter>
+                </Card>
+              </div>
             ) : (
-              <div className="max-w-3xl mx-auto">
+              <div className="max-w-4xl mx-auto">
                 <div className="mb-6 flex justify-between items-center">
                   <h2 className="text-2xl font-display font-bold">
                     Learning About: {topic} <span className="text-muted-foreground">({subject})</span>
