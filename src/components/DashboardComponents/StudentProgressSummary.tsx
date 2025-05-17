@@ -6,6 +6,14 @@ import { studentProgressService, StudentProgress } from '@/services/studentProgr
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from 'recharts';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Spinner } from '@/components/ui/spinner';
+import { Filter } from 'lucide-react';
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select';
 
 interface StudentProgressSummaryProps {
   studentId: string;
@@ -15,7 +23,9 @@ const COLORS = ['#845EF7', '#FF6B6B', '#4D9DE0', '#33A1FD', '#22B8CF', '#51CF66'
 
 const StudentProgressSummary: React.FC<StudentProgressSummaryProps> = ({ studentId }) => {
   const [progressData, setProgressData] = useState<StudentProgress[]>([]);
+  const [filteredData, setFilteredData] = useState<StudentProgress[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [subjectFilter, setSubjectFilter] = useState<string>('all');
   const { language } = useLanguage();
   
   useEffect(() => {
@@ -23,6 +33,7 @@ const StudentProgressSummary: React.FC<StudentProgressSummaryProps> = ({ student
       setIsLoading(true);
       const data = await studentProgressService.getSubjectProgress(studentId);
       setProgressData(data);
+      setFilteredData(data);
       setIsLoading(false);
     };
     
@@ -31,32 +42,65 @@ const StudentProgressSummary: React.FC<StudentProgressSummaryProps> = ({ student
     }
   }, [studentId]);
   
+  // Apply filtering
+  useEffect(() => {
+    if (subjectFilter === 'all') {
+      setFilteredData(progressData);
+    } else {
+      setFilteredData(progressData.filter(item => item.subject === subjectFilter));
+    }
+  }, [subjectFilter, progressData]);
+  
   // Process data for chart
-  const chartData = progressData.map((item, index) => ({
+  const chartData = filteredData.map((item, index) => ({
     name: item.subject,
     value: item.progress,
     color: COLORS[index % COLORS.length]
   }));
   
   // Calculate overall progress
-  const overallProgress = progressData.length > 0 
-    ? Math.round(progressData.reduce((sum, item) => sum + item.progress, 0) / progressData.length) 
+  const overallProgress = filteredData.length > 0 
+    ? Math.round(filteredData.reduce((sum, item) => sum + item.progress, 0) / filteredData.length) 
     : 0;
-    
+  
+  // Get unique subjects for filter
+  const subjects = Array.from(new Set(progressData.map(item => item.subject)));
+  
   return (
     <Card className="h-full">
       <CardHeader>
-        <CardTitle>{language === 'id' ? 'Ringkasan Kemajuan' : 'Progress Summary'}</CardTitle>
-        <CardDescription>
-          {language === 'id' ? 'Kemajuan belajar berdasarkan mata pelajaran' : 'Learning progress by subject'}
-        </CardDescription>
+        <div className="flex justify-between items-center">
+          <div>
+            <CardTitle>{language === 'id' ? 'Ringkasan Kemajuan' : 'Progress Summary'}</CardTitle>
+            <CardDescription>
+              {language === 'id' ? 'Kemajuan belajar berdasarkan mata pelajaran' : 'Learning progress by subject'}
+            </CardDescription>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            <Select value={subjectFilter} onValueChange={setSubjectFilter}>
+              <SelectTrigger className="w-[130px]">
+                <SelectValue placeholder={language === 'id' ? "Filter" : "Filter"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">
+                  {language === 'id' ? 'Semua' : 'All'}
+                </SelectItem>
+                {subjects.map(subject => (
+                  <SelectItem key={subject} value={subject}>{subject}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
         {isLoading ? (
           <div className="flex justify-center items-center h-40">
             <Spinner size="lg" />
           </div>
-        ) : progressData.length > 0 ? (
+        ) : filteredData.length > 0 ? (
           <div className="space-y-8">
             <div className="space-y-2">
               <div className="flex justify-between items-center">
@@ -69,7 +113,7 @@ const StudentProgressSummary: React.FC<StudentProgressSummaryProps> = ({ student
             </div>
             
             <div className="grid gap-4">
-              {progressData.map((subject) => (
+              {filteredData.map((subject) => (
                 <div key={subject.id} className="space-y-1">
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-medium">{subject.subject}</span>
@@ -80,7 +124,7 @@ const StudentProgressSummary: React.FC<StudentProgressSummaryProps> = ({ student
               ))}
             </div>
             
-            {progressData.length >= 2 && (
+            {filteredData.length >= 2 && (
               <div className="h-60">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
