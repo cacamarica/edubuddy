@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 
 interface QuizErrorProps {
   onTryAgain: () => void;
-  error?: string; // Add the error prop that was missing
+  error?: string;
 }
 
 const QuizError: React.FC<QuizErrorProps> = ({ onTryAgain, error }) => {
