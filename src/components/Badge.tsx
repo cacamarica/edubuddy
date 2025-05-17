@@ -36,6 +36,20 @@ const Badge = ({ type = 'award', name, imageUrl, className = '' }: BadgeProps) =
             src={imageUrl} 
             alt={name}
             className="w-full h-full object-cover" 
+            onError={(e) => {
+              // Fallback to default icon if image fails to load
+              (e.target as HTMLImageElement).style.display = 'none';
+              const parent = (e.target as HTMLImageElement).parentElement;
+              if (parent) {
+                parent.innerHTML = `<div class="flex items-center justify-center w-full h-full bg-eduPastel-purple">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" 
+                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6 text-eduPurple">
+                    <circle cx="12" cy="8" r="7"></circle>
+                    <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline>
+                  </svg>
+                </div>`;
+              }
+            }}
           />
         </div>
         <p className="text-sm font-medium mt-1">{name}</p>

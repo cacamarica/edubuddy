@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +7,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { Spinner } from '@/components/ui/spinner';
 import { format } from 'date-fns';
 import { BookOpen, PencilRuler, Gamepad, Award } from 'lucide-react';
+import CustomBadge from '@/components/Badge';
 
 interface RecentActivitiesProps {
   studentId: string;
@@ -26,7 +26,39 @@ const RecentActivities: React.FC<RecentActivitiesProps> = ({ studentId }) => {
       
       setIsLoadingActivities(true);
       const data = await studentProgressService.getLearningActivities(studentId, 5);
-      setActivities(data);
+      
+      // Remove duplicate activities by keeping the most recent one for each topic
+      const uniqueActivities = data.reduce((acc: LearningActivity[], current) => {
+        const existingIndex = acc.findIndex(item => 
+          item.activity_type === current.activity_type && 
+          item.topic === current.topic && 
+          item.subject === current.subject
+        );
+        
+        if (existingIndex === -1) {
+          acc.push(current);
+        } else {
+          // Replace if current is more recent
+          const existing = acc[existingIndex];
+          const currentDate = new Date(current.last_interaction_at || '');
+          const existingDate = new Date(existing.last_interaction_at || '');
+          
+          if (currentDate > existingDate) {
+            acc[existingIndex] = current;
+          }
+        }
+        
+        return acc;
+      }, []);
+      
+      // Sort by most recent first
+      uniqueActivities.sort((a, b) => {
+        const dateA = new Date(a.last_interaction_at || '');
+        const dateB = new Date(b.last_interaction_at || '');
+        return dateB.getTime() - dateA.getTime();
+      });
+      
+      setActivities(uniqueActivities);
       setIsLoadingActivities(false);
     };
     
@@ -154,16 +186,19 @@ const RecentActivities: React.FC<RecentActivitiesProps> = ({ studentId }) => {
                   key={studentBadge.id} 
                   className="flex flex-col items-center text-center p-2 border rounded-lg"
                 >
-                  <Avatar className="h-16 w-16 mb-2">
-                    {studentBadge.badge?.image_url ? (
-                      <AvatarImage src={studentBadge.badge.image_url} alt={studentBadge.badge.name} />
-                    ) : (
-                      <AvatarFallback className="bg-eduPastel-purple">
-                        <Award className="h-8 w-8 text-eduPurple" />
-                      </AvatarFallback>
-                    )}
-                  </Avatar>
-                  <h4 className="font-medium text-sm">{studentBadge.badge?.name}</h4>
+                  {studentBadge.badge?.image_url ? (
+                    <CustomBadge
+                      name={studentBadge.badge.name}
+                      imageUrl={studentBadge.badge.image_url}
+                      className="mb-2"
+                    />
+                  ) : (
+                    <CustomBadge
+                      type="trophy"
+                      name={studentBadge.badge?.name || 'Badge'}
+                      className="bg-eduPastel-purple text-eduPurple"
+                    />
+                  )}
                   <p className="text-xs text-muted-foreground mt-1">
                     {formatDate(studentBadge.earned_at)}
                   </p>

@@ -10,6 +10,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { studentProgressService } from "@/services/studentProgressService";
 import { toast } from "sonner";
 import { fetchQuizQuestions, saveQuizProgress, getQuizProgress } from "@/services/quizService";
+import { playSound } from "@/utils/SoundEffects";
 
 export interface AIQuizProps {
   subject: string;
