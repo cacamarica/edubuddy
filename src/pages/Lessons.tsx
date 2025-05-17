@@ -7,7 +7,7 @@ import SubjectCard from '@/components/SubjectCard';
 import LearningBuddy from '@/components/LearningBuddy';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Award, ChevronLeft, Star } from 'lucide-react';
+import { Award, ChevronLeft, Star, Sparkles } from 'lucide-react';
 
 const Lessons = () => {
   const location = useLocation();
@@ -39,6 +39,10 @@ const Lessons = () => {
   
   const handleGoBack = () => {
     navigate('/');
+  };
+
+  const handleGoToAILearning = () => {
+    navigate('/ai-learning', { state: { gradeLevel } });
   };
 
   return (
@@ -84,6 +88,25 @@ const Lessons = () => {
                   <span className="font-semibold">3</span>
                 </div>
               </div>
+            </div>
+          </div>
+        </section>
+        
+        {/* AI Learning Banner */}
+        <section className="py-6 bg-gradient-to-r from-eduPurple to-blue-600">
+          <div className="container px-4 md:px-6">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-white">
+              <div className="flex-1">
+                <h2 className="text-2xl font-display font-bold mb-2">AI Learning Adventure</h2>
+                <p className="opacity-90">Create custom lessons, quizzes, and games about any topic with our AI learning assistant!</p>
+              </div>
+              <Button 
+                onClick={handleGoToAILearning}
+                className="bg-white text-eduPurple hover:bg-gray-100"
+              >
+                <Sparkles className="mr-2 h-4 w-4" />
+                Try AI Learning
+              </Button>
             </div>
           </div>
         </section>

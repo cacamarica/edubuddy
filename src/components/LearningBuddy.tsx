@@ -1,5 +1,5 @@
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { MessageCircle, Send, Award, Star, HelpCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from "@/integrations/supabase/client";
 
 interface Message {
   id: string;
@@ -18,6 +19,7 @@ interface Message {
   timestamp: Date;
 }
 
+// Static responses for when not using AI
 const BUDDY_RESPONSES = {
   general: [
     "That's a great question! Let me help you with that.",
@@ -62,9 +64,76 @@ const LearningBuddy = () => {
     },
   ]);
   const [inputValue, setInputValue] = useState('');
+  const [isAIEnabled, setIsAIEnabled] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const getBuddyResponse = (question: string): string => {
+  // Store messages in localStorage
+  useEffect(() => {
+    if (messages.length > 1) { // Don't save just the intro message
+      localStorage.setItem('learningBuddy_messages', JSON.stringify(messages));
+    }
+  }, [messages]);
+
+  // Load messages from localStorage
+  useEffect(() => {
+    const savedMessages = localStorage.getItem('learningBuddy_messages');
+    if (savedMessages) {
+      try {
+        const parsedMessages = JSON.parse(savedMessages);
+        // Convert string timestamps back to Date objects
+        const processedMessages = parsedMessages.map((msg: any) => ({
+          ...msg,
+          timestamp: new Date(msg.timestamp)
+        }));
+        setMessages(processedMessages);
+      } catch (error) {
+        console.error('Error loading saved messages:', error);
+      }
+    }
+  }, []);
+
+  const getBuddyResponse = async (question: string): Promise<string> => {
+    // If AI is not enabled or there's an error, fall back to static responses
+    if (!isAIEnabled) {
+      return getStaticResponse(question);
+    }
+    
+    try {
+      setIsLoading(true);
+      
+      const { data, error } = await supabase.functions.invoke('ai-edu-content', {
+        body: {
+          contentType: 'buddy',
+          subject: 'general',
+          gradeLevel: 'k-3', // Default to younger students for simpler language
+          topic: question
+        }
+      });
+      
+      if (error) throw error;
+      
+      setIsLoading(false);
+      
+      // Extract response from AI
+      const response = data?.content?.response || data?.content;
+      
+      if (typeof response === 'string') {
+        return response;
+      }
+      
+      // Fallback in case the AI format is unexpected
+      return "I'm here to help! What would you like to know about?";
+    } catch (error) {
+      console.error('Error getting AI buddy response:', error);
+      setIsLoading(false);
+      
+      // Fall back to static responses if AI fails
+      return getStaticResponse(question);
+    }
+  };
+
+  const getStaticResponse = (question: string): string => {
     const lowerQuestion = question.toLowerCase();
     
     // Match question to categories
@@ -100,8 +169,8 @@ const LearningBuddy = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const handleSendMessage = () => {
-    if (!inputValue.trim()) return;
+  const handleSendMessage = async () => {
+    if (!inputValue.trim() || isLoading) return;
     
     // Add user message
     const userMessage: Message = {
@@ -113,19 +182,21 @@ const LearningBuddy = () => {
     
     setMessages((prev) => [...prev, userMessage]);
     setInputValue('');
+    setIsLoading(true);
     
-    // Simulate thinking
-    setTimeout(() => {
+    try {
+      // Get AI or static response
+      const response = await getBuddyResponse(userMessage.text);
+      
       // Add buddy response
       const buddyResponse: Message = {
         id: (Date.now() + 1).toString(),
-        text: getBuddyResponse(inputValue),
+        text: response,
         sender: 'buddy',
         timestamp: new Date(),
       };
       
       setMessages((prev) => [...prev, buddyResponse]);
-      scrollToBottom();
       
       // Show encouragement toast occasionally
       if (Math.random() > 0.7) {
@@ -133,7 +204,20 @@ const LearningBuddy = () => {
           position: "bottom-right",
         });
       }
-    }, 1000);
+    } catch (error) {
+      console.error('Error in buddy response:', error);
+      // Add fallback response if there's an error
+      const errorResponse: Message = {
+        id: (Date.now() + 1).toString(),
+        text: "I'm having trouble thinking right now. Can you ask me something else?",
+        sender: 'buddy',
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorResponse]);
+    } finally {
+      setIsLoading(false);
+      scrollToBottom();
+    }
   };
 
   return (
@@ -158,9 +242,14 @@ const LearningBuddy = () => {
               <h3 className="font-semibold">Learning Buddy</h3>
               <p className="text-xs text-white/80">Always here to help!</p>
             </div>
-            <Button size="sm" variant="ghost" className="ml-auto h-8 text-xs gap-1">
+            <Button 
+              size="sm" 
+              variant="ghost" 
+              className="ml-auto h-8 text-xs gap-1 text-white"
+              onClick={() => setIsAIEnabled(!isAIEnabled)}
+            >
               <Star className="h-3 w-3" />
-              <span>Fun Facts</span>
+              <span>{isAIEnabled ? 'AI On' : 'AI Off'}</span>
             </Button>
           </div>
           
@@ -188,6 +277,17 @@ const LearningBuddy = () => {
                   </div>
                 </div>
               ))}
+              {isLoading && (
+                <div className="flex justify-start">
+                  <div className="max-w-[80%] rounded-lg px-3 py-2 bg-eduPastel-purple text-foreground">
+                    <div className="flex items-center gap-2">
+                      <div className="animate-bounce h-2 w-2 bg-eduPurple rounded-full"></div>
+                      <div className="animate-bounce h-2 w-2 bg-eduPurple rounded-full" style={{ animationDelay: '0.2s' }}></div>
+                      <div className="animate-bounce h-2 w-2 bg-eduPurple rounded-full" style={{ animationDelay: '0.4s' }}></div>
+                    </div>
+                  </div>
+                </div>
+              )}
               <div ref={messagesEndRef} />
             </div>
           </div>
@@ -204,8 +304,9 @@ const LearningBuddy = () => {
                     handleSendMessage();
                   }
                 }}
+                disabled={isLoading}
               />
-              <Button size="icon" onClick={handleSendMessage}>
+              <Button size="icon" onClick={handleSendMessage} disabled={isLoading}>
                 <Send className="h-5 w-5" />
               </Button>
             </div>

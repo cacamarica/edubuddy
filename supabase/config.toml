@@ -1,1 +1,5 @@
+
 project_id = "dnmapxxmswjaxiurqogj"
+
+[functions.ai-edu-content]
+verify_jwt = true
