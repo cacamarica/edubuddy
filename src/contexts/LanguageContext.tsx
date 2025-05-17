@@ -1,161 +1,102 @@
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 
 type Language = 'en' | 'id';
 
+interface Translation {
+  [key: string]: string;
+}
+
 interface LanguageContextType {
   language: Language;
-  setLanguage: (lang: Language) => void;
+  setLanguage: (language: Language) => void;
   t: (key: string) => string;
 }
 
-const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
-
-interface LanguageProviderProps {
-  children: ReactNode;
+interface TranslationsType {
+  en: Translation;
+  id: Translation;
 }
 
-export const translations = {
+const translations: TranslationsType = {
   en: {
-    // Header
-    'header.dashboard': 'Dashboard',
-    'header.lessons': 'Lessons',
-    'header.profile': 'Profile',
-    'header.about': 'About',
-
-    // AI Learning
-    'learning.backToLessons': 'Back to Lessons',
-    'learning.learningAbout': 'Learning About:',
-    'learning.newTopic': 'New Topic',
-    'learning.lesson': 'Lesson',
-    'learning.quiz': 'Quiz',
-    'learning.game': 'Game',
-    'learning.selectSubject': 'Select a Subject',
-    'learning.selectTopic': 'Select a Topic',
-    'learning.enterTopic': 'Or enter your own topic',
-    'learning.topicPlaceholder': 'Enter a topic to learn about...',
-    'learning.createContent': 'Create Content',
-    'learning.suggestions': 'Suggestions',
-
-    // Quiz
-    'quiz.creating': 'Creating a fun quiz just for you!',
-    'quiz.moment': 'This might take a moment...',
-    'quiz.start': 'Start Quiz',
-    'quiz.title': 'Let\'s Quiz About',
-    'quiz.description': 'Test your knowledge with this fun quiz!',
-    'quiz.question': 'Question',
-    'quiz.of': 'of',
-    'quiz.checkAnswer': 'Check Answer',
-    'quiz.next': 'Next',
-    'quiz.previous': 'Previous',
-    'quiz.finish': 'Finish Quiz',
-    'quiz.complete': 'Quiz Complete!',
-    'quiz.completed': 'You\'ve completed the Quiz',
-    'quiz.amazing': 'Amazing job! You\'re a quiz superstar! 🌟',
-    'quiz.great': 'Great work! You\'re doing well! 👏',
-    'quiz.good': 'Good try! Let\'s practice more! 💪',
-    'quiz.earned': 'You earned:',
-    'quiz.stars': 'Stars',
-    'quiz.badge': 'Master Badge',
-    'quiz.review': 'Questions you might want to review:',
-    'quiz.correctAnswer': 'Correct answer:',
-    'quiz.tryAgain': 'Try Again',
-    'quiz.newQuiz': 'New Quiz',
-
-    // Game
-    'game.creating': 'Creating a fun game just for you!',
-    'game.moment': 'This might take a moment...',
-    'game.title': 'Let\'s Play and Learn About',
-    'game.description': 'Play a fun game and learn all about',
-    'game.in': 'in',
-    'game.create': 'Create Game',
-    'game.howToPlay': 'How to Play:',
-    'game.materials': 'Materials Needed:',
-    'game.easier': 'Easier Version:',
-    'game.harder': 'Challenge Version:',
-    'game.start': 'Start Game',
-    'game.finished': 'I Finished Playing!',
-
-    // Language
-    'language.select': 'Select Language',
+    'language.select': 'Select language',
     'language.en': 'English',
     'language.id': 'Bahasa Indonesia',
+    'header.dashboard': 'Dashboard',
+    'header.lessons': 'Lessons',
+    'header.about': 'About',
+    'header.faq': 'FAQ',
+    'quiz.creating': 'Creating your quiz...',
+    'quiz.moment': 'This will just take a moment',
+    
+    // Authentication
+    'auth.signIn': 'Sign In',
+    'auth.signUp': 'Sign Up',
+    'auth.createAccount': 'Create Account',
+    'auth.accessAccount': 'Sign in to access your account',
+    'auth.email': 'Email',
+    'auth.password': 'Password',
+    'auth.fullName': 'Full Name',
+    'auth.fullNamePlaceholder': 'Enter your full name',
+    'auth.invalidEmail': 'Please enter a valid email',
+    'auth.passwordMin': 'Password must be at least 6 characters',
+    'auth.fullNameMin': 'Name must be at least 2 characters',
+    'auth.termsNotice': 'By continuing, you agree to our Terms of Service and Privacy Policy',
+    'auth.signingIn': 'Signing in...',
+    'auth.signingUp': 'Creating account...',
+    'auth.signInSuccess': 'Successfully signed in!',
+    'auth.signUpSuccess': 'Account created! You can now sign in.',
+    'auth.signOutSuccess': 'You have been signed out.',
   },
   id: {
-    // Header
-    'header.dashboard': 'Dasbor',
-    'header.lessons': 'Pelajaran',
-    'header.profile': 'Profil',
-    'header.about': 'Tentang',
-
-    // AI Learning
-    'learning.backToLessons': 'Kembali ke Pelajaran',
-    'learning.learningAbout': 'Belajar Tentang:',
-    'learning.newTopic': 'Topik Baru',
-    'learning.lesson': 'Pelajaran',
-    'learning.quiz': 'Kuis',
-    'learning.game': 'Permainan',
-    'learning.selectSubject': 'Pilih Mata Pelajaran',
-    'learning.selectTopic': 'Pilih Topik',
-    'learning.enterTopic': 'Atau masukkan topik sendiri',
-    'learning.topicPlaceholder': 'Masukkan topik untuk dipelajari...',
-    'learning.createContent': 'Buat Konten',
-    'learning.suggestions': 'Saran',
-
-    // Quiz
-    'quiz.creating': 'Membuat kuis seru untukmu!',
-    'quiz.moment': 'Ini mungkin membutuhkan waktu sebentar...',
-    'quiz.start': 'Mulai Kuis',
-    'quiz.title': 'Mari Kuis Tentang',
-    'quiz.description': 'Uji pengetahuanmu dengan kuis seru ini!',
-    'quiz.question': 'Pertanyaan',
-    'quiz.of': 'dari',
-    'quiz.checkAnswer': 'Periksa Jawaban',
-    'quiz.next': 'Selanjutnya',
-    'quiz.previous': 'Sebelumnya',
-    'quiz.finish': 'Selesaikan Kuis',
-    'quiz.complete': 'Kuis Selesai!',
-    'quiz.completed': 'Kamu telah menyelesaikan Kuis',
-    'quiz.amazing': 'Kerja bagus! Kamu adalah bintang kuis! 🌟',
-    'quiz.great': 'Kerja hebat! Kamu melakukannya dengan baik! 👏',
-    'quiz.good': 'Usaha bagus! Mari berlatih lagi! 💪',
-    'quiz.earned': 'Kamu mendapatkan:',
-    'quiz.stars': 'Bintang',
-    'quiz.badge': 'Lencana Ahli',
-    'quiz.review': 'Pertanyaan yang mungkin ingin kamu tinjau:',
-    'quiz.correctAnswer': 'Jawaban benar:',
-    'quiz.tryAgain': 'Coba Lagi',
-    'quiz.newQuiz': 'Kuis Baru',
-
-    // Game
-    'game.creating': 'Membuat permainan seru untukmu!',
-    'game.moment': 'Ini mungkin membutuhkan waktu sebentar...',
-    'game.title': 'Mari Bermain dan Belajar Tentang',
-    'game.description': 'Bermain permainan seru dan pelajari semua tentang',
-    'game.in': 'di',
-    'game.create': 'Buat Permainan',
-    'game.howToPlay': 'Cara Bermain:',
-    'game.materials': 'Bahan yang Dibutuhkan:',
-    'game.easier': 'Versi Lebih Mudah:',
-    'game.harder': 'Versi Tantangan:',
-    'game.start': 'Mulai Permainan',
-    'game.finished': 'Saya Sudah Selesai Bermain!',
-
-    // Language
-    'language.select': 'Pilih Bahasa',
+    'language.select': 'Pilih bahasa',
     'language.en': 'Bahasa Inggris',
     'language.id': 'Bahasa Indonesia',
+    'header.dashboard': 'Dasbor',
+    'header.lessons': 'Pelajaran',
+    'header.about': 'Tentang',
+    'header.faq': 'FAQ',
+    'quiz.creating': 'Membuat kuis Anda...',
+    'quiz.moment': 'Ini akan memakan waktu sebentar',
+    
+    // Authentication
+    'auth.signIn': 'Masuk',
+    'auth.signUp': 'Daftar',
+    'auth.createAccount': 'Buat Akun',
+    'auth.accessAccount': 'Masuk untuk mengakses akun Anda',
+    'auth.email': 'Email',
+    'auth.password': 'Kata Sandi',
+    'auth.fullName': 'Nama Lengkap',
+    'auth.fullNamePlaceholder': 'Masukkan nama lengkap Anda',
+    'auth.invalidEmail': 'Masukkan email yang valid',
+    'auth.passwordMin': 'Kata sandi minimal 6 karakter',
+    'auth.fullNameMin': 'Nama minimal 2 karakter',
+    'auth.termsNotice': 'Dengan melanjutkan, Anda menyetujui Ketentuan Layanan dan Kebijakan Privasi kami',
+    'auth.signingIn': 'Sedang masuk...',
+    'auth.signingUp': 'Membuat akun...',
+    'auth.signInSuccess': 'Berhasil masuk!',
+    'auth.signUpSuccess': 'Akun dibuat! Anda sekarang dapat masuk.',
+    'auth.signOutSuccess': 'Anda telah keluar.',
   }
 };
 
-export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) => {
+const LanguageContext = createContext<LanguageContextType>({
+  language: 'en',
+  setLanguage: () => {},
+  t: (key: string) => key,
+});
+
+export const LanguageProvider = ({ children }: { children: React.ReactNode }) => {
+  // Get saved language from localStorage or default to 'en'
   const [language, setLanguageState] = useState<Language>(() => {
-    const savedLanguage = localStorage.getItem('appLanguage') as Language;
-    return savedLanguage || 'en';
+    const savedLanguage = localStorage.getItem('language');
+    return (savedLanguage === 'id' || savedLanguage === 'en') ? savedLanguage : 'en';
   });
 
+  // When language changes, save to localStorage
   useEffect(() => {
-    localStorage.setItem('appLanguage', language);
+    localStorage.setItem('language', language);
   }, [language]);
 
   const setLanguage = (lang: Language) => {
@@ -163,22 +104,14 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
   };
 
   const t = (key: string) => {
-    return translations[language][key as keyof typeof translations[typeof language]] || key;
+    return translations[language][key] || key;
   };
 
-  const value = {
-    language,
-    setLanguage,
-    t,
-  };
-
-  return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
+  return (
+    <LanguageContext.Provider value={{ language, setLanguage, t }}>
+      {children}
+    </LanguageContext.Provider>
+  );
 };
 
-export const useLanguage = (): LanguageContextType => {
-  const context = useContext(LanguageContext);
-  if (context === undefined) {
-    throw new Error('useLanguage must be used within a LanguageProvider');
-  }
-  return context;
-};
+export const useLanguage = () => useContext(LanguageContext);

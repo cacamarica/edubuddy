@@ -9,6 +9,8 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface GradeGroup {
   name: string;
@@ -49,17 +51,52 @@ const gradeGroups: GradeGroup[] = [
 const GradeSelector = () => {
   const [selectedGrade, setSelectedGrade] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { t, language } = useLanguage();
   
   const handleGradeSelect = (gradeLevel: string) => {
     setSelectedGrade(gradeLevel);
     setTimeout(() => {
-      navigate("/lessons", { state: { gradeLevel } });
+      if (user) {
+        // If already logged in, go directly to lessons
+        navigate("/lessons", { state: { gradeLevel } });
+      } else {
+        // If not logged in, redirect to auth page
+        navigate("/auth", { state: { gradeLevel, action: 'signin' } });
+      }
     }, 500);
+  };
+  
+  const getLocalizedName = (name: string): string => {
+    if (language === 'id') {
+      switch(name) {
+        case 'Early Learners': return 'Pemula';
+        case 'Intermediate': return 'Menengah';
+        case 'Advanced': return 'Lanjutan';
+        default: return name;
+      }
+    }
+    return name;
+  };
+  
+  const getLocalizedDescription = (gradeLevel: 'k-3' | '4-6' | '7-9'): string => {
+    if (language === 'id') {
+      switch(gradeLevel) {
+        case 'k-3': return 'Permainan menyenangkan dan pelajaran berwarna untuk pelajar termuda!';
+        case '4-6': return 'Membangun keterampilan dengan tantangan interaktif!';
+        case '7-9': return 'Konsep lebih mendalam dan petualangan belajar tingkat lanjut!';
+      }
+    }
+    
+    const group = gradeGroups.find(g => g.gradeLevel === gradeLevel);
+    return group?.description || '';
   };
   
   return (
     <div className="w-full max-w-5xl mx-auto py-8">
-      <h2 className="text-3xl font-bold text-center mb-8">Choose Your Grade Level</h2>
+      <h2 className="text-3xl font-bold text-center mb-8">
+        {language === 'id' ? 'Pilih Tingkat Kelas Anda' : 'Choose Your Grade Level'}
+      </h2>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {gradeGroups.map((group) => (
           <Card 
@@ -70,18 +107,18 @@ const GradeSelector = () => {
           >
             <div className={`h-16 ${group.bgColor}`} />
             <CardHeader>
-              <CardTitle>{group.name}</CardTitle>
+              <CardTitle>{getLocalizedName(group.name)}</CardTitle>
               <CardDescription>
-                {group.ageRange} | Grades {group.grades}
+                {group.ageRange} | {language === 'id' ? 'Kelas' : 'Grades'} {group.grades}
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="mb-4">{group.description}</p>
+              <p className="mb-4">{getLocalizedDescription(group.gradeLevel)}</p>
               <Button 
                 className="w-full bg-eduPurple hover:bg-eduPurple-dark"
                 onClick={() => handleGradeSelect(group.gradeLevel)}
               >
-                Select
+                {language === 'id' ? 'Pilih' : 'Select'}
               </Button>
             </CardContent>
           </Card>
