@@ -29,6 +29,7 @@ interface QuizQuestionCardProps {
   onCheckAnswer: () => void;
   onNextQuestion: () => void;
   onPrevQuestion: () => void;
+  questionNumber?: number; // Add this to accept the prop from AIQuiz.tsx
 }
 
 const QuizQuestionCard: React.FC<QuizQuestionCardProps> = ({
@@ -41,7 +42,11 @@ const QuizQuestionCard: React.FC<QuizQuestionCardProps> = ({
   onCheckAnswer,
   onNextQuestion,
   onPrevQuestion,
+  questionNumber, // Accept the prop
 }) => {
+  // Use questionNumber if provided, otherwise use currentQuestionIndex + 1
+  const displayQuestionNumber = questionNumber !== undefined ? questionNumber : currentQuestionIndex + 1;
+  
   return (
     <Card>
       {question.scenario && (
@@ -57,14 +62,14 @@ const QuizQuestionCard: React.FC<QuizQuestionCardProps> = ({
         <div className="mb-6">
           <div className="flex justify-between items-center mb-2">
             <span className="text-sm font-medium">
-              Question {currentQuestionIndex + 1} of {totalQuestions}
+              Question {displayQuestionNumber} of {totalQuestions}
             </span>
             <span className="text-sm font-medium">
-              {Math.round(((currentQuestionIndex + 1) / totalQuestions) * 100)}%
+              {Math.round(((displayQuestionNumber) / totalQuestions) * 100)}%
             </span>
           </div>
           <Progress 
-            value={((currentQuestionIndex + 1) / totalQuestions) * 100} 
+            value={((displayQuestionNumber) / totalQuestions) * 100} 
             className="h-2" 
           />
         </div>

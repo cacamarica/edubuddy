@@ -1,6 +1,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { LearningActivityType } from "@/types/learning";
 
 // Types for student data
 export interface StudentProgress {
@@ -25,7 +26,7 @@ export interface QuizScore {
 export interface LearningActivity {
   id?: string;
   student_id: string;
-  activity_type: 'lesson' | 'quiz' | 'game';
+  activity_type: LearningActivityType; // Use the more specific type
   subject: string;
   topic: string;
   completed?: boolean;
@@ -111,7 +112,12 @@ export const studentProgressService = {
         .limit(limit);
 
       if (error) throw error;
-      return data || [];
+      
+      // Cast the activity_type to our specific type
+      return (data || []).map(item => ({
+        ...item,
+        activity_type: item.activity_type as LearningActivityType
+      }));
     } catch (error) {
       console.error('Error fetching learning activities:', error);
       toast.error('Failed to load learning activities');
@@ -124,12 +130,19 @@ export const studentProgressService = {
     try {
       const { data, error } = await supabase
         .from('learning_activities')
-        .insert([activity])
+        .insert([{
+          ...activity,
+          activity_type: activity.activity_type // Make sure this is properly typed
+        }])
         .select()
         .single();
 
       if (error) throw error;
-      return data;
+      
+      return {
+        ...data,
+        activity_type: data.activity_type as LearningActivityType
+      };
     } catch (error) {
       console.error('Error recording activity:', error);
       toast.error('Failed to record learning activity');
@@ -151,7 +164,11 @@ export const studentProgressService = {
         .single();
 
       if (error) throw error;
-      return data;
+      
+      return {
+        ...data,
+        activity_type: data.activity_type as LearningActivityType
+      };
     } catch (error) {
       console.error('Error updating activity:', error);
       toast.error('Failed to update learning activity');

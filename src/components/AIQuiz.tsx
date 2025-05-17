@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
@@ -29,6 +28,8 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete, limitProgress = false 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<(number | null)[]>([]);
   const [score, setScore] = useState(0);
+  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
+  const [showFeedback, setShowFeedback] = useState(false);
   const { user } = useAuth();
   const { language } = useLanguage();
 
@@ -103,19 +104,23 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete, limitProgress = false 
     }
   };
 
-  const handleAnswer = (answerIndex: number) => {
-    // Record the answer
-    const newAnswers = [...answers];
-    newAnswers[currentQuestionIndex] = answerIndex;
-    setAnswers(newAnswers);
+  const handleSelectAnswer = (answerIndex: number) => {
+    setSelectedAnswer(answerIndex);
+  };
+
+  const handleCheckAnswer = () => {
+    setShowFeedback(true);
     
-    // Check if the answer is correct
-    const currentQuestion = questions[currentQuestionIndex];
-    if (currentQuestion.correctAnswer === answerIndex) {
+    // Check if answer is correct and update score
+    if (selectedAnswer === questions[currentQuestionIndex].correctAnswer) {
       setScore(score + 1);
     }
+  };
+
+  const handleNextQuestion = () => {
+    setShowFeedback(false);
+    setSelectedAnswer(null);
     
-    // Move to the next question or complete the quiz
     if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
     } else {
@@ -123,8 +128,16 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete, limitProgress = false 
       
       // Call the onComplete callback if provided
       if (onComplete) {
-        onComplete(score + (currentQuestion.correctAnswer === answerIndex ? 1 : 0));
+        onComplete(score + (questions[currentQuestionIndex].correctAnswer === selectedAnswer ? 1 : 0));
       }
+    }
+  };
+
+  const handlePrevQuestion = () => {
+    if (currentQuestionIndex > 0) {
+      setCurrentQuestionIndex(currentQuestionIndex - 1);
+      setShowFeedback(false);
+      setSelectedAnswer(answers[currentQuestionIndex - 1]);
     }
   };
 
@@ -133,6 +146,8 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete, limitProgress = false 
     setCurrentQuestionIndex(0);
     setScore(0);
     setAnswers(new Array(questions.length).fill(null));
+    setSelectedAnswer(null);
+    setShowFeedback(false);
   };
 
   const handleNewQuiz = () => {
@@ -142,6 +157,8 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete, limitProgress = false 
     setScore(0);
     setQuestions([]);
     setAnswers([]);
+    setSelectedAnswer(null);
+    setShowFeedback(false);
   };
 
   // Show the appropriate component based on the current state
@@ -163,7 +180,7 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete, limitProgress = false 
   }
 
   if (error) {
-    return <QuizError error={error} onRetry={fetchQuiz} />;
+    return <QuizError onTryAgain={fetchQuiz} error={error} />;
   }
 
   if (quizComplete) {
@@ -186,9 +203,15 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete, limitProgress = false 
     return (
       <QuizQuestionCard
         question={questions[currentQuestionIndex]}
+        currentQuestionIndex={currentQuestionIndex}
         questionNumber={currentQuestionIndex + 1}
         totalQuestions={questions.length}
-        onSelectAnswer={handleAnswer}
+        selectedAnswer={selectedAnswer}
+        showFeedback={showFeedback}
+        onAnswerSelect={handleSelectAnswer}
+        onCheckAnswer={handleCheckAnswer}
+        onNextQuestion={handleNextQuestion}
+        onPrevQuestion={handlePrevQuestion}
       />
     );
   }

@@ -67,6 +67,9 @@ export interface TopicSuggestionsBySubject {
   [key: string]: string[];
 }
 
+// More specific type for activity type
+export type LearningActivityType = 'lesson' | 'quiz' | 'game';
+
 export const topicSuggestionsBySubject: TopicSuggestionsBySubject = {
   'Math': [
     'Counting',
