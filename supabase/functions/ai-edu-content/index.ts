@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -11,68 +10,68 @@ const corsHeaders = {
 // Placeholder images for each subject
 const placeholderImages = {
   'Math': [
-    'https://images.unsplash.com/photo-1518133910546-b6c2fb7d79e3', // math symbols
-    'https://images.unsplash.com/photo-1509228468518-180dd4864904', // calculator
-    'https://images.unsplash.com/photo-1635372722656-389f87a941ae', // geometry
-    'https://images.unsplash.com/photo-1596495578065-6e0763fa1178', // colorful numbers
-    'https://images.unsplash.com/photo-1614741118887-7a4ee193a5fa', // equation
+    'https://images.unsplash.com/photo-1518133910546-b6c2fb7d79e3?auto=format&fit=crop&w=800&q=80', // math symbols
+    'https://images.unsplash.com/photo-1509228468518-180dd4864904?auto=format&fit=crop&w=800&q=80', // calculator
+    'https://images.unsplash.com/photo-1635372722656-389f87a941ae?auto=format&fit=crop&w=800&q=80', // geometry
+    'https://images.unsplash.com/photo-1596495578065-6e0763fa1178?auto=format&fit=crop&w=800&q=80', // colorful numbers
+    'https://images.unsplash.com/photo-1614741118887-7a4ee193a5fa?auto=format&fit=crop&w=800&q=80', // equation
   ],
   'Science': [
-    'https://images.unsplash.com/photo-1628595351029-c2bf17511435', // microscope
-    'https://images.unsplash.com/photo-1517976384346-3136801d605d', // planets
-    'https://images.unsplash.com/photo-1516110833967-0b5716ca1387', // plants
-    'https://images.unsplash.com/photo-1507413245164-6160d8298b31', // chemistry
-    'https://images.unsplash.com/photo-1554475900-0a0350e3fc7b', // experiment
+    'https://images.unsplash.com/photo-1628595351029-c2bf17511435?auto=format&fit=crop&w=800&q=80', // microscope
+    'https://images.unsplash.com/photo-1517976384346-3136801d605d?auto=format&fit=crop&w=800&q=80', // planets
+    'https://images.unsplash.com/photo-1516110833967-0b5716ca1387?auto=format&fit=crop&w=800&q=80', // plants
+    'https://images.unsplash.com/photo-1507413245164-6160d8298b31?auto=format&fit=crop&w=800&q=80', // chemistry
+    'https://images.unsplash.com/photo-1554475900-0a0350e3fc7b?auto=format&fit=crop&w=800&q=80', // experiment
   ],
   'Reading': [
-    'https://images.unsplash.com/photo-1512903989752-7f2c1bddc711', // open book
-    'https://images.unsplash.com/photo-1513001900722-370f803f498d', // library
-    'https://images.unsplash.com/photo-1495446815901-a7297e633e8d', // books
-    'https://images.unsplash.com/photo-1488381397757-59d6261610f4', // reading
-    'https://images.unsplash.com/photo-1506784983877-45594efa4cbe', // letters
+    'https://images.unsplash.com/photo-1512903989752-7f2c1bddc711?auto=format&fit=crop&w=800&q=80', // open book
+    'https://images.unsplash.com/photo-1513001900722-370f803f498d?auto=format&fit=crop&w=800&q=80', // library
+    'https://images.unsplash.com/photo-1495446815901-a7297e633e8d?auto=format&fit=crop&w=800&q=80', // books
+    'https://images.unsplash.com/photo-1488381397757-59d6261610f4?auto=format&fit=crop&w=800&q=80', // reading
+    'https://images.unsplash.com/photo-1506784983877-45594efa4cbe?auto=format&fit=crop&w=800&q=80', // letters
   ],
   'Language Arts': [
-    'https://images.unsplash.com/photo-1512903989752-7f2c1bddc711', // open book
-    'https://images.unsplash.com/photo-1513001900722-370f803f498d', // library
-    'https://images.unsplash.com/photo-1455390582262-044cdead277a', // writing
-    'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8', // typewriter
-    'https://images.unsplash.com/photo-1510936111840-65e151ad71bb', // dictionary
+    'https://images.unsplash.com/photo-1512903989752-7f2c1bddc711?auto=format&fit=crop&w=800&q=80', // open book
+    'https://images.unsplash.com/photo-1513001900722-370f803f498d?auto=format&fit=crop&w=800&q=80', // library
+    'https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=800&q=80', // writing
+    'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?auto=format&fit=crop&w=800&q=80', // typewriter
+    'https://images.unsplash.com/photo-1510936111840-65e151ad71bb?auto=format&fit=crop&w=800&q=80', // dictionary
   ],
   'Social Studies': [
-    'https://images.unsplash.com/photo-1604580864964-0462f5d5b1a8', // globe
-    'https://images.unsplash.com/photo-1559125148-869042e9d898', // map
-    'https://images.unsplash.com/photo-1545670723-196ed0954986', // community
-    'https://images.unsplash.com/photo-1533677308119-8b313fe7f72d', // history
-    'https://images.unsplash.com/photo-1618477460930-8c4c6aa06af5', // cultures
+    'https://images.unsplash.com/photo-1604580864964-0462f5d5b1a8?auto=format&fit=crop&w=800&q=80', // globe
+    'https://images.unsplash.com/photo-1559125148-869042e9d898?auto=format&fit=crop&w=800&q=80', // map
+    'https://images.unsplash.com/photo-1545670723-196ed0954986?auto=format&fit=crop&w=800&q=80', // community
+    'https://images.unsplash.com/photo-1533677308119-8b313fe7f72d?auto=format&fit=crop&w=800&q=80', // history
+    'https://images.unsplash.com/photo-1618477460930-8c4c6aa06af5?auto=format&fit=crop&w=800&q=80', // cultures
   ],
   'History': [
-    'https://images.unsplash.com/photo-1461360370896-922624d12aa1', // clock
-    'https://images.unsplash.com/photo-1476990789491-712b869b91a5', // castle
-    'https://images.unsplash.com/photo-1491156855053-9cdff72c7f85', // pyramids
-    'https://images.unsplash.com/photo-1533294455009-a77b7557d2d1', // old map
-    'https://images.unsplash.com/photo-1495562569060-2eec283d3391', // museum
+    'https://images.unsplash.com/photo-1461360370896-922624d12aa1?auto=format&fit=crop&w=800&q=80', // clock
+    'https://images.unsplash.com/photo-1476990789491-712b869b91a5?auto=format&fit=crop&w=800&q=80', // castle
+    'https://images.unsplash.com/photo-1491156855053-9cdff72c7f85?auto=format&fit=crop&w=800&q=80', // pyramids
+    'https://images.unsplash.com/photo-1533294455009-a77b7557d2d1?auto=format&fit=crop&w=800&q=80', // old map
+    'https://images.unsplash.com/photo-1495562569060-2eec283d3391?auto=format&fit=crop&w=800&q=80', // museum
   ],
   'Geography': [
-    'https://images.unsplash.com/photo-1521295121783-8a321d551ad2', // world map
-    'https://images.unsplash.com/photo-1508900173264-5ff93ea3037e', // mountain
-    'https://images.unsplash.com/photo-1531761535209-180857b9b45b', // river
-    'https://images.unsplash.com/photo-1493246507139-91e8fad9978e', // landscape
-    'https://images.unsplash.com/photo-1605142859862-978be7eba909', // compass
+    'https://images.unsplash.com/photo-1521295121783-8a321d551ad2?auto=format&fit=crop&w=800&q=80', // world map
+    'https://images.unsplash.com/photo-1508900173264-5ff93ea3037e?auto=format&fit=crop&w=800&q=80', // mountain
+    'https://images.unsplash.com/photo-1531761535209-180857b9b45b?auto=format&fit=crop&w=800&q=80', // river
+    'https://images.unsplash.com/photo-1493246507139-91e8fad9978e?auto=format&fit=crop&w=800&q=80', // landscape
+    'https://images.unsplash.com/photo-1605142859862-978be7eba909?auto=format&fit=crop&w=800&q=80', // compass
   ],
   'Art': [
-    'https://images.unsplash.com/photo-1513364776144-60967b0f800f', // paint
-    'https://images.unsplash.com/photo-1452860606245-08befc0ff44b', // art supplies
-    'https://images.unsplash.com/photo-1513364778565-464df9a60104', // colorful paint
-    'https://images.unsplash.com/photo-1460661419201-fd4cecdf8a8b', // drawing
-    'https://images.unsplash.com/photo-1499781350541-7783f6c6a0c8', // sculpture
+    'https://images.unsplash.com/photo-1513364776144-60967b0f800f?auto=format&fit=crop&w=800&q=80', // paint
+    'https://images.unsplash.com/photo-1452860606245-08befc0ff44b?auto=format&fit=crop&w=800&q=80', // art supplies
+    'https://images.unsplash.com/photo-1513364778565-464df9a60104?auto=format&fit=crop&w=800&q=80', // colorful paint
+    'https://images.unsplash.com/photo-1460661419201-fd4cecdf8a8b?auto=format&fit=crop&w=800&q=80', // drawing
+    'https://images.unsplash.com/photo-1499781350541-7783f6c6a0c8?auto=format&fit=crop&w=800&q=80', // sculpture
   ],
   // Default for any other subject
   'default': [
-    'https://images.unsplash.com/photo-1497633762265-9d179a990aa6', // books
-    'https://images.unsplash.com/photo-1503676260728-1c00da094a0b', // student
-    'https://images.unsplash.com/photo-1523050854058-8df90110c9f1', // learning
-    'https://images.unsplash.com/photo-1503676382389-4809596d5290', // classroom
-    'https://images.unsplash.com/photo-1541339907198-e08756dedf3f', // education
+    'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?auto=format&fit=crop&w=800&q=80', // books
+    'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=800&q=80', // student
+    'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=800&q=80', // learning
+    'https://images.unsplash.com/photo-1503676382389-4809596d5290?auto=format&fit=crop&w=800&q=80', // classroom
+    'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=800&q=80', // education
   ]
 };
 
@@ -84,6 +83,64 @@ function getRandomImage(subject: string, alt: string): { url: string; alt: strin
     url: subjectImages[randomIndex],
     alt: alt || `Image related to ${subject}`
   };
+}
+
+// Convert image description to actual image URL
+function convertImageDescription(description: string, subject: string): { url: string; alt: string } {
+  // If the string already looks like a URL, return it
+  if (description.startsWith('http') && (description.includes('.jpg') || description.includes('.png') || description.includes('.webp') || description.includes('unsplash'))) {
+    return { url: description, alt: "Educational illustration" };
+  }
+  
+  // Otherwise, map the description to a relevant image
+  // Find keywords in the description
+  const keywords = [
+    "math", "numbers", "geometry", "algebra", "calculation", 
+    "science", "chemistry", "biology", "physics", "experiment", 
+    "book", "reading", "library", "writing", "language", 
+    "history", "geography", "map", "social", "culture", "art", "drawing"
+  ];
+  
+  let bestMatch = 'default';
+  
+  // Try to find a match in the description
+  for (const keyword of keywords) {
+    if (description.toLowerCase().includes(keyword)) {
+      if (keyword === "math" || keyword === "numbers" || keyword === "geometry" || keyword === "algebra") {
+        bestMatch = "Math";
+        break;
+      } else if (keyword === "science" || keyword === "chemistry" || keyword === "biology" || keyword === "physics") {
+        bestMatch = "Science";
+        break;
+      } else if (keyword === "book" || keyword === "reading") {
+        bestMatch = "Reading";
+        break;
+      } else if (keyword === "writing" || keyword === "language") {
+        bestMatch = "Language Arts";
+        break;
+      } else if (keyword === "history") {
+        bestMatch = "History";
+        break;
+      } else if (keyword === "geography" || keyword === "map") {
+        bestMatch = "Geography";
+        break;
+      } else if (keyword === "social" || keyword === "culture") {
+        bestMatch = "Social Studies";
+        break;
+      } else if (keyword === "art" || keyword === "drawing") {
+        bestMatch = "Art";
+        break;
+      }
+    }
+  }
+  
+  // If no match was found in the description, use the provided subject
+  if (bestMatch === 'default' && subject) {
+    bestMatch = subject;
+  }
+  
+  // Get a random image for the best match
+  return getRandomImage(bestMatch, description);
 }
 
 serve(async (req) => {
@@ -244,9 +301,23 @@ serve(async (req) => {
               content.mainContent = content.mainContent.map((section: any, index: number) => {
                 // Only add image to some sections for visual variety
                 if (index % 2 === 0 || Math.random() > 0.5) {
+                  // Handle case where section.image might already exist but needs conversion
+                  let imageObj;
+                  
+                  if (section.image && section.image.description) {
+                    // Convert the description to a proper image URL
+                    imageObj = convertImageDescription(section.image.description, subject);
+                  } else if (section.image && typeof section.image === 'string') {
+                    // Convert the string to a proper image URL
+                    imageObj = convertImageDescription(section.image, subject);
+                  } else {
+                    // Create a new image based on section heading
+                    imageObj = getRandomImage(subject, `Image illustrating ${section.heading}`);
+                  }
+                  
                   return {
                     ...section,
-                    image: section.image || getRandomImage(subject, `Image illustrating ${section.heading}`)
+                    image: imageObj
                   };
                 }
                 return section;
@@ -254,45 +325,58 @@ serve(async (req) => {
             
               // Add image to activity if it exists
               if (content.activity) {
-                content.activity = {
-                  ...content.activity,
-                  image: content.activity.image || getRandomImage(subject, `Activity for ${topic}`)
-                };
+                if (content.activity.image && content.activity.image.description) {
+                  content.activity.image = convertImageDescription(content.activity.image.description, subject);
+                } else if (content.activity.image && typeof content.activity.image === 'string') {
+                  content.activity.image = convertImageDescription(content.activity.image, subject);
+                } else {
+                  content.activity.image = getRandomImage(subject, `Activity for ${topic}`);
+                }
               }
             }
           } else if (includeImages && contentType === 'quiz') {
             // For quiz content
+            let questions: any[] = [];
+            
             if (Array.isArray(content)) {
               // Direct array of questions
-              content = content.map((question: any, index: number) => {
-                // Only add images to some questions
-                if (index % 3 === 0) {
-                  return {
-                    ...question,
-                    image: question.image || getRandomImage(subject, `Image for question about ${topic}`)
-                  };
-                }
-                return question;
-              });
-              
-              // Wrap in a proper structure
-              content = { questions: content };
+              questions = content;
             } else if (content.questions && Array.isArray(content.questions)) {
               // Already has questions array
-              content.questions = content.questions.map((question: any, index: number) => {
-                if (index % 3 === 0) {
-                  return {
-                    ...question,
-                    image: question.image || getRandomImage(subject, `Image for question about ${topic}`)
-                  };
-                }
-                return question;
-              });
+              questions = content.questions;
             }
+            
+            // Process questions to ensure they have proper image URLs
+            questions = questions.map((question: any, index: number) => {
+              // Only add images to some questions
+              if (index % 3 === 0) {
+                let imageObj;
+                
+                if (question.image && question.image.description) {
+                  // Convert the description to a proper image URL
+                  imageObj = convertImageDescription(question.image.description, subject);
+                } else if (question.image && typeof question.image === 'string') {
+                  // Convert the string to a proper image URL
+                  imageObj = convertImageDescription(question.image, subject);
+                } else {
+                  // Create a new image related to the question
+                  imageObj = getRandomImage(subject, `Image for question about ${topic}`);
+                }
+                
+                return {
+                  ...question,
+                  image: imageObj
+                };
+              }
+              return question;
+            });
+            
+            // Wrap in a proper structure
+            content = Array.isArray(content) ? { questions } : { ...content, questions };
           }
         }
       } catch (e) {
-        console.log('Could not parse JSON from OpenAI response, returning raw content');
+        console.log('Could not parse JSON from OpenAI response, returning raw content:', e);
       }
   
       // Return the AI-generated content

@@ -64,10 +64,23 @@ const AILesson = ({ subject, gradeLevel, topic, onComplete }: AILessonProps) => 
         // Ensure all sections have the expected properties
         mainContent: result.content.mainContent.map((section: any) => ({
           ...section,
-          // If image is not provided, default to null or a placeholder
-          image: section.image || null
+          // Process image if it exists but doesn't have the right format
+          image: section.image 
+            ? (section.image.url 
+                ? section.image 
+                : { url: section.image, alt: `Image for ${section.heading}` })
+            : null
         }))
       };
+
+      // Process activity image if needed
+      if (processedContent.activity && processedContent.activity.image && 
+          !processedContent.activity.image.url && typeof processedContent.activity.image === 'string') {
+        processedContent.activity.image = {
+          url: processedContent.activity.image,
+          alt: `Image for ${processedContent.activity.title} activity`
+        };
+      }
       
       setLessonContent(processedContent);
       
@@ -182,6 +195,11 @@ const AILesson = ({ subject, gradeLevel, topic, onComplete }: AILessonProps) => 
                       src={lessonContent.activity.image.url} 
                       alt={lessonContent.activity.image.alt} 
                       className="w-full h-auto object-cover"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=800&q=80";
+                        target.alt = "Placeholder image - original image failed to load";
+                      }}
                     />
                   </div>
                   {lessonContent.activity.image.caption && (
@@ -241,6 +259,11 @@ const AILesson = ({ subject, gradeLevel, topic, onComplete }: AILessonProps) => 
                     src={lessonContent.mainContent[currentSection].image?.url} 
                     alt={lessonContent.mainContent[currentSection].image?.alt || "Lesson illustration"}
                     className="w-full h-full object-contain"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.src = "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=800&q=80";
+                      target.alt = "Placeholder image - original image failed to load";
+                    }}
                   />
                 </div>
                 {lessonContent.mainContent[currentSection].image?.caption && (

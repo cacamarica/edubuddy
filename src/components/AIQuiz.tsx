@@ -77,6 +77,30 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
     }
   }, [questions, shuffleArray, questionCount]);
 
+  // Function to normalize image structure
+  const normalizeImage = (image: any): QuizImage | undefined => {
+    if (!image) return undefined;
+    
+    // Already in the right format
+    if (image.url) return image;
+    
+    // String URL
+    if (typeof image === 'string') {
+      return { url: image, alt: "Quiz question illustration" };
+    }
+    
+    // Description object needs conversion
+    if (image.description) {
+      return { 
+        url: "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=800&q=80", 
+        alt: image.description 
+      };
+    }
+    
+    // Unknown format
+    return undefined;
+  };
+
   const generateQuiz = async () => {
     setIsLoading(true);
     setHasError(false);
@@ -89,15 +113,29 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
       });
       
       // Ensure we have valid questions array
-      if (result && result.content && Array.isArray(result.content)) {
-        setQuestions(result.content || []);
-      } else if (result && result.content && Array.isArray(result.content.questions)) {
-        // Handle nested questions structure
-        setQuestions(result.content.questions || []);
+      if (result && result.content) {
+        if (Array.isArray(result.content)) {
+          // Process direct questions array
+          const normalizedQuestions = result.content.map((q: any) => ({
+            ...q,
+            image: normalizeImage(q.image)
+          }));
+          setQuestions(normalizedQuestions);
+        } else if (result.content.questions && Array.isArray(result.content.questions)) {
+          // Handle nested questions structure
+          const normalizedQuestions = result.content.questions.map((q: any) => ({
+            ...q,
+            image: normalizeImage(q.image)
+          }));
+          setQuestions(normalizedQuestions);
+        } else {
+          console.error("Unexpected quiz content format:", result);
+          setHasError(true);
+          toast.error("Quiz content couldn't be processed. Please try again.");
+        }
       } else {
-        console.error("Unexpected quiz content format:", result);
         setHasError(true);
-        toast.error("Quiz content couldn't be processed. Please try again.");
+        toast.error("Couldn't retrieve quiz questions. Please try again.");
       }
     } catch (error) {
       console.error("Failed to generate quiz:", error);
@@ -416,6 +454,11 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
                 src={shuffledQuestions[currentQuestion].image!.url} 
                 alt={shuffledQuestions[currentQuestion].image!.alt || "Question image"}
                 className="w-full h-auto object-contain"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.src = "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=800&q=80";
+                  target.alt = "Placeholder image - original image failed to load";
+                }}
               />
             </div>
           </div>

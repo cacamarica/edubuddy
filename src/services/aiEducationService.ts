@@ -38,6 +38,19 @@ export async function getAIEducationContent({
     }
     
     console.log(`Successfully received ${contentType} content`);
+    
+    // Make sure the data has the expected structure
+    if (contentType === 'quiz' && data?.content) {
+      // Ensure quiz data is properly structured
+      if (Array.isArray(data.content)) {
+        // Wrap array in expected format
+        return { content: { questions: data.content } };
+      } else if (data.content.questions) {
+        // Already properly structured
+        return data;
+      }
+    }
+
     return data;
   } catch (error) {
     console.error('Error fetching AI education content:', error);
