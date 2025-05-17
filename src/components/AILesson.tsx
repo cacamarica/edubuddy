@@ -229,6 +229,12 @@ const AILesson = ({ subject, gradeLevel, topic, onComplete }: AILessonProps) => 
     );
   }
 
+  // Extract the current section for easier access
+  const currentSectionContent = lessonContent.mainContent[currentSection];
+
+  // Split the text into paragraphs for better readability
+  const paragraphs = currentSectionContent.text.split('\n\n');
+
   return (
     <Card className="overflow-hidden">
       <CardHeader>
@@ -244,20 +250,16 @@ const AILesson = ({ subject, gradeLevel, topic, onComplete }: AILessonProps) => 
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
-          <h3 className="font-semibold font-display text-xl">{lessonContent.mainContent[currentSection].heading}</h3>
-          <div className="prose max-w-none">
-            {lessonContent.mainContent[currentSection].text.split('\n\n').map((paragraph, idx) => (
-              <p key={idx} className="my-4">{paragraph}</p>
-            ))}
-          </div>
+          <h3 className="font-semibold font-display text-xl">{currentSectionContent.heading}</h3>
           
-          {lessonContent.mainContent[currentSection].image && (
+          {/* For sections with images that relate directly to the beginning of the text */}
+          {currentSectionContent.image && currentSectionContent.text.length > 400 && (
             <div className="my-6 flex flex-col items-center">
               <div className="w-full rounded-lg overflow-hidden shadow-md bg-white p-2">
                 <div className="relative aspect-video">
                   <img 
-                    src={lessonContent.mainContent[currentSection].image?.url} 
-                    alt={lessonContent.mainContent[currentSection].image?.alt || "Lesson illustration"}
+                    src={currentSectionContent.image.url} 
+                    alt={currentSectionContent.image.alt || "Lesson illustration"}
                     className="w-full h-full object-contain"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
@@ -266,14 +268,52 @@ const AILesson = ({ subject, gradeLevel, topic, onComplete }: AILessonProps) => 
                     }}
                   />
                 </div>
-                {lessonContent.mainContent[currentSection].image?.caption && (
+                {currentSectionContent.image.caption && (
                   <p className="text-sm text-center text-muted-foreground mt-2 italic">
-                    {lessonContent.mainContent[currentSection].image.caption}
+                    {currentSectionContent.image.caption}
                   </p>
                 )}
               </div>
             </div>
           )}
+          
+          <div className="prose max-w-none">
+            {paragraphs.map((paragraph, idx) => {
+              // If there's an image and we're in the middle of the text, place it here
+              const isMiddleParagraph = paragraphs.length > 3 && idx === Math.floor(paragraphs.length / 2);
+              
+              return (
+                <React.Fragment key={idx}>
+                  <p className="my-4">{paragraph}</p>
+                  
+                  {/* For sections with images that relate to the middle of the text */}
+                  {isMiddleParagraph && currentSectionContent.image && currentSectionContent.text.length <= 400 && (
+                    <div className="my-6 flex flex-col items-center">
+                      <div className="w-full rounded-lg overflow-hidden shadow-md bg-white p-2">
+                        <div className="relative aspect-video">
+                          <img 
+                            src={currentSectionContent.image.url} 
+                            alt={currentSectionContent.image.alt || "Lesson illustration"}
+                            className="w-full h-full object-contain"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.src = "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=800&q=80";
+                              target.alt = "Placeholder image - original image failed to load";
+                            }}
+                          />
+                        </div>
+                        <div className="bg-eduPastel-blue bg-opacity-20 p-2 rounded-b-lg">
+                          <p className="text-sm text-center font-medium">
+                            {currentSectionContent.image.caption || `Visual aid for ${currentSectionContent.heading}`}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </div>
           
           {currentSection === lessonContent.mainContent.length - 1 && lessonContent.conclusion && (
             <div className="mt-8 border-t pt-4">
