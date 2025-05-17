@@ -13,6 +13,7 @@ import AILearning from "./pages/AILearning";
 import About from "./pages/About";
 import Auth from "./pages/Auth";
 import FAQ from "./pages/FAQ";
+import AccountSettings from "./pages/AccountSettings";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -60,6 +61,11 @@ const App = () => (
           <Route path="/about" element={<About />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/faq" element={<FAQ />} />
+          <Route path="/account-settings" element={
+            <ProtectedRoute>
+              <AccountSettings />
+            </ProtectedRoute>
+          } />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -1,11 +1,13 @@
 
 import { Link } from 'react-router-dom';
-import { BookOpen, HelpCircle, Mail, User } from 'lucide-react';
+import { BookOpen, HelpCircle, Mail, User, Settings } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Footer = () => {
   const { language } = useLanguage();
+  const { user } = useAuth();
 
   return (
     <footer className="bg-eduPurple/10 border-t border-eduPurple/20 py-8 mt-12">
@@ -83,11 +85,13 @@ const Footer = () => {
                   {language === 'id' ? 'Pantau Kemajuan' : 'Track Progress'}
                 </Link>
               </li>
-              <li>
-                <Link to="/settings" className="text-muted-foreground hover:text-eduPurple transition-colors">
-                  {language === 'id' ? 'Pengaturan Akun' : 'Account Settings'}
-                </Link>
-              </li>
+              {user && (
+                <li>
+                  <Link to="/account-settings" className="text-muted-foreground hover:text-eduPurple transition-colors">
+                    {language === 'id' ? 'Pengaturan Akun' : 'Account Settings'}
+                  </Link>
+                </li>
+              )}
             </ul>
           </div>
           
@@ -115,6 +119,14 @@ const Footer = () => {
                   {language === 'id' ? 'Tentang Kami' : 'About Us'}
                 </Link>
               </li>
+              {user && (
+                <li className="flex items-center gap-2">
+                  <Settings className="h-4 w-4 text-eduPurple" />
+                  <Link to="/account-settings" className="text-muted-foreground hover:text-eduPurple transition-colors">
+                    {language === 'id' ? 'Pengaturan Akun' : 'Account Settings'}
+                  </Link>
+                </li>
+              )}
             </ul>
           </div>
         </div>

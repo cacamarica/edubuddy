@@ -5,19 +5,21 @@ import Footer from '@/components/Footer';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { PieChart, LineChart, BarChart, Trophy, CalendarDays, UserPlus } from 'lucide-react';
+import { PieChart, LineChart, BarChart, Trophy, CalendarDays, UserPlus, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import StudentProfileSelector from '@/components/DashboardComponents/StudentProfileSelector';
 import StudentProgressSummary from '@/components/DashboardComponents/StudentProgressSummary';
 import RecentActivities from '@/components/DashboardComponents/RecentActivities';
 import AIRecommendations from '@/components/DashboardComponents/AIRecommendations';
 import StudentProfile from '@/components/StudentProfile';
+import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   const [showStudentProfile, setShowStudentProfile] = useState(false);
   const { language } = useLanguage();
+  const navigate = useNavigate();
   
   const handleStudentChange = (studentId: string) => {
     setSelectedStudentId(studentId);
@@ -33,7 +35,8 @@ const Dashboard = () => {
     selectStudent: language === 'id' ? 'Pilih Siswa' : 'Select Student',
     overview_desc: language === 'id' ? 'Ringkasan kegiatan belajar siswa' : 'Summary of student learning activities',
     manageProfiles: language === 'id' ? 'Kelola Profil Siswa' : 'Manage Student Profiles',
-    backToDashboard: language === 'id' ? 'Kembali ke Dasbor' : 'Back to Dashboard'
+    backToDashboard: language === 'id' ? 'Kembali ke Dasbor' : 'Back to Dashboard',
+    accountSettings: language === 'id' ? 'Pengaturan Akun' : 'Account Settings',
   };
   
   return (
@@ -48,13 +51,24 @@ const Dashboard = () => {
               <p className="text-muted-foreground">{translations.overview_desc}</p>
             </div>
             
-            <Button 
-              onClick={() => setShowStudentProfile(true)} 
-              className="bg-eduPurple hover:bg-eduPurple-dark flex items-center gap-2"
-            >
-              <UserPlus className="w-4 h-4" />
-              {translations.manageProfiles}
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                onClick={() => navigate('/account-settings')}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <Settings className="w-4 h-4" />
+                {translations.accountSettings}
+              </Button>
+              
+              <Button 
+                onClick={() => setShowStudentProfile(true)} 
+                className="bg-eduPurple hover:bg-eduPurple-dark flex items-center gap-2"
+              >
+                <UserPlus className="w-4 h-4" />
+                {translations.manageProfiles}
+              </Button>
+            </div>
           </div>
           
           <div className="grid gap-6">
