@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
@@ -6,9 +7,10 @@ import QuizQuestionCard, { QuizQuestion } from "./QuizComponents/QuizQuestionCar
 import QuizResults from "./QuizComponents/QuizResults";
 import LoadingQuiz from "./QuizComponents/LoadingQuiz";
 import QuizError from "./QuizComponents/QuizError";
-import { getAIEducationContent } from "@/services/aiEducationService";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { studentProgressService } from "@/services/studentProgressService";
+import { toast } from "sonner";
+import { fetchQuizQuestions, saveQuizProgress, getQuizProgress, QuizProgress } from "@/services/quizService";
 
 export interface AIQuizProps {
   subject: string;
@@ -30,32 +32,134 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete, limitProgress = false 
   const [score, setScore] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [hasSavedProgress, setHasSavedProgress] = useState(false);
   const { user } = useAuth();
   const { language } = useLanguage();
 
-  const fetchQuiz = async () => {
+  // Check for saved progress
+  useEffect(() => {
+    const checkSavedProgress = async () => {
+      if (!user) return;
+      
+      try {
+        // Get the current student
+        const { data: students } = await supabase
+          .from('students')
+          .select('*')
+          .eq('parent_id', user.id)
+          .limit(1);
+          
+        if (!students || students.length === 0) return;
+        const student = students[0];
+        
+        const savedProgress = await getQuizProgress(student.id, subject, topic, gradeLevel);
+        if (savedProgress && !savedProgress.is_completed) {
+          setHasSavedProgress(true);
+        }
+      } catch (error) {
+        console.error('Error checking saved progress:', error);
+      }
+    };
+    
+    if (quizStarted) return; // Only check on initial load
+    checkSavedProgress();
+  }, [user, subject, topic, gradeLevel, quizStarted]);
+
+  const fetchQuiz = async (resumeProgress = false) => {
     setLoading(true);
     setError(null);
 
     try {
-      const data = await getAIEducationContent({
-        contentType: 'quiz',
+      // First check if the user is logged in
+      if (!user) {
+        const questions = await fetchQuizQuestions({
+          subject,
+          gradeLevel,
+          topic,
+          language: language as 'en' | 'id',
+          questionCount
+        });
+        
+        setQuestions(questions);
+        setAnswers(new Array(questions.length).fill(null));
+        
+        return;
+      }
+      
+      // Get the current student
+      const { data: students } = await supabase
+        .from('students')
+        .select('*')
+        .eq('parent_id', user.id)
+        .limit(1);
+        
+      if (!students || students.length === 0) {
+        throw new Error('No student profile found');
+      }
+      
+      const student = students[0];
+      
+      if (resumeProgress) {
+        // Load saved progress
+        const savedProgress = await getQuizProgress(student.id, subject, topic, gradeLevel);
+        if (savedProgress) {
+          // Fetch questions first
+          const questions = await fetchQuizQuestions({
+            subject,
+            gradeLevel, 
+            topic,
+            language: language as 'en' | 'id',
+            questionCount: Math.max(questionCount, savedProgress.current_question + 1)
+          });
+          
+          // Restore progress
+          setQuestions(questions);
+          setCurrentQuestionIndex(savedProgress.current_question);
+          
+          // Reconstruct answers array
+          const answersArray = new Array(questions.length).fill(null);
+          if (savedProgress.questions_answered && savedProgress.questions_answered.length > 0) {
+            savedProgress.questions_answered.forEach((questionIndex, index) => {
+              if (index < answersArray.length) {
+                answersArray[questionIndex] = savedProgress.correct_answers?.[index] || null;
+              }
+            });
+          }
+          setAnswers(answersArray);
+          
+          // Calculate current score
+          const correctCount = savedProgress.correct_answers?.length || 0;
+          setScore(correctCount);
+          
+          toast.success(language === 'id' ? 'Kemajuan kuis dimuat' : 'Quiz progress loaded');
+          return;
+        }
+      }
+      
+      // If no progress or not resuming, start a new quiz
+      const questions = await fetchQuizQuestions({
         subject,
         gradeLevel,
         topic,
-        language
+        language: language as 'en' | 'id',
+        questionCount
       });
       
-      if (data?.content?.questions) {
-        // Limit the number of questions if needed
-        const limitedQuestions = data.content.questions.slice(0, questionCount);
-        
-        // Initialize the answers array with nulls
-        setQuestions(limitedQuestions);
-        setAnswers(new Array(limitedQuestions.length).fill(null));
-      } else {
-        throw new Error("Couldn't load quiz questions");
-      }
+      setQuestions(questions);
+      setAnswers(new Array(questions.length).fill(null));
+      
+      // Record starting a new quiz
+      await saveQuizProgress(student.id, {
+        student_id: student.id,
+        subject,
+        topic,
+        grade_level: gradeLevel,
+        current_question: 0,
+        questions_answered: [],
+        correct_answers: [],
+        is_completed: false
+      });
+      
     } catch (err) {
       console.error("Error fetching quiz:", err);
       setError(language === 'id' ? "Gagal memuat kuis" : "Failed to load quiz");
@@ -64,9 +168,9 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete, limitProgress = false 
     }
   };
 
-  const handleStartQuiz = () => {
+  const handleStartQuiz = (resumeProgress = false) => {
     setQuizStarted(true);
-    fetchQuiz();
+    fetchQuiz(resumeProgress);
     
     // Record the activity start in the database if user is logged in
     recordActivityStart();
@@ -117,9 +221,72 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete, limitProgress = false 
     }
   };
 
-  const handleNextQuestion = () => {
+  const handleNextQuestion = async () => {
     setShowFeedback(false);
+    
+    // Save the current answer
+    const newAnswers = [...answers];
+    newAnswers[currentQuestionIndex] = selectedAnswer;
+    setAnswers(newAnswers);
     setSelectedAnswer(null);
+    
+    // Save progress if user is logged in
+    if (user) {
+      try {
+        // Get the current student
+        const { data: students } = await supabase
+          .from('students')
+          .select('*')
+          .eq('parent_id', user.id)
+          .limit(1);
+          
+        if (!students || students.length === 0) return;
+        const student = students[0];
+        
+        // Update questions answered and correct answers arrays for progress tracking
+        const isCorrect = selectedAnswer === questions[currentQuestionIndex].correctAnswer;
+        
+        // Get existing progress
+        const existingProgress = await getQuizProgress(student.id, subject, topic, gradeLevel);
+        
+        const questionsAnswered = existingProgress?.questions_answered || [];
+        const correctAnswers = existingProgress?.correct_answers || [];
+        
+        // Add current question to the arrays
+        questionsAnswered.push(currentQuestionIndex);
+        if (isCorrect) {
+          correctAnswers.push(currentQuestionIndex);
+        }
+        
+        // Save progress
+        if (currentQuestionIndex < questions.length - 1) {
+          await saveQuizProgress(student.id, {
+            student_id: student.id,
+            subject,
+            topic,
+            grade_level: gradeLevel,
+            current_question: currentQuestionIndex + 1,
+            questions_answered: questionsAnswered,
+            correct_answers: correctAnswers,
+            is_completed: false
+          });
+        } else {
+          // Mark as completed if this is the last question
+          await saveQuizProgress(student.id, {
+            student_id: student.id,
+            subject,
+            topic,
+            grade_level: gradeLevel,
+            current_question: currentQuestionIndex,
+            questions_answered: questionsAnswered,
+            correct_answers: correctAnswers,
+            is_completed: true
+          });
+        }
+      } catch (error) {
+        console.error('Error saving progress:', error);
+      }
+    }
     
     if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
@@ -161,6 +328,52 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete, limitProgress = false 
     setShowFeedback(false);
   };
 
+  const handlePauseQuiz = async () => {
+    // Only pause if user is logged in
+    if (!user) {
+      toast.error(language === 'id' ? "Anda perlu masuk untuk menyimpan progres" : "You need to be logged in to save progress");
+      return;
+    }
+    
+    try {
+      // Get the current student
+      const { data: students } = await supabase
+        .from('students')
+        .select('*')
+        .eq('parent_id', user.id)
+        .limit(1);
+        
+      if (!students || students.length === 0) return;
+      const student = students[0];
+      
+      // Save current progress
+      await saveQuizProgress(student.id, {
+        student_id: student.id,
+        subject,
+        topic,
+        grade_level: gradeLevel,
+        current_question: currentQuestionIndex,
+        questions_answered: answers.map((answer, index) => index).filter(index => answers[index] !== null),
+        correct_answers: answers.map((answer, index) => index).filter(index => answers[index] === questions[index].correctAnswer),
+        is_completed: false
+      });
+      
+      toast.success(language === 'id' ? "Progres kuis tersimpan" : "Quiz progress saved");
+      
+      // Return to setup
+      setQuizStarted(false);
+      setQuizComplete(false);
+      setQuestions([]);
+      setAnswers([]);
+      setSelectedAnswer(null);
+      setShowFeedback(false);
+      setHasSavedProgress(true);
+    } catch (error) {
+      console.error('Error pausing quiz:', error);
+      toast.error(language === 'id' ? "Gagal menyimpan progres" : "Failed to save progress");
+    }
+  };
+
   // Show the appropriate component based on the current state
   if (!quizStarted) {
     return (
@@ -169,7 +382,9 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete, limitProgress = false 
         subject={subject}
         questionCount={questionCount}
         onQuestionCountChange={setQuestionCount}
-        onStartQuiz={handleStartQuiz}
+        onStartQuiz={() => handleStartQuiz(false)}
+        onResumePreviousQuiz={() => handleStartQuiz(true)}
+        hasSavedProgress={hasSavedProgress}
         limited={limitProgress}
       />
     );
@@ -212,6 +427,7 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete, limitProgress = false 
         onCheckAnswer={handleCheckAnswer}
         onNextQuestion={handleNextQuestion}
         onPrevQuestion={handlePrevQuestion}
+        onPauseQuiz={handlePauseQuiz}
       />
     );
   }

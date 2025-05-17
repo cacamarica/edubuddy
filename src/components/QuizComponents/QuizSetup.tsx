@@ -3,7 +3,7 @@ import React from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import { PencilRuler, LogIn } from 'lucide-react';
+import { PencilRuler, LogIn, Undo2 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -13,7 +13,9 @@ interface QuizSetupProps {
   questionCount: number;
   onQuestionCountChange: (count: number) => void;
   onStartQuiz: () => void;
-  limited?: boolean; // Add this prop for limited access message
+  onResumePreviousQuiz?: () => void; // Add this prop for resuming previous quiz
+  hasSavedProgress?: boolean; // Add this prop to show resume button
+  limited?: boolean;
 }
 
 const QuizSetup: React.FC<QuizSetupProps> = ({
@@ -22,6 +24,8 @@ const QuizSetup: React.FC<QuizSetupProps> = ({
   questionCount,
   onQuestionCountChange,
   onStartQuiz,
+  onResumePreviousQuiz,
+  hasSavedProgress = false,
   limited = false
 }) => {
   const { t, language } = useLanguage();
@@ -61,6 +65,27 @@ const QuizSetup: React.FC<QuizSetupProps> = ({
             </div>
           </div>
         )}
+
+        {hasSavedProgress && onResumePreviousQuiz && (
+          <div className="bg-eduPastel-blue p-4 rounded-lg mb-4">
+            <h3 className="font-semibold font-display text-lg mb-2">
+              {language === 'id' ? 'Progres Tersimpan Ditemukan' : 'Saved Progress Found'}
+            </h3>
+            <p className="mb-4">
+              {language === 'id' 
+                ? 'Anda memiliki kuis yang belum selesai tentang topik ini. Ingin melanjutkan dari mana Anda tinggalkan?' 
+                : 'You have an unfinished quiz on this topic. Would you like to continue where you left off?'}
+            </p>
+            <Button 
+              onClick={onResumePreviousQuiz}
+              variant="default"
+              className="bg-eduPurple hover:bg-eduPurple-dark w-full flex items-center justify-center gap-2"
+            >
+              <Undo2 className="h-4 w-4" />
+              {language === 'id' ? 'Lanjutkan Kuis' : 'Continue Quiz'}
+            </Button>
+          </div>
+        )}
       
         <div>
           <h3 className="font-semibold text-lg mb-4">{t('quiz.questionCount')}</h3>
@@ -84,7 +109,9 @@ const QuizSetup: React.FC<QuizSetupProps> = ({
         <div className="flex justify-center mt-6">
           <Button onClick={onStartQuiz} className="bg-eduPurple hover:bg-eduPurple-dark">
             <PencilRuler className="mr-2 h-4 w-4" />
-            {t('quiz.start')}
+            {hasSavedProgress 
+              ? (language === 'id' ? 'Mulai Kuis Baru' : 'Start New Quiz') 
+              : t('quiz.start')}
           </Button>
         </div>
       </CardContent>

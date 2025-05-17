@@ -235,6 +235,98 @@ export type Database = {
         }
         Relationships: []
       }
+      quiz_progress: {
+        Row: {
+          correct_answers: number[] | null
+          created_at: string
+          current_question: number
+          grade_level: string
+          id: string
+          is_completed: boolean
+          last_attempt_at: string
+          questions_answered: number[] | null
+          student_id: string
+          subject: string
+          topic: string
+        }
+        Insert: {
+          correct_answers?: number[] | null
+          created_at?: string
+          current_question?: number
+          grade_level: string
+          id?: string
+          is_completed?: boolean
+          last_attempt_at?: string
+          questions_answered?: number[] | null
+          student_id: string
+          subject: string
+          topic: string
+        }
+        Update: {
+          correct_answers?: number[] | null
+          created_at?: string
+          current_question?: number
+          grade_level?: string
+          id?: string
+          is_completed?: boolean
+          last_attempt_at?: string
+          questions_answered?: number[] | null
+          student_id?: string
+          subject?: string
+          topic?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_progress_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quiz_questions: {
+        Row: {
+          correct_answer: number
+          created_at: string
+          difficulty_level: string | null
+          explanation: string | null
+          grade_level: string
+          id: string
+          options: Json
+          question: string
+          subject: string
+          topic: string
+          updated_at: string
+        }
+        Insert: {
+          correct_answer: number
+          created_at?: string
+          difficulty_level?: string | null
+          explanation?: string | null
+          grade_level: string
+          id?: string
+          options: Json
+          question: string
+          subject: string
+          topic: string
+          updated_at?: string
+        }
+        Update: {
+          correct_answer?: number
+          created_at?: string
+          difficulty_level?: string | null
+          explanation?: string | null
+          grade_level?: string
+          id?: string
+          options?: Json
+          question?: string
+          subject?: string
+          topic?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       quiz_scores: {
         Row: {
           completed_at: string

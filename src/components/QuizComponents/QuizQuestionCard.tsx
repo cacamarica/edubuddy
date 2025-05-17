@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
-import { CheckCircle, XCircle, ArrowLeft, ArrowRight } from 'lucide-react';
+import { CheckCircle, XCircle, ArrowLeft, ArrowRight, Pause } from 'lucide-react';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export interface QuizQuestion {
   question: string;
@@ -29,7 +30,8 @@ interface QuizQuestionCardProps {
   onCheckAnswer: () => void;
   onNextQuestion: () => void;
   onPrevQuestion: () => void;
-  questionNumber?: number; // Add this to accept the prop from AIQuiz.tsx
+  onPauseQuiz?: () => void; // Add pause quiz functionality
+  questionNumber?: number;
 }
 
 const QuizQuestionCard: React.FC<QuizQuestionCardProps> = ({
@@ -42,8 +44,10 @@ const QuizQuestionCard: React.FC<QuizQuestionCardProps> = ({
   onCheckAnswer,
   onNextQuestion,
   onPrevQuestion,
-  questionNumber, // Accept the prop
+  onPauseQuiz,
+  questionNumber,
 }) => {
+  const { language } = useLanguage();
   // Use questionNumber if provided, otherwise use currentQuestionIndex + 1
   const displayQuestionNumber = questionNumber !== undefined ? questionNumber : currentQuestionIndex + 1;
   
@@ -55,9 +59,26 @@ const QuizQuestionCard: React.FC<QuizQuestionCardProps> = ({
         </div>
       )}
       <CardContent className="pt-6">
-        <h3 className="text-xl md:text-2xl font-display text-center mb-4">
-          {question.question}
-        </h3>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl md:text-2xl font-display">
+            {question.question}
+          </h3>
+          
+          {onPauseQuiz && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onPauseQuiz}
+              className="ml-2"
+              title={language === 'id' ? "Jeda dan simpan progres kuis" : "Pause and save quiz progress"}
+            >
+              <Pause className="h-4 w-4" />
+              <span className="ml-1 hidden sm:inline">
+                {language === 'id' ? 'Jeda' : 'Pause'}
+              </span>
+            </Button>
+          )}
+        </div>
       
         <div className="mb-6">
           <div className="flex justify-between items-center mb-2">
@@ -145,7 +166,7 @@ const QuizQuestionCard: React.FC<QuizQuestionCardProps> = ({
           className="flex items-center gap-2"
         >
           <ArrowLeft className="h-4 w-4" />
-          Previous
+          {language === 'id' ? 'Sebelumnya' : 'Previous'}
         </Button>
         
         {showFeedback ? (
@@ -155,11 +176,11 @@ const QuizQuestionCard: React.FC<QuizQuestionCardProps> = ({
           >
             {currentQuestionIndex < totalQuestions - 1 ? (
               <>
-                Next
+                {language === 'id' ? 'Selanjutnya' : 'Next'}
                 <ArrowRight className="h-4 w-4" />
               </>
             ) : (
-              "Finish Quiz"
+              language === 'id' ? "Selesai Kuis" : "Finish Quiz"
             )}
           </Button>
         ) : (
@@ -168,7 +189,7 @@ const QuizQuestionCard: React.FC<QuizQuestionCardProps> = ({
             disabled={selectedAnswer === null}
             className="bg-eduPurple hover:bg-eduPurple-dark"
           >
-            Check Answer
+            {language === 'id' ? 'Periksa Jawaban' : 'Check Answer'}
           </Button>
         )}
       </CardFooter>
