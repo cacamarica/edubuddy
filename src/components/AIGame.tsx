@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { getAIEducationContent } from '@/services/aiEducationService';
 import { Gamepad, Award } from 'lucide-react';
 import { toast } from 'sonner';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface AIGameProps {
   subject: string;
@@ -28,6 +29,7 @@ const AIGame = ({ subject, gradeLevel, topic, onComplete }: AIGameProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [gameContent, setGameContent] = useState<GameContent | null>(null);
   const [gameStarted, setGameStarted] = useState(false);
+  const { t, language } = useLanguage();
 
   const generateGame = async () => {
     setIsLoading(true);
@@ -36,13 +38,19 @@ const AIGame = ({ subject, gradeLevel, topic, onComplete }: AIGameProps) => {
         contentType: 'game',
         subject,
         gradeLevel,
-        topic
+        topic,
+        // Add language parameter to get content in the selected language
+        question: language === 'id' ? 
+          `Buatkan permainan dalam Bahasa Indonesia tentang ${topic} untuk tingkat ${gradeLevel}` : 
+          undefined
       });
       
       setGameContent(result.content);
     } catch (error) {
       console.error("Failed to generate game:", error);
-      toast.error("Oops! We couldn't create your game right now. Please try again!");
+      toast.error(language === 'id' ? 
+        "Oops! Kami tidak dapat membuat permainan saat ini. Silakan coba lagi!" : 
+        "Oops! We couldn't create your game right now. Please try again!");
     } finally {
       setIsLoading(false);
     }
@@ -50,13 +58,17 @@ const AIGame = ({ subject, gradeLevel, topic, onComplete }: AIGameProps) => {
 
   const handleStartGame = () => {
     setGameStarted(true);
-    toast.success("Game started! Have fun learning!", {
+    toast.success(language === 'id' ? 
+      "Permainan dimulai! Selamat bersenang-senang sambil belajar!" : 
+      "Game started! Have fun learning!", {
       icon: <Gamepad className="h-5 w-5" />,
     });
   };
 
   const handleCompleteGame = () => {
-    toast.success("You completed the game! Great job!", {
+    toast.success(language === 'id' ? 
+      "Kamu telah menyelesaikan permainan! Kerja bagus!" : 
+      "You completed the game! Great job!", {
       icon: <Award className="h-5 w-5" />,
     });
     if (onComplete) onComplete();
@@ -67,8 +79,8 @@ const AIGame = ({ subject, gradeLevel, topic, onComplete }: AIGameProps) => {
       <Card>
         <CardContent className="pt-6 flex flex-col items-center justify-center h-64">
           <div className="animate-spin w-12 h-12 border-4 border-eduPurple border-t-transparent rounded-full mb-4"></div>
-          <p className="text-center font-display text-lg">Creating a fun game just for you!</p>
-          <p className="text-center text-muted-foreground">This might take a moment...</p>
+          <p className="text-center font-display text-lg">{t('game.creating')}</p>
+          <p className="text-center text-muted-foreground">{t('game.moment')}</p>
         </CardContent>
       </Card>
     );
@@ -78,15 +90,15 @@ const AIGame = ({ subject, gradeLevel, topic, onComplete }: AIGameProps) => {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl md:text-2xl font-display">Let's Play and Learn About {topic}!</CardTitle>
+          <CardTitle className="text-xl md:text-2xl font-display">{t('game.title')} {topic}!</CardTitle>
           <CardDescription>
-            Play a fun game and learn all about {topic} in {subject}
+            {t('game.description')} {topic} {t('game.in')} {subject}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex justify-center">
           <Button onClick={generateGame} className="bg-eduPurple hover:bg-eduPurple-dark">
             <Gamepad className="mr-2 h-4 w-4" />
-            Create Game
+            {t('game.create')}
           </Button>
         </CardContent>
       </Card>
@@ -101,7 +113,7 @@ const AIGame = ({ subject, gradeLevel, topic, onComplete }: AIGameProps) => {
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
-          <h3 className="font-semibold font-display text-lg mb-2">How to Play:</h3>
+          <h3 className="font-semibold font-display text-lg mb-2">{t('game.howToPlay')}</h3>
           <ol className="list-decimal pl-5 space-y-2">
             {gameContent.instructions.map((instruction, i) => (
               <li key={i}>{instruction}</li>
@@ -111,7 +123,7 @@ const AIGame = ({ subject, gradeLevel, topic, onComplete }: AIGameProps) => {
 
         {gameContent.materials && gameContent.materials.length > 0 && (
           <div>
-            <h3 className="font-semibold font-display text-lg mb-2">Materials Needed:</h3>
+            <h3 className="font-semibold font-display text-lg mb-2">{t('game.materials')}</h3>
             <ul className="list-disc pl-5 space-y-1">
               {gameContent.materials.map((material, i) => (
                 <li key={i}>{material}</li>
@@ -124,13 +136,13 @@ const AIGame = ({ subject, gradeLevel, topic, onComplete }: AIGameProps) => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
             {gameContent.variations.easier && (
               <div className="bg-eduPastel-blue p-3 rounded-lg">
-                <h4 className="font-semibold">Easier Version:</h4>
+                <h4 className="font-semibold">{t('game.easier')}</h4>
                 <p>{gameContent.variations.easier}</p>
               </div>
             )}
             {gameContent.variations.harder && (
               <div className="bg-eduPastel-peach p-3 rounded-lg">
-                <h4 className="font-semibold">Challenge Version:</h4>
+                <h4 className="font-semibold">{t('game.harder')}</h4>
                 <p>{gameContent.variations.harder}</p>
               </div>
             )}
@@ -144,7 +156,7 @@ const AIGame = ({ subject, gradeLevel, topic, onComplete }: AIGameProps) => {
             className="bg-eduPurple hover:bg-eduPurple-dark"
           >
             <Gamepad className="mr-2 h-4 w-4" />
-            Start Game
+            {t('game.start')}
           </Button>
         ) : (
           <Button 
@@ -152,7 +164,7 @@ const AIGame = ({ subject, gradeLevel, topic, onComplete }: AIGameProps) => {
             className="bg-green-600 hover:bg-green-700"
           >
             <Award className="mr-2 h-4 w-4" />
-            I Finished Playing!
+            {t('game.finished')}
           </Button>
         )}
       </CardFooter>

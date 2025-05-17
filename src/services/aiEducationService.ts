@@ -9,6 +9,7 @@ interface AIContentRequestParams {
   question?: string;
   includeImages?: boolean;
   imageStyle?: 'cartoon' | 'drawing' | 'realistic' | 'comic' | 'watercolor';
+  language?: 'en' | 'id'; // Add language parameter
 }
 
 export async function getAIEducationContent({
@@ -18,10 +19,11 @@ export async function getAIEducationContent({
   topic,
   question,
   includeImages = true,
-  imageStyle = 'cartoon'
+  imageStyle = 'cartoon',
+  language = 'en' // Default to English
 }: AIContentRequestParams) {
   try {
-    console.log(`Fetching ${contentType} content for ${topic} in ${subject} (grade: ${gradeLevel})`);
+    console.log(`Fetching ${contentType} content for ${topic} in ${subject} (grade: ${gradeLevel}, language: ${language})`);
     
     const { data, error } = await supabase.functions.invoke('ai-edu-content', {
       body: {
@@ -31,7 +33,8 @@ export async function getAIEducationContent({
         topic,
         question,
         includeImages,
-        imageStyle
+        imageStyle,
+        language // Pass the language to the edge function
       }
     });
 

@@ -11,6 +11,7 @@ import TopicSelector from '@/components/LearningComponents/TopicSelector';
 import LearningContent from '@/components/LearningComponents/LearningContent';
 import useLearningGradeLevel from '@/hooks/useLearningGradeLevel';
 import useStarsManager from '@/hooks/useStarsManager';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface Student {
   id: string;
@@ -24,6 +25,7 @@ const AILearning = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { stars, addStars } = useStarsManager();
+  const { t, language } = useLanguage();
   
   const initialGradeLevel = (location.state?.gradeLevel as 'k-3' | '4-6' | '7-9') || 'k-3';
   const { 
@@ -47,12 +49,12 @@ const AILearning = () => {
     if (location.state?.topic && location.state?.autoStart && !contentReady) {
       setTopic(location.state.topic);
       setContentReady(true);
-      toast.success(`Starting ${location.state.topic} in ${location.state.subject}!`, {
+      toast.success(`${language === 'id' ? 'Memulai' : 'Starting'} ${location.state.topic} ${language === 'id' ? 'di' : 'in'} ${location.state.subject}!`, {
         position: "bottom-right",
         duration: 3000,
       });
     }
-  }, [location.state, contentReady]);
+  }, [location.state, contentReady, language]);
 
   // Update subject when grade level changes
   useEffect(() => {
@@ -84,7 +86,7 @@ const AILearning = () => {
       setTopic(finalTopic);
       setContentReady(true);
     } else {
-      toast.error("Please enter a topic or select one from the suggestions");
+      toast.error(language === 'id' ? "Silakan masukkan topik atau pilih salah satu dari saran" : "Please enter a topic or select one from the suggestions");
     }
   };
 
