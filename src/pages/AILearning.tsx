@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
@@ -15,6 +14,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Student {
   id: string;
@@ -48,6 +48,7 @@ const AILearning = () => {
   const [showProfileManager, setShowProfileManager] = useState(false);
   const [customTopic, setCustomTopic] = useState('');
   const [aiUsageCount, setAiUsageCount] = useState<number>(0);
+  const [isLoadingStudents, setIsLoadingStudents] = useState(false);
   
   // Load AI usage count from localStorage on component mount
   useEffect(() => {
@@ -68,7 +69,75 @@ const AILearning = () => {
       setAiUsageCount(0);
       localStorage.setItem('aiUsageCount', '0');
     }
-  }, [user]);
+  }, [user, aiUsageCount]);
+
+  // Load real student data from Supabase when user is logged in
+  useEffect(() => {
+    const fetchStudents = async () => {
+      if (!user) {
+        return;
+      }
+
+      setIsLoadingStudents(true);
+      const { data, error } = await supabase
+        .from('students')
+        .select('*')
+        .eq('parent_id', user.id);
+      
+      if (error) {
+        console.error("Error fetching students:", error);
+        toast.error(language === 'id' 
+          ? "Gagal memuat data siswa" 
+          : "Failed to load student data");
+        setIsLoadingStudents(false);
+        return;
+      }
+
+      // If there's student data and a studentId from location state, set current student
+      if (data && data.length > 0) {
+        if (location.state?.studentId) {
+          const student = data.find(s => s.id === location.state.studentId);
+          if (student) {
+            const formattedStudent = {
+              id: student.id,
+              name: student.name,
+              age: student.age || 7,
+              gradeLevel: student.grade_level as 'k-3' | '4-6' | '7-9',
+              avatar: location.state?.studentAvatar || '👧'
+            };
+            setCurrentStudent(formattedStudent);
+            updateGradeLevelFromStudent(formattedStudent);
+          } else if (data[0]) {
+            // If specified student not found, use the first one
+            const defaultStudent = {
+              id: data[0].id,
+              name: data[0].name,
+              age: data[0].age || 7,
+              gradeLevel: data[0].grade_level as 'k-3' | '4-6' | '7-9',
+              avatar: '👧'
+            };
+            setCurrentStudent(defaultStudent);
+            updateGradeLevelFromStudent(defaultStudent);
+          }
+        } else if (data[0]) {
+          // If no studentId specified, use the first student
+          const defaultStudent = {
+            id: data[0].id,
+            name: data[0].name,
+            age: data[0].age || 7,
+            gradeLevel: data[0].grade_level as 'k-3' | '4-6' | '7-9',
+            avatar: '👧'
+          };
+          setCurrentStudent(defaultStudent);
+          updateGradeLevelFromStudent(defaultStudent);
+        }
+      }
+      
+      setIsLoadingStudents(false);
+    };
+
+    fetchStudents();
+  }, [user, location.state?.studentId, updateGradeLevelFromStudent, language]);
 
   // Handle auto-start of content if navigated with specific topic
   useEffect(() => {
@@ -88,19 +157,6 @@ const AILearning = () => {
     }
   }, [location.state, contentReady, language, user]);
 
-  // Load student from location state
-  useEffect(() => {
-    if (location.state?.studentId && location.state?.studentName) {
-      setCurrentStudent({
-        id: location.state.studentId,
-        name: location.state.studentName,
-        age: location.state.studentAge || 8,
-        gradeLevel: location.state.gradeLevel || 'k-3',
-        avatar: location.state.studentAvatar
-      });
-    }
-  }, [location.state]);
-
   // Update subject when grade level changes
   useEffect(() => {
     // If current subject is not available in the new grade level, set to first available
@@ -108,13 +164,6 @@ const AILearning = () => {
       setSubject(subjectOptions[0]);
     }
   }, [gradeLevel, subject, subjectOptions]);
-
-  // Update grade level when student profile changes
-  useEffect(() => {
-    if (currentStudent) {
-      updateGradeLevelFromStudent(currentStudent);
-    }
-  }, [currentStudent, updateGradeLevelFromStudent]);
 
   const handleGoBack = () => {
     navigate('/lessons', { 
@@ -128,7 +177,7 @@ const AILearning = () => {
 
   const handleTopicSelect = (suggestion: string) => {
     setTopic(suggestion);
-    setCustomTopic('');
+    setCustomTopic(suggestion);
   };
 
   const handleCreateContent = () => {
@@ -165,6 +214,11 @@ const AILearning = () => {
 
   const handleQuizComplete = (score: number) => {
     addStars(score);
+    
+    // Here you would also save the progress to the database for logged-in users
+    if (user && currentStudent) {
+      // This is where you would add code to save progress to the database
+    }
   };
 
   // Reset to topic selection
@@ -213,7 +267,7 @@ const AILearning = () => {
           <div className="container px-4 md:px-6">
             {!contentReady ? (
               <div className="grid gap-6 md:grid-cols-3">
-                {!currentStudent && (
+                {!currentStudent && !isLoadingStudents && (
                   <div className="md:col-span-3">
                     <StudentProfile onStudentChange={handleStudentChange} />
                   </div>

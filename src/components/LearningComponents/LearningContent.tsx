@@ -1,12 +1,15 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { BookOpen, PencilRuler, Gamepad } from 'lucide-react';
+import { BookOpen, PencilRuler, Gamepad, LogIn } from 'lucide-react';
 import AILesson from '../AILesson';
 import AIQuiz from '../AIQuiz';
 import AIGame from '../AIGame';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useNavigate } from 'react-router-dom';
 
 interface LearningContentProps {
   subject: string;
@@ -28,6 +31,18 @@ const LearningContent: React.FC<LearningContentProps> = ({
   onQuizComplete,
 }) => {
   const { language } = useLanguage();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  
+  // State for progress limitation
+  const [showLimitedContentWarning, setShowLimitedContentWarning] = useState(false);
+  
+  // Show warning if user is not logged in
+  useEffect(() => {
+    if (!user) {
+      setShowLimitedContentWarning(true);
+    }
+  }, [user]);
   
   const translations = {
     learningAbout: language === 'id' ? 'Belajar Tentang' : 'Learning About',
@@ -36,7 +51,16 @@ const LearningContent: React.FC<LearningContentProps> = ({
     quiz: language === 'id' ? 'Kuis' : 'Quiz',
     game: language === 'id' ? 'Permainan' : 'Game',
     recommendedNextSteps: language === 'id' ? 'Langkah Selanjutnya yang Direkomendasikan' : 'Recommended Next Steps',
-    startLesson: language === 'id' ? 'Mulai Pelajaran' : 'Start Lesson'
+    startLesson: language === 'id' ? 'Mulai Pelajaran' : 'Start Lesson',
+    limitedAccessWarning: language === 'id' ? 'Akses Terbatas' : 'Limited Access',
+    limitedAccessDescription: language === 'id' 
+      ? 'Anda hanya dapat mengakses 30% konten. Masuk untuk mengakses semua konten.'
+      : 'You can only access 30% of content. Sign in to unlock all content.',
+    signIn: language === 'id' ? 'Masuk' : 'Sign In'
+  };
+  
+  const handleSignIn = () => {
+    navigate('/auth', { state: { action: 'signin' } });
   };
   
   return (
@@ -53,6 +77,21 @@ const LearningContent: React.FC<LearningContentProps> = ({
           {translations.newTopic}
         </Button>
       </div>
+      
+      {showLimitedContentWarning && (
+        <Alert className="mb-4 bg-yellow-50 border-yellow-200">
+          <AlertDescription className="flex items-center justify-between">
+            <div>
+              <span className="font-medium text-yellow-800">{translations.limitedAccessWarning}</span>
+              <p className="text-yellow-700">{translations.limitedAccessDescription}</p>
+            </div>
+            <Button variant="outline" onClick={handleSignIn} className="flex items-center gap-2">
+              <LogIn className="h-4 w-4" />
+              {translations.signIn}
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
       
       <Tabs value={activeTab} onValueChange={onTabChange}>
         <TabsList className="grid w-full grid-cols-3">
@@ -75,6 +114,7 @@ const LearningContent: React.FC<LearningContentProps> = ({
               subject={subject} 
               gradeLevel={gradeLevel} 
               topic={topic}
+              limitProgress={!user}
             />
           </TabsContent>
           <TabsContent value="quiz">
@@ -83,6 +123,7 @@ const LearningContent: React.FC<LearningContentProps> = ({
               gradeLevel={gradeLevel} 
               topic={topic}
               onComplete={(score) => onQuizComplete(score)}
+              limitProgress={!user}
             />
           </TabsContent>
           <TabsContent value="game">
@@ -90,6 +131,7 @@ const LearningContent: React.FC<LearningContentProps> = ({
               subject={subject} 
               gradeLevel={gradeLevel} 
               topic={topic}
+              limitProgress={!user}
             />
           </TabsContent>
         </div>

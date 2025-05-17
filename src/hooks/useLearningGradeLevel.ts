@@ -12,11 +12,11 @@ interface Student {
 const useLearningGradeLevel = (initialGradeLevel: 'k-3' | '4-6' | '7-9' = 'k-3') => {
   const [gradeLevel, setGradeLevel] = useState<'k-3' | '4-6' | '7-9'>(initialGradeLevel);
   
-  // Common subject options based on grade level
+  // Enhanced subject options based on grade level
   const subjectOptions = {
-    'k-3': ['Math', 'Reading', 'Science', 'Social Studies'],
-    '4-6': ['Math', 'Language Arts', 'Science', 'Social Studies', 'Art'],
-    '7-9': ['Mathematics', 'Language Arts', 'Science', 'History', 'Geography', 'Art']
+    'k-3': ['Math', 'Reading', 'Science', 'Social Studies', 'Art', 'Music', 'Health'],
+    '4-6': ['Math', 'Language Arts', 'Science', 'Social Studies', 'Art', 'Music', 'Health', 'Technology'],
+    '7-9': ['Mathematics', 'Language Arts', 'Science', 'History', 'Geography', 'Art', 'Computer Science', 'Foreign Languages', 'Health']
   };
 
   // Topic suggestions based on subject and grade level
@@ -27,7 +27,10 @@ const useLearningGradeLevel = (initialGradeLevel: 'k-3' | '4-6' | '7-9' = 'k-3')
       'Reading': ['Alphabet', 'Sight Words', 'Phonics', 'Story Elements', 'Rhyming'],
       'English': ['Alphabet', 'Sight Words', 'Phonics', 'Story Elements', 'Rhyming'],
       'Science': ['Animals', 'Plants', 'Weather', 'Seasons', 'Five Senses'],
-      'Social Studies': ['Community Helpers', 'Maps', 'Holidays', 'Family', 'Rules']
+      'Social Studies': ['Community Helpers', 'Maps', 'Holidays', 'Family', 'Rules'],
+      'Art': ['Colors', 'Drawing', 'Crafts', 'Art Materials', 'Artists'],
+      'Music': ['Singing', 'Rhythm', 'Musical Instruments', 'Songs', 'Dance'],
+      'Health': ['Healthy Foods', 'Exercise', 'My Body', 'Feelings', 'Safety']
     },
     '4-6': {
       'Math': ['Fractions', 'Decimals', 'Multiplication', 'Division', 'Measurement'],
@@ -36,7 +39,10 @@ const useLearningGradeLevel = (initialGradeLevel: 'k-3' | '4-6' | '7-9' = 'k-3')
       'English': ['Grammar', 'Vocabulary', 'Reading Comprehension', 'Writing Process', 'Poetry'],
       'Science': ['Life Cycles', 'Habitats', 'Simple Machines', 'Earth', 'Matter'],
       'Social Studies': ['States', 'Historical Figures', 'Government', 'Economics', 'Geography'],
-      'Art': ['Color Theory', 'Famous Artists', 'Art Techniques', 'Art History', 'Crafts']
+      'Art': ['Color Theory', 'Famous Artists', 'Art Techniques', 'Art History', 'Crafts'],
+      'Music': ['Music Reading', 'Composers', 'Music History', 'Instruments', 'Performances'],
+      'Health': ['Nutrition', 'Hygiene', 'Growth and Development', 'Safety', 'First Aid'],
+      'Technology': ['Typing', 'Internet Safety', 'Digital Citizenship', 'Coding Basics', 'Computer Parts']
     },
     '7-9': {
       'Math': ['Algebra', 'Geometry', 'Statistics', 'Probability', 'Equations'],
@@ -46,7 +52,10 @@ const useLearningGradeLevel = (initialGradeLevel: 'k-3' | '4-6' | '7-9' = 'k-3')
       'Science': ['Biology', 'Chemistry', 'Physics', 'Astronomy', 'Environmental Science'],
       'History': ['Ancient Civilizations', 'World Wars', 'Civil Rights', 'American History', 'World History'],
       'Geography': ['Continents', 'Climate Zones', 'Natural Resources', 'Population', 'Cultures'],
-      'Art': ['Perspective Drawing', 'Art Movements', 'Digital Art', 'Photography', 'Sculpture']
+      'Art': ['Perspective Drawing', 'Art Movements', 'Digital Art', 'Photography', 'Sculpture'],
+      'Computer Science': ['Programming Basics', 'Web Design', 'Algorithm Design', 'Data Types', 'Problem Solving'],
+      'Foreign Languages': ['Basic Vocabulary', 'Grammar Rules', 'Conversational Phrases', 'Cultural Studies', 'Reading'],
+      'Health': ['Body Systems', 'Nutrition', 'Mental Health', 'Disease Prevention', 'Physical Fitness']
     }
   };
 

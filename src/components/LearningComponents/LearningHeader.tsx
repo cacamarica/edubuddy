@@ -2,7 +2,8 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, Sparkles } from 'lucide-react';
+import { ChevronLeft, Sparkles, User } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface LearningHeaderProps {
   currentStudent: {
@@ -45,7 +46,7 @@ const LearningHeader: React.FC<LearningHeaderProps> = ({
           </div>
           
           <div className="mt-4 md:mt-0 flex flex-col md:flex-row gap-2 md:items-center">
-            {currentStudent && (
+            {currentStudent ? (
               <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-lg shadow">
                 <div className="w-8 h-8 rounded-full bg-eduPastel-purple flex items-center justify-center text-lg">
                   {currentStudent.avatar || '👦'}
@@ -58,6 +59,19 @@ const LearningHeader: React.FC<LearningHeaderProps> = ({
                   className="ml-1"
                 >
                   {showProfileManager ? 'Hide' : 'Change'}
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-lg shadow">
+                <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
+                  <User className="h-4 w-4 text-gray-400" />
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={onToggleProfileManager}
+                >
+                  Select Student
                 </Button>
               </div>
             )}

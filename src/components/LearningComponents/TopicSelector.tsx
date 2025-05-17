@@ -69,7 +69,10 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
                   key={suggestion}
                   variant="outline"
                   size="sm"
-                  onClick={() => onTopicSelect(suggestion)}
+                  onClick={() => {
+                    onTopicSelect(suggestion);
+                    onCustomTopicChange(suggestion); // Also update the input field
+                  }}
                   className="bg-eduPastel-purple hover:bg-eduPastel-purple/80"
                 >
                   {suggestion}
