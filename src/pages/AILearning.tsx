@@ -7,7 +7,7 @@ import StudentProfile from '@/components/StudentProfile';
 import { toast } from 'sonner';
 import LearningHeader from '@/components/LearningComponents/LearningHeader';
 import TopicSelector from '@/components/LearningComponents/TopicSelector';
-import LearningContent from '@/components/LearningComponents/LearningContent';
+import LearningContentWrapper from '@/components/LearningComponents/LearningContentWrapper';
 import useLearningGradeLevel from '@/hooks/useLearningGradeLevel';
 import useStarsManager from '@/hooks/useStarsManager';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -217,7 +217,7 @@ const AILearning = () => {
     
     // Here you would also save the progress to the database for logged-in users
     if (user && currentStudent) {
-      // This is where you would add code to save progress to the database
+      // This is handled by the LessonTracking component now
     }
   };
 
@@ -311,7 +311,7 @@ const AILearning = () => {
                 />
               </div>
             ) : (
-              <LearningContent
+              <LearningContentWrapper
                 subject={subject}
                 gradeLevel={gradeLevel}
                 topic={topic}

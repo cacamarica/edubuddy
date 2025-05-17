@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
@@ -302,13 +301,33 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete, limitProgress = false 
       // Ensure selected answer is reset for the next question
       setSelectedAnswer(null);
     } else {
+      // Calculate final score
+      const finalScore = calculateFinalScore();
+      setScore(finalScore);
       setQuizComplete(true);
+      
+      // Play celebration sound
+      playSound('celebration');
       
       // Call the onComplete callback if provided
       if (onComplete) {
-        onComplete(score + (questions[currentQuestionIndex].correctAnswer === selectedAnswer ? 1 : 0));
+        onComplete(finalScore);
       }
     }
+  };
+
+  // Calculate final score by counting correct answers
+  const calculateFinalScore = () => {
+    let correctCount = 0;
+    
+    for (let i = 0; i < questions.length; i++) {
+      if (answers[i] === questions[i].correctAnswer) {
+        correctCount++;
+      }
+    }
+    
+    // Ensure score doesn't exceed questions length
+    return Math.min(correctCount, questions.length);
   };
 
   const handlePrevQuestion = () => {
