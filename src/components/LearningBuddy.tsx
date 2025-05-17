@@ -8,9 +8,10 @@ import {
 } from '@/components/ui/popover';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
-import { MessageCircle, Send, Award, Star, HelpCircle } from 'lucide-react';
+import { MessageCircle, Send, Star, HelpCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from "@/integrations/supabase/client";
+import { getAIEducationContent } from "@/services/aiEducationService";
+import { Spinner } from '@/components/ui/spinner';
 
 interface Message {
   id: string;
@@ -19,7 +20,7 @@ interface Message {
   timestamp: Date;
 }
 
-// Static responses for when not using AI or as fallback
+// Static responses for fallback when AI fails or is disabled
 const BUDDY_RESPONSES = {
   general: [
     "That's a great question! Let me help you with that.",
@@ -100,39 +101,21 @@ const LearningBuddy = () => {
     }
     
     try {
-      setIsLoading(true);
-      
-      // Call the OpenAI-connected edge function with a teacher prompt
-      const { data, error } = await supabase.functions.invoke('ai-edu-content', {
-        body: {
-          contentType: 'buddy',
-          role: 'teacher',
-          question,
-          prompt: `You are a friendly and enthusiastic teacher named Learning Buddy. Your goal is to help children (ages 5-15) learn in a fun and engaging way. 
-          Explain concepts in simple language appropriate for their age. Use examples, analogies, and occasionally emojis to make your explanations more engaging. 
-          Be encouraging, positive, and praise effort. Keep your responses concise (under 3 sentences for young children, under 5 for older ones) unless a detailed explanation is needed. 
-          Be warm and supportive like a favorite teacher would be.
-          
-          Question from student: ${question}`
-        }
+      // Call the OpenAI-connected edge function with our question
+      const data = await getAIEducationContent({
+        contentType: 'buddy',
+        question
       });
       
-      if (error) throw error;
-      
-      setIsLoading(false);
-      
       // Extract response from AI
-      const response = data?.content?.response || data?.content;
-      
-      if (typeof response === 'string') {
-        return response;
+      if (data?.content) {
+        return data.content;
       }
       
       // Fallback in case the AI format is unexpected
-      return "I'm here to help you learn! What subject are you studying today?";
+      return "I'm here to help you learn! What would you like to know about?";
     } catch (error) {
       console.error('Error getting AI buddy response:', error);
-      setIsLoading(false);
       
       // Fall back to static responses if AI fails
       return getStaticResponse(question);
@@ -287,9 +270,8 @@ const LearningBuddy = () => {
                 <div className="flex justify-start">
                   <div className="max-w-[80%] rounded-lg px-3 py-2 bg-eduPastel-purple text-foreground">
                     <div className="flex items-center gap-2">
-                      <div className="animate-bounce h-2 w-2 bg-eduPurple rounded-full"></div>
-                      <div className="animate-bounce h-2 w-2 bg-eduPurple rounded-full" style={{ animationDelay: '0.2s' }}></div>
-                      <div className="animate-bounce h-2 w-2 bg-eduPurple rounded-full" style={{ animationDelay: '0.4s' }}></div>
+                      <Spinner size="sm" />
+                      <span className="text-sm">Thinking...</span>
                     </div>
                   </div>
                 </div>

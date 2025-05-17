@@ -15,7 +15,8 @@ serve(async (req) => {
   }
 
   try {
-    const { contentType, subject, gradeLevel, topic } = await req.json();
+    const requestData = await req.json();
+    const { contentType, subject, gradeLevel, topic, question } = requestData;
     
     // Create Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
@@ -47,11 +48,34 @@ serve(async (req) => {
         Create a fun, interactive learning game related to ${topic} in ${subject}.
         Games should be age-appropriate: simple matching or sorting for K-3, word puzzles or simple logic games for 4-6, 
         and more complex strategy or creative challenges for 7-9.
-        Format as JSON with: title, objective, instructions (step by step), materials (if any), and variations (simpler/harder versions).`
+        Format as JSON with: title, objective, instructions (step by step), materials (if any), and variations (simpler/harder versions).`,
+        
+      buddy: `You are a friendly and enthusiastic teacher named Learning Buddy. 
+        Your goal is to help children (ages 5-13) learn in a fun and engaging way.
+        Explain concepts in simple language appropriate for children. Use examples, analogies, 
+        and occasionally emojis to make your explanations more engaging.
+        Be encouraging, positive, and praise effort. Keep your responses concise 
+        (about 2-4 sentences) unless a detailed explanation is needed.
+        Be warm and supportive like a favorite teacher would be.
+        
+        Always maintain age-appropriate content with absolutely no inclusion of violence, 
+        politics, religion, adult themes, or controversial topics.
+        
+        If you don't know the answer to something, it's okay to say so in a friendly way and 
+        suggest where they might find the answer.`
     };
     
     // Select the appropriate system prompt
     const systemPrompt = systemPrompts[contentType] || systemPrompts.lesson;
+    
+    // Prepare content for user message based on content type
+    let userContent = '';
+    
+    if (contentType === 'buddy') {
+      userContent = question || 'Hi there! What can you help me with today?';
+    } else {
+      userContent = `Create ${contentType} content about ${topic} in ${subject} for ${gradeLevel} students. Make it educational, engaging, and age-appropriate.`;
+    }
     
     // Call OpenAI API
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -64,7 +88,7 @@ serve(async (req) => {
         model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Create ${contentType} content about ${topic} in ${subject} for ${gradeLevel} students. Make it educational, engaging, and age-appropriate.` }
+          { role: 'user', content: userContent }
         ],
         temperature: 0.7,
       }),
@@ -79,24 +103,32 @@ serve(async (req) => {
     const data = await response.json();
     let content = data.choices[0].message.content;
     
-    // Try to parse JSON from the response if it's not already JSON
-    try {
-      if (typeof content === 'string') {
-        // Extract JSON if it's wrapped in markdown code blocks
-        if (content.includes('```json')) {
-          content = content.split('```json')[1].split('```')[0].trim();
+    // Process the response based on content type
+    if (contentType === 'buddy') {
+      // For buddy, we return the text directly
+      return new Response(JSON.stringify({ content: content }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    } else {
+      // For other content types, try to parse JSON
+      try {
+        if (typeof content === 'string') {
+          // Extract JSON if it's wrapped in markdown code blocks
+          if (content.includes('```json')) {
+            content = content.split('```json')[1].split('```')[0].trim();
+          }
+          content = JSON.parse(content);
         }
-        content = JSON.parse(content);
+      } catch (e) {
+        console.log('Could not parse JSON from OpenAI response, returning raw content');
+        // If parsing fails, return the raw content
       }
-    } catch (e) {
-      console.log('Could not parse JSON from OpenAI response, returning raw content');
-      // If parsing fails, return the raw content
+  
+      // Return the AI-generated content
+      return new Response(JSON.stringify({ content }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
-
-    // Return the AI-generated content
-    return new Response(JSON.stringify({ content }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
   } catch (error) {
     console.error('Error in AI education content function:', error);
     return new Response(JSON.stringify({ error: error.message }), {

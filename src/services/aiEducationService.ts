@@ -2,17 +2,19 @@
 import { supabase } from "@/integrations/supabase/client";
 
 interface AIContentRequestParams {
-  contentType: 'lesson' | 'quiz' | 'game';
-  subject: string;
-  gradeLevel: 'k-3' | '4-6' | '7-9';
-  topic: string;
+  contentType: 'lesson' | 'quiz' | 'game' | 'buddy';
+  subject?: string;
+  gradeLevel?: 'k-3' | '4-6' | '7-9';
+  topic?: string;
+  question?: string;
 }
 
 export async function getAIEducationContent({
   contentType,
   subject,
   gradeLevel,
-  topic
+  topic,
+  question
 }: AIContentRequestParams) {
   try {
     const { data, error } = await supabase.functions.invoke('ai-edu-content', {
@@ -20,7 +22,8 @@ export async function getAIEducationContent({
         contentType,
         subject,
         gradeLevel,
-        topic
+        topic,
+        question
       }
     });
 
