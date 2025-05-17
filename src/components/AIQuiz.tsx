@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -32,9 +31,18 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
   const [showFeedback, setShowFeedback] = useState(false);
   const [quizComplete, setQuizComplete] = useState(false);
   const [score, setScore] = useState(0);
+  const [hasError, setHasError] = useState(false);
+
+  // Use an effect to reset currentQuestion if it's invalid
+  useEffect(() => {
+    if (questions.length > 0 && !questions[currentQuestion]) {
+      setCurrentQuestion(0);
+    }
+  }, [questions, currentQuestion]);
 
   const generateQuiz = async () => {
     setIsLoading(true);
+    setHasError(false);
     try {
       const result = await getAIEducationContent({
         contentType: 'quiz',
@@ -45,9 +53,11 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
       
       setQuestions(result.content);
       setAnswers(new Array(result.content.length).fill(null));
+      setCurrentQuestion(0);
     } catch (error) {
       console.error("Failed to generate quiz:", error);
       toast.error("Oops! We couldn't create your quiz right now. Please try again!");
+      setHasError(true);
     } finally {
       setIsLoading(false);
     }
@@ -114,6 +124,12 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
     setAnswers(new Array(questions.length).fill(null));
     setShowFeedback(false);
     setQuizComplete(false);
+  };
+
+  const handleTryAgain = () => {
+    setQuestions([]);
+    setCurrentQuestion(0);
+    setHasError(false);
   };
 
   if (isLoading) {
@@ -230,19 +246,14 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
     );
   }
 
-  // Guard against empty questions array or invalid currentQuestion index
-  if (!questions[currentQuestion]) {
-    // Reset to a valid state
-    setCurrentQuestion(0);
+  // Error handling - if questions exist but current question is invalid
+  if (hasError || (questions.length > 0 && !questions[currentQuestion])) {
     return (
       <Card>
         <CardContent className="pt-6 flex flex-col items-center justify-center h-64">
           <p className="text-center font-display text-lg">Oops! Something went wrong with the quiz.</p>
           <Button 
-            onClick={() => {
-              setQuestions([]);
-              setCurrentQuestion(0);
-            }} 
+            onClick={handleTryAgain} 
             className="mt-4 bg-eduPurple hover:bg-eduPurple-dark"
           >
             Try Again
