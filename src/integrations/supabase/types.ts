@@ -9,6 +9,118 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      ai_recommendations: {
+        Row: {
+          acted_on: boolean | null
+          created_at: string
+          id: string
+          read: boolean | null
+          recommendation: string
+          recommendation_type: string
+          student_id: string
+        }
+        Insert: {
+          acted_on?: boolean | null
+          created_at?: string
+          id?: string
+          read?: boolean | null
+          recommendation: string
+          recommendation_type: string
+          student_id: string
+        }
+        Update: {
+          acted_on?: boolean | null
+          created_at?: string
+          id?: string
+          read?: boolean | null
+          recommendation?: string
+          recommendation_type?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_recommendations_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      badges: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          image_url: string | null
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          id?: string
+          image_url?: string | null
+          name: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          image_url?: string | null
+          name?: string
+        }
+        Relationships: []
+      }
+      learning_activities: {
+        Row: {
+          activity_type: string
+          completed: boolean | null
+          completed_at: string | null
+          id: string
+          last_interaction_at: string
+          progress: number | null
+          stars_earned: number | null
+          started_at: string
+          student_id: string
+          subject: string
+          topic: string
+        }
+        Insert: {
+          activity_type: string
+          completed?: boolean | null
+          completed_at?: string | null
+          id?: string
+          last_interaction_at?: string
+          progress?: number | null
+          stars_earned?: number | null
+          started_at?: string
+          student_id: string
+          subject: string
+          topic: string
+        }
+        Update: {
+          activity_type?: string
+          completed?: boolean | null
+          completed_at?: string | null
+          id?: string
+          last_interaction_at?: string
+          progress?: number | null
+          stars_earned?: number | null
+          started_at?: string
+          student_id?: string
+          subject?: string
+          topic?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_activities_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -29,6 +141,83 @@ export type Database = {
           is_teacher?: boolean | null
         }
         Relationships: []
+      }
+      quiz_scores: {
+        Row: {
+          completed_at: string
+          id: string
+          max_score: number
+          percentage: number
+          score: number
+          student_id: string
+          subject: string
+          topic: string
+        }
+        Insert: {
+          completed_at?: string
+          id?: string
+          max_score: number
+          percentage: number
+          score: number
+          student_id: string
+          subject: string
+          topic: string
+        }
+        Update: {
+          completed_at?: string
+          id?: string
+          max_score?: number
+          percentage?: number
+          score?: number
+          student_id?: string
+          subject?: string
+          topic?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_scores_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_badges: {
+        Row: {
+          badge_id: string
+          earned_at: string
+          id: string
+          student_id: string
+        }
+        Insert: {
+          badge_id: string
+          earned_at?: string
+          id?: string
+          student_id: string
+        }
+        Update: {
+          badge_id?: string
+          earned_at?: string
+          id?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_badges_badge_id_fkey"
+            columns: ["badge_id"]
+            isOneToOne: false
+            referencedRelation: "badges"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_badges_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       students: {
         Row: {
@@ -61,6 +250,38 @@ export type Database = {
             columns: ["parent_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subject_progress: {
+        Row: {
+          id: string
+          last_updated_at: string
+          progress: number
+          student_id: string
+          subject: string
+        }
+        Insert: {
+          id?: string
+          last_updated_at?: string
+          progress?: number
+          student_id: string
+          subject: string
+        }
+        Update: {
+          id?: string
+          last_updated_at?: string
+          progress?: number
+          student_id?: string
+          subject?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subject_progress_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
             referencedColumns: ["id"]
           },
         ]

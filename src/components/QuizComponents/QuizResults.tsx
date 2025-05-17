@@ -1,15 +1,19 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Star, CheckCircle, Award, RotateCcw } from 'lucide-react';
 import { QuizQuestion } from './QuizQuestionCard';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { studentProgressService } from '@/services/studentProgressService';
+import { toast } from 'sonner';
 
 interface QuizResultsProps {
   score: number;
   totalQuestions: number;
   subject: string;
+  topic: string;
   questions: QuizQuestion[];
   answers: (number | null)[];
   onRestartQuiz: () => void;
@@ -20,12 +24,62 @@ const QuizResults: React.FC<QuizResultsProps> = ({
   score,
   totalQuestions,
   subject,
+  topic,
   questions,
   answers,
   onRestartQuiz,
   onNewQuiz,
 }) => {
   const { t } = useLanguage();
+  const { user } = useAuth();
+  
+  // Save quiz results to database when completed
+  useEffect(() => {
+    const saveQuizResults = async () => {
+      // Only save if user is logged in
+      if (!user) return;
+      
+      try {
+        // Get the current student
+        const { data: students } = await supabase
+          .from('students')
+          .select('*')
+          .eq('parent_id', user.id)
+          .limit(1);
+          
+        if (!students || students.length === 0) return;
+        const student = students[0];
+        
+        // Record quiz score
+        await studentProgressService.recordQuizScore({
+          student_id: student.id,
+          subject,
+          topic,
+          score,
+          max_score: totalQuestions,
+          percentage: Math.round((score / totalQuestions) * 100)
+        });
+        
+        // Record learning activity
+        await studentProgressService.recordActivity({
+          student_id: student.id,
+          activity_type: 'quiz',
+          subject,
+          topic,
+          completed: true,
+          progress: 100,
+          stars_earned: score,
+          completed_at: new Date().toISOString()
+        });
+        
+        console.log('Quiz results saved to database');
+      } catch (error) {
+        console.error('Error saving quiz results:', error);
+      }
+    };
+    
+    saveQuizResults();
+  }, [score, totalQuestions, subject, topic, user]);
   
   return (
     <Card>
