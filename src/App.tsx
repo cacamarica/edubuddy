@@ -77,7 +77,8 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/lessons" element={<Lessons />} />
-          <Route path="/quiz" element={<Quiz />} />          <Route path="/dashboard" element={
+          <Route path="/quiz" element={<Quiz />} />
+          <Route path="/dashboard" element={
             <ParentOnlyRoute>
               <Dashboard />
             </ParentOnlyRoute>

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,12 +7,11 @@ import { Separator } from '@/components/ui/separator';
 import { BookOpen, Settings, UserPlus, Users, ChevronLeft } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { studentProgressService, StudentBadge } from '@/services/studentProgressService';
+import { studentProgressService } from '@/services/studentProgressService';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import RecentActivities from '@/components/DashboardComponents/RecentActivities';
 import PaginatedActivities from '@/components/DashboardComponents/PaginatedActivities';
-import PaginatedBadges from '@/components/DashboardComponents/PaginatedBadges';
 import AIRecommendations from '@/components/DashboardComponents/AIRecommendations';
 import StudentProgressSummary from '@/components/DashboardComponents/StudentProgressSummary';
 import StudentProfileSelector from '@/components/DashboardComponents/StudentProfileSelector';
@@ -44,35 +44,16 @@ const StudentProfileFallback = ({ onBack }: { onBack: () => void }) => {
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [showStudentProfile, setShowStudentProfile] = useState(false);
-  const [currentStudentId, setCurrentStudentId] = useState<string | undefined>(undefined);  const [isLoading, setIsLoading] = useState(false);
-  const [badges, setBadges] = useState<StudentBadge[]>([]);
-  const [isLoadingBadges, setIsLoadingBadges] = useState(false);
+  const [currentStudentId, setCurrentStudentId] = useState<string | undefined>(undefined);
+  const [isLoading, setIsLoading] = useState(false);
   const { language } = useLanguage();
   const { user } = useAuth();
   
-  useEffect(() => {
-    const fetchBadges = async () => {
-      if (!currentStudentId) return;
-      
-      setIsLoadingBadges(true);
-      try {
-        const badgesData = await studentProgressService.getStudentBadges(currentStudentId);
-        setBadges(badgesData);
-      } catch (error) {
-        console.error('Error fetching badges:', error);
-      } finally {
-        setIsLoadingBadges(false);
-      }
-    };
-    
-    if (currentStudentId) {
-      fetchBadges();
-    }
-  }, [currentStudentId]);
-    const handleStudentChange = (studentId: string) => {
+  const handleStudentChange = (studentId: string) => {
     setCurrentStudentId(studentId);
   };
-    const handleShowStudentProfile = () => {
+  
+  const handleShowStudentProfile = () => {
     setIsLoading(true);
     setShowStudentProfile(true);
     // Simulate small load time to show transition
@@ -81,7 +62,9 @@ const Dashboard = () => {
   
   const handleBackToDashboard = () => {
     setShowStudentProfile(false);
-  };  return (
+  };
+
+  return (
     <div className="min-h-screen flex flex-col">
       <Header />
       <div className="container mx-auto px-4 py-6 flex-grow">
@@ -153,9 +136,6 @@ const Dashboard = () => {
               <TabsTrigger value="activities">
                 {language === 'id' ? 'Aktivitas' : 'Activities'}
               </TabsTrigger>
-              <TabsTrigger value="achievements">
-                {language === 'id' ? 'Pencapaian' : 'Achievements'}
-              </TabsTrigger>
               <TabsTrigger value="recommendations">
                 {language === 'id' ? 'Rekomendasi' : 'Recommendations'}
               </TabsTrigger>
@@ -213,51 +193,6 @@ const Dashboard = () => {
               </Card>
             </TabsContent>
             
-            <TabsContent value="achievements" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>
-                    {language === 'id' ? 'Pencapaian' : 'Achievements'}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {isLoading ? (
-                    <div className="flex justify-center py-8">
-                      <Spinner />
-                    </div>
-                  ) : currentStudentId ? (
-                    <div id="badges-container" className="badges-wrapper">
-                      {isLoadingBadges ? (
-                        <div className="text-center py-8">
-                          <Spinner />
-                          <p className="mt-2 text-sm text-muted-foreground">
-                            {language === 'id' ? 'Memuat pencapaian...' : 'Loading achievements...'}
-                          </p>
-                        </div>
-                      ) : badges.length > 0 ? (
-                        <PaginatedBadges 
-                          badges={badges} 
-                          isLoading={false} 
-                        />
-                      ) : (
-                        <div className="text-center py-8 text-muted-foreground">
-                          {language === 'id' 
-                            ? 'Belum ada pencapaian. Mulai belajar untuk mendapatkan lencana!' 
-                            : 'No achievements yet. Start learning to earn badges!'}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      {language === 'id' 
-                        ? 'Pilih siswa untuk melihat pencapaian' 
-                        : 'Select a student to view achievements'}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-            
             <TabsContent value="recommendations" className="space-y-4">
               <Card>
                 <CardHeader>
@@ -284,7 +219,8 @@ const Dashboard = () => {
             </TabsContent>
           </Tabs>
         </div>
-      )}    </div>
+      )}
+      </div>
       <Footer />
     </div>
   );

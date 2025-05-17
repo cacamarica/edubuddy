@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { studentProgressService, LearningActivity, StudentBadge } from '@/services/studentProgressService';
+import { studentProgressService, LearningActivity } from '@/services/studentProgressService';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Spinner } from '@/components/ui/spinner';
 import PaginatedActivities from './PaginatedActivities';
-import PaginatedBadges from './PaginatedBadges';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface RecentActivitiesProps {
   studentId: string;
@@ -13,11 +11,8 @@ interface RecentActivitiesProps {
 
 const RecentActivities: React.FC<RecentActivitiesProps> = ({ studentId }) => {
   const [activities, setActivities] = useState<LearningActivity[]>([]);
-  const [badges, setBadges] = useState<StudentBadge[]>([]);
   const [isLoadingActivities, setIsLoadingActivities] = useState(true);
-  const [isLoadingBadges, setIsLoadingBadges] = useState(true);
   const { language } = useLanguage();
-  const [activeTab, setActiveTab] = useState('activities');
   
   useEffect(() => {
     const fetchActivities = async () => {
@@ -59,55 +54,24 @@ const RecentActivities: React.FC<RecentActivitiesProps> = ({ studentId }) => {
       setIsLoadingActivities(false);
     };
     
-    const fetchBadges = async () => {
-      if (!studentId) return;
-      
-      setIsLoadingBadges(true);
-      const data = await studentProgressService.getStudentBadges(studentId);
-      setBadges(data);
-      setIsLoadingBadges(false);
-    };
-    
     fetchActivities();
-    fetchBadges();
   }, [studentId]);
   
   return (
     <div className="grid gap-6">
       <Card>
         <CardHeader>
-          <CardTitle>{language === 'id' ? 'Aktivitas & Pencapaian' : 'Activities & Achievements'}</CardTitle>
+          <CardTitle>{language === 'id' ? 'Aktivitas Pembelajaran' : 'Learning Activities'}</CardTitle>
           <CardDescription>
-            {language === 'id' ? 'Riwayat pembelajaran dan pencapaian siswa' : 'Learning history and student achievements'}
+            {language === 'id' ? 'Riwayat pembelajaran siswa' : 'Learning history of the student'}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="mb-4">
-              <TabsTrigger value="activities">
-                {language === 'id' ? 'Aktivitas' : 'Activities'}
-              </TabsTrigger>
-              <TabsTrigger value="badges">
-                {language === 'id' ? 'Lencana' : 'Badges'}
-              </TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="activities">
-              <PaginatedActivities 
-                activities={activities} 
-                isLoading={isLoadingActivities}
-                pageSize={5}
-              />
-            </TabsContent>
-            
-            <TabsContent value="badges">
-              <PaginatedBadges 
-                badges={badges} 
-                isLoading={isLoadingBadges}
-                pageSize={6}
-              />
-            </TabsContent>
-          </Tabs>
+          <PaginatedActivities 
+            activities={activities} 
+            isLoading={isLoadingActivities}
+            pageSize={5}
+          />
         </CardContent>
       </Card>
     </div>
