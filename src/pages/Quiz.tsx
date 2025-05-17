@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import { ChevronLeft, ChevronRight, CheckCircle, XCircle, Star } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle, XCircle, Star, Award } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface QuizQuestion {
