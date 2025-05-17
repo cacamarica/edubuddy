@@ -1,11 +1,10 @@
-
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
-import { BookOpen, Book, Pencil, Atom, Globe, Calculator, Code, Language, Music, Palette, GraduationCap, Calendar } from "lucide-react";
+import { BookOpen, Book, Pencil, Atom, Globe, Calculator, Code, Languages, Music, Palette, GraduationCap, Calendar } from "lucide-react";
 
 const topics = [
   {
@@ -58,7 +57,7 @@ const topics = [
     title: "Foreign Languages",
     description: "Master vocabulary, grammar and communication skills!",
     color: "bg-eduPastel-blue",
-    icon: Language,
+    icon: Languages,
     lessons: ["Basic Vocabulary", "Grammar Rules", "Conversation Practice"],
     progress: 25,
   },
