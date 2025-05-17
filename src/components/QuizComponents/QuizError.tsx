@@ -1,0 +1,26 @@
+
+import React from 'react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+
+interface QuizErrorProps {
+  onTryAgain: () => void;
+}
+
+const QuizError: React.FC<QuizErrorProps> = ({ onTryAgain }) => {
+  return (
+    <Card>
+      <CardContent className="pt-6 flex flex-col items-center justify-center h-64">
+        <p className="text-center font-display text-lg">Oops! Something went wrong with the quiz.</p>
+        <Button 
+          onClick={onTryAgain} 
+          className="mt-4 bg-eduPurple hover:bg-eduPurple-dark"
+        >
+          Try Again
+        </Button>
+      </CardContent>
+    </Card>
+  );
+};
+
+export default QuizError;
