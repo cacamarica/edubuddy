@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { toast } from 'sonner';
 
 const Auth = () => {
   const { signIn, signUp, user } = useAuth();
@@ -73,7 +74,7 @@ const Auth = () => {
     try {
       const { error } = await signIn(values.email, values.password);
       if (!error) {
-        navigate('/dashboard');
+        navigate('/dashboard', { state: { gradeLevel } });
       }
     } finally {
       setIsLoading(false);
@@ -85,8 +86,11 @@ const Auth = () => {
     try {
       const { error } = await signUp(values.email, values.password, values.fullName);
       if (!error) {
-        // Instead of automatically navigating, show a message to sign in
-        setAuthTab('signin');
+        // User should be automatically signed in after signup now
+        // We'll still redirect to dashboard after a slight delay to ensure the session is set
+        setTimeout(() => {
+          navigate('/dashboard', { state: { gradeLevel } });
+        }, 500);
       }
     } finally {
       setIsLoading(false);
@@ -223,6 +227,13 @@ const Auth = () => {
               </div>
             </CardFooter>
           </Card>
+          <div className="mt-4 text-center">
+            <p className="text-sm text-muted-foreground">
+              {language === 'id' 
+                ? 'Email verifikasi telah dimatikan untuk tujuan pengujian.' 
+                : 'Email verification has been disabled for testing purposes.'}
+            </p>
+          </div>
         </div>
       </main>
       <Footer />
