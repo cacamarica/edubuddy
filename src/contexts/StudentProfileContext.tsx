@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 interface StudentProfile {
@@ -15,28 +16,49 @@ const StudentProfileContext = createContext<StudentProfileContextProps | undefin
 
 export const StudentProfileProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [selectedProfile, setSelectedProfile] = useState<StudentProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Load the selected profile from localStorage on mount
-    const storedProfile = localStorage.getItem('selectedStudentProfile');
-    if (storedProfile) {
-      try {
+    // Load the selected profile from localStorage on mount with improved error handling
+    setIsLoading(true);
+    try {
+      const storedProfile = localStorage.getItem('selectedStudentProfile');
+      if (storedProfile) {
         const parsedProfile = JSON.parse(storedProfile);
-        setSelectedProfile(parsedProfile);
-      } catch (error) {
-        console.error('Failed to parse stored student profile:', error);
+        if (parsedProfile && typeof parsedProfile === 'object' && 'id' in parsedProfile && 'name' in parsedProfile) {
+          setSelectedProfile(parsedProfile);
+        } else {
+          console.error('Invalid student profile format in localStorage');
+          localStorage.removeItem('selectedStudentProfile');
+        }
       }
+    } catch (error) {
+      console.error('Failed to parse stored student profile:', error);
+      // Clear potentially corrupted data
+      try {
+        localStorage.removeItem('selectedStudentProfile');
+      } catch (clearError) {
+        console.error('Failed to clear corrupted profile data:', clearError);
+      }
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    // Save the selected profile to localStorage whenever it changes
-    if (selectedProfile) {
-      localStorage.setItem('selectedStudentProfile', JSON.stringify(selectedProfile));
-    } else {
-      localStorage.removeItem('selectedStudentProfile');
+    // Save the selected profile to localStorage whenever it changes with improved error handling
+    if (isLoading) return; // Skip initial load
+    
+    try {
+      if (selectedProfile) {
+        localStorage.setItem('selectedStudentProfile', JSON.stringify(selectedProfile));
+      } else {
+        localStorage.removeItem('selectedStudentProfile');
+      }
+    } catch (error) {
+      console.error('Failed to store student profile:', error);
     }
-  }, [selectedProfile]);
+  }, [selectedProfile, isLoading]);
 
   return (
     <StudentProfileContext.Provider value={{ selectedProfile, setSelectedProfile }}>

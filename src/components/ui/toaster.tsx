@@ -1,11 +1,10 @@
 
-// This file is kept for backward compatibility
+// This file is maintained for backward compatibility
 // The actual Toaster component is now imported directly from sonner in main.tsx
-import { toast } from "sonner";
+import { toast, Toaster as SonnerToaster } from "sonner";
 
 export { toast };
 
 export function Toaster() {
-  // This is now just a placeholder as we're using the sonner Toaster in main.tsx
-  return null;
+  return <SonnerToaster position="bottom-right" richColors />;
 }

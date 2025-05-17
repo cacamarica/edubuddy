@@ -47,6 +47,47 @@ export type Database = {
           },
         ]
       }
+      ai_student_reports: {
+        Row: {
+          created_at: string | null
+          generated_at: string | null
+          id: string
+          last_activity_timestamp_at_generation: string | null
+          report_data: Json
+          student_id: string
+          updated_at: string | null
+          version: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          generated_at?: string | null
+          id?: string
+          last_activity_timestamp_at_generation?: string | null
+          report_data: Json
+          student_id: string
+          updated_at?: string | null
+          version?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          generated_at?: string | null
+          id?: string
+          last_activity_timestamp_at_generation?: string | null
+          report_data?: Json
+          student_id?: string
+          updated_at?: string | null
+          version?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_student_reports_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       badges: {
         Row: {
           created_at: string
@@ -146,7 +187,7 @@ export type Database = {
           grade_level: string
           id?: string
           introduction: string
-          subject?: string
+          subject: string
           summary?: string | null
           title: string
           topic: string
@@ -368,6 +409,36 @@ export type Database = {
           },
         ]
       }
+      quizzes: {
+        Row: {
+          created_at: string | null
+          grade_level: string | null
+          id: string
+          subject_id: string | null
+          title: string
+          topic_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          grade_level?: string | null
+          id?: string
+          subject_id?: string | null
+          title: string
+          topic_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          grade_level?: string | null
+          id?: string
+          subject_id?: string | null
+          title?: string
+          topic_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       student_badges: {
         Row: {
           badge_id: string
@@ -400,6 +471,72 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_quiz_attempts: {
+        Row: {
+          attempted_at: string | null
+          correct_answer: string
+          created_at: string | null
+          grade_level: string | null
+          id: string
+          is_correct: boolean | null
+          question_id: string
+          question_text: string
+          quiz_id: string
+          student_answer: string | null
+          student_id: string
+          subject_id: string
+          topic_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          attempted_at?: string | null
+          correct_answer: string
+          created_at?: string | null
+          grade_level?: string | null
+          id?: string
+          is_correct?: boolean | null
+          question_id: string
+          question_text: string
+          quiz_id: string
+          student_answer?: string | null
+          student_id: string
+          subject_id: string
+          topic_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          attempted_at?: string | null
+          correct_answer?: string
+          created_at?: string | null
+          grade_level?: string | null
+          id?: string
+          is_correct?: boolean | null
+          question_id?: string
+          question_text?: string
+          quiz_id?: string
+          student_answer?: string | null
+          student_id?: string
+          subject_id?: string
+          topic_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_quiz_attempts_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_quiz_attempts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -604,10 +741,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-
-export type User = {
-  id: string;
-  fullName: string;
-  email: string;
-  accountType: 'student' | 'parent' | 'teacher';
-};

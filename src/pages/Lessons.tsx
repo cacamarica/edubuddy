@@ -1,3 +1,4 @@
+
 // filepath: g:\eduBuddy\edubuddy\src\pages\Lessons.tsx
 import { useEffect, useState, useContext } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -13,7 +14,7 @@ import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { studentProgressService, AIRecommendation, LearningActivity, QuizScore } from '@/services/studentProgressService';
-import { User } from '../integrations/supabase/types'; // Assuming the User type is defined in this file
+// Remove the User import from "../integrations/supabase/types" since it doesn't exist
 import { StudentProfileContext } from '../contexts/StudentProfileContext';
 import { validateStudentId as importedValidateStudentId } from '../lib/utils';
 

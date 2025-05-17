@@ -1,5 +1,5 @@
 
-import { toast } from "sonner";
+// Re-export toast from sonner for consistent usage across the application
+import { toast, Toaster } from "sonner";
 
-// Export toast from sonner directly to ensure consistent usage
-export { toast };
+export { toast, Toaster };

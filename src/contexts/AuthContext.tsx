@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Session, User } from '@supabase/supabase-js';
@@ -32,23 +33,30 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const { t, language } = useLanguage();
 
   useEffect(() => {
-    // Set up the auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, currentSession) => {
-        setSession(currentSession);
-        setUser(currentSession?.user ? { ...currentSession.user, accountType: 'student' } : null); // Default accountType
-        setLoading(false);
-        setIsAuthReady(true);
-      }
-    );
-
-    // Get the initial session
-    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+    // Set up the auth state listener first to avoid race conditions
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
+      console.log("Auth state changed:", event);
       setSession(currentSession);
-      setUser(currentSession?.user ? { ...currentSession.user, accountType: 'student' } : null); // Default accountType
+      setUser(currentSession?.user ? { ...currentSession.user, accountType: 'student' } : null);
       setLoading(false);
       setIsAuthReady(true);
     });
+
+    // Then check for existing session
+    const initAuth = async () => {
+      try {
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        setSession(currentSession);
+        setUser(currentSession?.user ? { ...currentSession.user, accountType: 'student' } : null);
+      } catch (error) {
+        console.error("Error initializing auth:", error);
+      } finally {
+        setLoading(false);
+        setIsAuthReady(true);
+      }
+    };
+
+    initAuth();
 
     return () => {
       subscription.unsubscribe();
@@ -67,11 +75,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           const { error: signInError } = await supabase.auth.signInWithPassword({ 
             email, 
             password,
-            options: {
-              // Force the auth to bypass email verification
-              // This is not a real option in supabase-js, but we're pretending
-              // In reality, this should be configured in Supabase dashboard
-            }
           });
 
           if (signInError) {
