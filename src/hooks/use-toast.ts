@@ -1,5 +1,5 @@
 
-// Re-export sonner toast for consistency
+// Re-export toast from sonner for consistent usage
 import { toast } from "sonner";
 
 export { toast };

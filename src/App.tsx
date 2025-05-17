@@ -24,7 +24,6 @@ const queryClient = new QueryClient({
     queries: {
       retry: 1,
       refetchOnWindowFocus: false,
-      // Remove the onError property as it's not supported in this version
     },
   },
 });
@@ -115,9 +114,54 @@ const App = () => (
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index />} />
-              <Route path="/lessons" element={<Lessons />} />
-              <Route path="/subjects" element={<Subjects />} />
-              <Route path="/quiz" element={<Quiz />} />
+              <Route path="/lessons" element={
+                <ErrorBoundary fallback={
+                  <div className="flex h-screen flex-col items-center justify-center p-4 text-center">
+                    <h2 className="mb-4 text-2xl font-bold text-red-600">Lessons Error</h2>
+                    <p className="mb-4">We encountered an issue loading the lessons.</p>
+                    <button 
+                      onClick={() => window.location.reload()}
+                      className="rounded bg-eduPurple px-4 py-2 text-white hover:bg-eduPurple/80"
+                    >
+                      Try Again
+                    </button>
+                  </div>
+                }>
+                  <Lessons />
+                </ErrorBoundary>
+              } />
+              <Route path="/subjects" element={
+                <ErrorBoundary fallback={
+                  <div className="flex h-screen flex-col items-center justify-center p-4 text-center">
+                    <h2 className="mb-4 text-2xl font-bold text-red-600">Subjects Error</h2>
+                    <p className="mb-4">We encountered an issue loading the subjects.</p>
+                    <button 
+                      onClick={() => window.location.reload()}
+                      className="rounded bg-eduPurple px-4 py-2 text-white hover:bg-eduPurple/80"
+                    >
+                      Try Again
+                    </button>
+                  </div>
+                }>
+                  <Subjects />
+                </ErrorBoundary>
+              } />
+              <Route path="/quiz" element={
+                <ErrorBoundary fallback={
+                  <div className="flex h-screen flex-col items-center justify-center p-4 text-center">
+                    <h2 className="mb-4 text-2xl font-bold text-red-600">Quiz Error</h2>
+                    <p className="mb-4">We encountered an issue loading the quiz.</p>
+                    <button 
+                      onClick={() => window.location.reload()}
+                      className="rounded bg-eduPurple px-4 py-2 text-white hover:bg-eduPurple/80"
+                    >
+                      Try Again
+                    </button>
+                  </div>
+                }>
+                  <Quiz />
+                </ErrorBoundary>
+              } />
               <Route path="/dashboard" element={
                 <ParentOnlyRoute>
                   <Dashboard />
@@ -128,7 +172,22 @@ const App = () => (
                   <StudentProfilePage />
                 </ProtectedRoute>
               } />
-              <Route path="/ai-learning" element={<AILearning />} />
+              <Route path="/ai-learning" element={
+                <ErrorBoundary fallback={
+                  <div className="flex h-screen flex-col items-center justify-center p-4 text-center">
+                    <h2 className="mb-4 text-2xl font-bold text-red-600">AI Learning Error</h2>
+                    <p className="mb-4">We encountered an issue loading the AI learning content.</p>
+                    <button 
+                      onClick={() => window.location.reload()}
+                      className="rounded bg-eduPurple px-4 py-2 text-white hover:bg-eduPurple/80"
+                    >
+                      Try Again
+                    </button>
+                  </div>
+                }>
+                  <AILearning />
+                </ErrorBoundary>
+              } />
               <Route path="/about" element={<About />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/faq" element={<FAQ />} />
