@@ -29,6 +29,8 @@ export const fetchQuizQuestions = async (params: QuizParams): Promise<QuizQuesti
   const { subject, gradeLevel, topic, questionCount = 10, language = 'en' } = params;
   
   try {
+    console.log('Fetching quiz questions for:', { subject, gradeLevel, topic, language });
+    
     // Query existing questions from the database
     const { data: existingQuestions, error } = await supabase
       .from('quiz_questions')
@@ -38,10 +40,14 @@ export const fetchQuizQuestions = async (params: QuizParams): Promise<QuizQuesti
       .eq('grade_level', gradeLevel)
       .limit(questionCount);
       
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase query error:', error);
+      throw error;
+    }
     
     // If we have enough questions in the database, return them
     if (existingQuestions && existingQuestions.length >= questionCount) {
+      console.log('Using existing questions from database:', existingQuestions.length);
       return existingQuestions.slice(0, questionCount).map(q => ({
         question: q.question,
         options: q.options as string[],
@@ -51,9 +57,10 @@ export const fetchQuizQuestions = async (params: QuizParams): Promise<QuizQuesti
     }
     
     // If we don't have enough questions, generate more with AI
+    console.log('Not enough questions in database, generating with AI');
     const newQuestions = await generateQuizQuestions({
       ...params,
-      language // Pass the language to the generator
+      language
     });
     
     // Store the new questions in the database
@@ -82,7 +89,7 @@ export const fetchQuizQuestions = async (params: QuizParams): Promise<QuizQuesti
     return newQuestions;
   } catch (error) {
     console.error('Error fetching quiz questions:', error);
-    toast.error('Failed to load quiz questions');
+    toast.error(language === 'id' ? 'Gagal memuat pertanyaan kuis' : 'Failed to load quiz questions');
     return [];
   }
 };
@@ -92,6 +99,7 @@ const generateQuizQuestions = async (params: QuizParams): Promise<QuizQuestion[]
   const { subject, gradeLevel, topic, language = 'en', questionCount = 10 } = params;
   
   try {
+    console.log('Calling AI function to generate questions');
     const response = await supabase.functions.invoke('ai-quiz-generator', {
       body: { 
         subject,
@@ -102,12 +110,17 @@ const generateQuizQuestions = async (params: QuizParams): Promise<QuizQuestion[]
       }
     });
 
-    if (response.error) throw new Error(response.error.message || 'Failed to generate quiz questions');
+    if (response.error) {
+      console.error('Edge function error:', response.error);
+      throw new Error(response.error.message || 'Failed to generate quiz questions');
+    }
     
+    console.log('AI response received successfully');
     return response.data.questions;
   } catch (error) {
     console.error('Error generating quiz questions:', error);
-    toast.error('Failed to generate quiz questions');
+    toast.error(language === 'id' ? 'Gagal menghasilkan pertanyaan kuis' : 'Failed to generate quiz questions');
+    // Return an empty array or some default questions as fallback
     return [];
   }
 };
@@ -128,6 +141,7 @@ export const saveQuizProgress = async (studentId: string, progress: Partial<Quiz
       .single();
       
     if (queryError && queryError.code !== 'PGRST116') { // PGRST116 = Not found
+      console.error('Error checking existing progress:', queryError);
       throw queryError;
     }
     
@@ -144,7 +158,10 @@ export const saveQuizProgress = async (studentId: string, progress: Partial<Quiz
         })
         .eq('id', existingProgress.id);
         
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error('Error updating progress:', updateError);
+        throw updateError;
+      }
     } else {
       // Create new progress record
       const { error: insertError } = await supabase
@@ -161,7 +178,10 @@ export const saveQuizProgress = async (studentId: string, progress: Partial<Quiz
           last_attempt_at: new Date().toISOString()
         }]);
         
-      if (insertError) throw insertError;
+      if (insertError) {
+        console.error('Error inserting progress:', insertError);
+        throw insertError;
+      }
     }
     
     return true;
@@ -188,6 +208,7 @@ export const getQuizProgress = async (studentId: string, subject: string, topic:
       if (error.code === 'PGRST116') { // Not found
         return null;
       }
+      console.error('Error getting quiz progress:', error);
       throw error;
     }
     

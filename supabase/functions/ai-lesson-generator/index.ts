@@ -16,7 +16,22 @@ serve(async (req) => {
   }
 
   try {
-    const { subject, gradeLevel, topic, language = 'en' } = await req.json();
+    if (!openAIApiKey) {
+      throw new Error("OpenAI API key is not configured");
+    }
+
+    const requestBody = await req.json().catch(error => {
+      console.error("Error parsing request body:", error);
+      throw new Error("Invalid request body format");
+    });
+
+    const { subject, gradeLevel, topic, language = 'en' } = requestBody;
+    
+    if (!subject || !gradeLevel || !topic) {
+      throw new Error("Missing required parameters: subject, gradeLevel, or topic");
+    }
+
+    console.log(`Generating lesson for ${topic} in ${subject} (grade ${gradeLevel}, language: ${language})`);
 
     // Create a prompt for OpenAI
     const prompt = `
@@ -66,6 +81,8 @@ serve(async (req) => {
     Make the content appropriate for ${gradeLevel} grade level, engaging, educational, and accurate.
     `;
     
+    console.log("Sending request to OpenAI API");
+    
     // Call OpenAI API to generate the lesson
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -81,14 +98,28 @@ serve(async (req) => {
         ],
         temperature: 0.7,
       }),
+    }).catch(error => {
+      console.error("Error fetching from OpenAI:", error);
+      throw new Error("Failed to connect to OpenAI service");
     });
 
-    const data = await response.json();
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "Unknown error");
+      console.error(`OpenAI API error (${response.status}):`, errorText);
+      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json().catch(error => {
+      console.error("Error parsing OpenAI response:", error);
+      throw new Error("Invalid response from OpenAI");
+    });
     
     if (data.error) {
+      console.error("OpenAI returned error:", data.error);
       throw new Error(data.error.message || 'Error generating lesson content');
     }
 
+    console.log("Received response from OpenAI, processing content");
     const generatedContent = data.choices[0].message.content;
     
     // Parse the JSON response
@@ -134,6 +165,8 @@ serve(async (req) => {
         };
       }
       
+      console.log("Successfully processed lesson content");
+      
       return new Response(JSON.stringify({ content: processedContent }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -144,7 +177,35 @@ serve(async (req) => {
     }
   } catch (error) {
     console.error('Error in ai-lesson-generator function:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    
+    // Create a fallback response with helpful error details
+    const errorResponse = {
+      error: error.message || 'An unknown error occurred',
+      content: {
+        title: "Error generating content",
+        introduction: "We encountered an error while generating this lesson.",
+        chapters: [
+          {
+            heading: "Technical difficulties",
+            text: "We're experiencing some technical issues. Please try again later.",
+            image: {
+              url: "https://api.dicebear.com/7.x/shapes/svg?seed=error&backgroundColor=ffdfbf",
+              alt: "Error illustration",
+              caption: "Technical error"
+            }
+          }
+        ],
+        funFacts: ["Did you know that even AI sometimes needs a break?"],
+        activity: {
+          title: "Try again later",
+          instructions: "Please check back soon when our systems are working properly."
+        },
+        conclusion: "We apologize for the inconvenience.",
+        summary: "Error: " + (error.message || 'Unknown error occurred')
+      }
+    };
+    
+    return new Response(JSON.stringify(errorResponse), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
