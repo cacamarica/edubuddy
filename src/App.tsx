@@ -1,4 +1,3 @@
-
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
@@ -17,11 +16,8 @@ import AccountSettings from "./pages/AccountSettings";
 import StudentProfilePage from "./pages/StudentProfilePage";
 import Subjects from "./pages/Subjects";
 import { StudentProfileProvider } from '@/contexts/StudentProfileContext';
-<<<<<<< HEAD
-import DetailedQuizHistoryPage from "./pages/DetailedQuizHistory"; // Import the new page
-=======
-import ErrorBoundary from "@/components/ErrorBoundary";
->>>>>>> 5c8877cfd797284b52db0437a31a09d436b766f8
+import DetailedQuizHistoryPage from "./pages/DetailedQuizHistory"; // Kept from HEAD
+import ErrorBoundary from "@/components/ErrorBoundary"; // Ensured ErrorBoundary is imported
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -103,43 +99,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <StudentProfileProvider>
-<<<<<<< HEAD
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/lessons" element={<Lessons />} />
-            <Route path="/subjects" element={<Subjects />} />
-            <Route path="/quiz" element={<Quiz />} />
-            <Route path="/dashboard" element={
-              <ParentOnlyRoute>
-                <Dashboard />
-              </ParentOnlyRoute>
-            } />
-            <Route path="/student-profile" element={
-              <ProtectedRoute>
-                <StudentProfilePage />
-              </ProtectedRoute>
-            } />
-            <Route path="/ai-learning" element={<AILearning />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/faq" element={<FAQ />} />
-            <Route path="/account-settings" element={
-              <ProtectedRoute>
-                <AccountSettings />
-              </ProtectedRoute>
-            } />
-            <Route path="/student/:studentId/quiz-history/:topicId" element={
-              <ProtectedRoute> {/* Or ParentOnlyRoute if appropriate */}
-                <DetailedQuizHistoryPage />
-              </ProtectedRoute>
-            } />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-=======
-        <ErrorBoundary fallback={
+        <ErrorBoundary fallback={ // Kept top-level ErrorBoundary from 5c8877cfd797284b52db0437a31a09d436b766f8
           <div className="flex h-screen flex-col items-center justify-center p-4 text-center">
             <h2 className="mb-4 text-2xl font-bold text-red-600">Application Error</h2>
             <p className="mb-4">Sorry, something went wrong with the application.</p>
@@ -236,12 +196,17 @@ const App = () => (
                   <AccountSettings />
                 </ProtectedRoute>
               } />
+              {/* Added route from HEAD */}
+              <Route path="/student/:studentId/quiz-history/:topicId" element={
+                <ProtectedRoute> {/* Or ParentOnlyRoute if appropriate */}
+                  <DetailedQuizHistoryPage />
+                </ProtectedRoute>
+              } />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
         </ErrorBoundary>
->>>>>>> 5c8877cfd797284b52db0437a31a09d436b766f8
       </StudentProfileProvider>
     </TooltipProvider>
   </QueryClientProvider>
