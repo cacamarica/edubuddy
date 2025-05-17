@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 interface StudentProfile {
@@ -17,23 +18,29 @@ export const StudentProfileProvider: React.FC<{ children: React.ReactNode }> = (
 
   useEffect(() => {
     // Load the selected profile from localStorage on mount
-    const storedProfile = localStorage.getItem('selectedStudentProfile');
-    if (storedProfile) {
-      try {
+    try {
+      const storedProfile = localStorage.getItem('selectedStudentProfile');
+      if (storedProfile) {
         const parsedProfile = JSON.parse(storedProfile);
         setSelectedProfile(parsedProfile);
-      } catch (error) {
-        console.error('Failed to parse stored student profile:', error);
       }
+    } catch (error) {
+      console.error('Failed to parse stored student profile:', error);
+      // Clear potentially corrupted data
+      localStorage.removeItem('selectedStudentProfile');
     }
   }, []);
 
   useEffect(() => {
     // Save the selected profile to localStorage whenever it changes
-    if (selectedProfile) {
-      localStorage.setItem('selectedStudentProfile', JSON.stringify(selectedProfile));
-    } else {
-      localStorage.removeItem('selectedStudentProfile');
+    try {
+      if (selectedProfile) {
+        localStorage.setItem('selectedStudentProfile', JSON.stringify(selectedProfile));
+      } else {
+        localStorage.removeItem('selectedStudentProfile');
+      }
+    } catch (error) {
+      console.error('Failed to store student profile:', error);
     }
   }, [selectedProfile]);
 
