@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { getAIEducationContent } from '@/services/aiEducationService';
-import { GameController, Award } from 'lucide-react';
+import { Gamepad, Award } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface AIGameProps {
@@ -51,7 +51,7 @@ const AIGame = ({ subject, gradeLevel, topic, onComplete }: AIGameProps) => {
   const handleStartGame = () => {
     setGameStarted(true);
     toast.success("Game started! Have fun learning!", {
-      icon: <GameController className="h-5 w-5" />,
+      icon: <Gamepad className="h-5 w-5" />,
     });
   };
 
@@ -85,7 +85,7 @@ const AIGame = ({ subject, gradeLevel, topic, onComplete }: AIGameProps) => {
         </CardHeader>
         <CardContent className="flex justify-center">
           <Button onClick={generateGame} className="bg-eduPurple hover:bg-eduPurple-dark">
-            <GameController className="mr-2 h-4 w-4" />
+            <Gamepad className="mr-2 h-4 w-4" />
             Create Game
           </Button>
         </CardContent>
@@ -143,7 +143,7 @@ const AIGame = ({ subject, gradeLevel, topic, onComplete }: AIGameProps) => {
             onClick={handleStartGame} 
             className="bg-eduPurple hover:bg-eduPurple-dark"
           >
-            <GameController className="mr-2 h-4 w-4" />
+            <Gamepad className="mr-2 h-4 w-4" />
             Start Game
           </Button>
         ) : (

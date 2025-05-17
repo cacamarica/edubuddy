@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ChevronLeft, BookOpen, PencilRuler, GameController, Sparkles } from 'lucide-react';
+import { ChevronLeft, BookOpen, PencilRuler, Gamepad, Sparkles } from 'lucide-react';
 import AILesson from '@/components/AILesson';
 import AIQuiz from '@/components/AIQuiz';
 import AIGame from '@/components/AIGame';
@@ -230,7 +230,7 @@ const AILearning = () => {
                       <span className="hidden sm:inline">Quiz</span>
                     </TabsTrigger>
                     <TabsTrigger value="game" className="flex items-center gap-2">
-                      <GameController className="h-4 w-4" />
+                      <Gamepad className="h-4 w-4" />
                       <span className="hidden sm:inline">Game</span>
                     </TabsTrigger>
                   </TabsList>
