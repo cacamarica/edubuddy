@@ -51,6 +51,45 @@ const QuizQuestionCard: React.FC<QuizQuestionCardProps> = ({
 }) => {
   const { t } = useLanguage();
   
+  // Safety check for missing question
+  if (!question || !Array.isArray(question.options)) {
+    console.error('Invalid question data:', question);
+    return (
+      <Card className="max-w-2xl mx-auto">
+        <CardHeader>
+          <CardTitle>Error Loading Question</CardTitle>
+          <CardDescription>
+            There was a problem loading this question.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p>Please try again or continue to the next question.</p>
+        </CardContent>
+        <CardFooter className="flex justify-between">
+          <Button
+            variant="outline"
+            onClick={onPrevQuestion}
+            disabled={currentQuestionIndex === 0}
+          >
+            <ChevronLeft className="h-4 w-4 mr-1" />
+            {t('quiz.previous')}
+          </Button>
+          
+          <Button onClick={onNextQuestion}>
+            {currentQuestionIndex < totalQuestions - 1 ? (
+              <>
+                {t('quiz.next')}
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </>
+            ) : (
+              t('quiz.finish')
+            )}
+          </Button>
+        </CardFooter>
+      </Card>
+    );
+  }
+  
   return (
     <div className="max-w-2xl mx-auto">
       <div className="mb-6">        
