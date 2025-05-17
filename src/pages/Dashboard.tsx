@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,7 +13,6 @@ import Footer from '@/components/Footer';
 import RecentActivities from '@/components/DashboardComponents/RecentActivities';
 import PaginatedActivities from '@/components/DashboardComponents/PaginatedActivities';
 import AIRecommendations from '@/components/DashboardComponents/AIRecommendations';
-import StudentProgressSummary from '@/components/DashboardComponents/StudentProgressSummary';
 import StudentProfileSelector from '@/components/DashboardComponents/StudentProfileSelector';
 import StudentProfile from '@/components/StudentProfile';
 import StudentAchievements from '@/components/DashboardComponents/StudentAchievements';
@@ -113,9 +113,6 @@ const Dashboard = () => {
               {language === 'id' ? 'Kelola Profil Siswa' : 'Manage Student Profiles'}
             </Button>
           </div>
-            <StudentProgressSummary 
-              studentId={currentStudentId || ''}
-            />
           
           <div className="mb-4">
             <h2 className="text-xl font-semibold mb-2">
@@ -146,25 +143,30 @@ const Dashboard = () => {
             
             {/* Overview Tab Content */}
             <TabsContent value="overview" className="space-y-4">
-              {/* Just show StudentProgressSummary in overview tab */}
               <Card>
                 <CardHeader>
                   <CardTitle>
-                    {language === 'id' ? 'Ringkasan Kemajuan' : 'Progress Summary'}
+                    {language === 'id' ? 'Ikhtisar Siswa' : 'Student Overview'}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {isLoading ? (
+                  {!currentStudentId ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      {language === 'id' 
+                        ? 'Pilih siswa untuk melihat ikhtisar' 
+                        : 'Select a student to view overview'}
+                    </div>
+                  ) : isLoading ? (
                     <div className="flex justify-center py-8">
                       <Spinner />
                     </div>
-                  ) : currentStudentId ? (
-                    <StudentProgressSummary studentId={currentStudentId || ''} />
                   ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      {language === 'id' 
-                        ? 'Pilih siswa untuk melihat kemajuan' 
-                        : 'Select a student to view progress'}
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground">
+                        {language === 'id'
+                          ? 'Informasi siswa tersedia di tab tertentu'
+                          : 'Student information available in specific tabs'}
+                      </p>
                     </div>
                   )}
                 </CardContent>
