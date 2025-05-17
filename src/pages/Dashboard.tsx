@@ -20,6 +20,8 @@ import ErrorBoundary from '@/components/ErrorBoundary';
 import { Spinner } from '@/components/ui/spinner';
 import { useStudentProfile } from '@/contexts/StudentProfileContext';
 
+type GradeLevel = 'k-3' | '4-6' | '7-9';
+
 // Fallback component to show when StudentProfile fails to load
 const StudentProfileFallback = ({ onBack }: { onBack: () => void }) => {
   const { language } = useLanguage();
@@ -53,13 +55,29 @@ const Dashboard = () => {
   // Derive currentStudentId from the context's selectedProfile
   const currentStudentId = selectedProfile?.id;
 
+  const getValidGradeLevel = (grade?: string): GradeLevel => {
+    const validGrades: GradeLevel[] = ['k-3', '4-6', '7-9'];
+    if (grade && validGrades.includes(grade as GradeLevel)) {
+      return grade as GradeLevel;
+    }
+    // Add more sophisticated mapping logic here if needed,
+    // e.g., mapping "Grade 1" to "k-3"
+    return 'k-3'; // Default fallback
+  };
+
   const handleStudentChange = (studentId: string) => {
     // Called by StudentProfileSelector, which provides only the studentId.
     // We update the selectedProfile in the context.
-    // A more robust solution would involve StudentProfileSelector providing the name as well,
-    // or fetching the student's details here. For now, use a placeholder name.
+    // A more robust solution would involve StudentProfileSelector providing the name and gradeLevel as well,
+    // or fetching the student's details here.
     if (studentId) {
-      setSelectedProfile({ id: studentId, name: selectedProfile?.name || 'Selected Student' });
+      // Assuming gradeLevel might not be immediately available or needs to be fetched/updated separately.
+      // For now, retain existing gradeLevel or set to undefined if not present.
+      setSelectedProfile({ 
+        id: studentId, 
+        name: selectedProfile?.name || 'Selected Student',
+        gradeLevel: selectedProfile?.gradeLevel // This should ideally be populated correctly
+      });
     } else {
       setSelectedProfile(null);
     }
@@ -261,11 +279,7 @@ const Dashboard = () => {
                   </h3>
                 </div>
                 <div className="p-6 pt-0">
-                  {isLoading ? (
-                    <div className="flex justify-center py-8">
-                      <Spinner />
-                    </div>
-                  ) : !currentStudentId ? (
+                  {!currentStudentId ? (
                     <div className="text-center py-8 text-muted-foreground">
                       {language === 'id' 
                         ? 'Pilih siswa untuk melihat rekomendasi' 
@@ -273,7 +287,10 @@ const Dashboard = () => {
                     </div>
                   ) : (
                     <div className="recommendations-wrapper">
-                      <AIRecommendations studentId={currentStudentId} />
+                      <AIRecommendations 
+                        studentId={currentStudentId} 
+                        gradeLevel={getValidGradeLevel(selectedProfile?.gradeLevel)} 
+                      />
                     </div>
                   )}
                 </div>

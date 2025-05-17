@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 interface StudentProfile {
   id: string;
   name: string;
+  gradeLevel?: string; // Added gradeLevel
 }
 
 interface StudentProfileContextProps {

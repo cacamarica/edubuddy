@@ -16,6 +16,7 @@ import AccountSettings from "./pages/AccountSettings";
 import StudentProfilePage from "./pages/StudentProfilePage";
 import Subjects from "./pages/Subjects";
 import { StudentProfileProvider } from '@/contexts/StudentProfileContext';
+import DetailedQuizHistoryPage from "./pages/DetailedQuizHistory"; // Import the new page
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -98,6 +99,11 @@ const App = () => (
             <Route path="/account-settings" element={
               <ProtectedRoute>
                 <AccountSettings />
+              </ProtectedRoute>
+            } />
+            <Route path="/student/:studentId/quiz-history/:topicId" element={
+              <ProtectedRoute> {/* Or ParentOnlyRoute if appropriate */}
+                <DetailedQuizHistoryPage />
               </ProtectedRoute>
             } />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

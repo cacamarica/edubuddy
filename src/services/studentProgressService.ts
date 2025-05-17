@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { LearningActivityType } from "@/types/learning";
@@ -62,6 +61,52 @@ export interface AIRecommendation {
   created_at?: string;
   read?: boolean;
   acted_on?: boolean;
+}
+
+export interface AISummaryReport {
+  overallSummary: string;
+  strengths: string[];
+  areasForImprovement: string[];
+  activityAnalysis: string;
+  quizReview?: QuizReviewDetail[];
+  knowledgeGrowthChartData?: { date: string; score: number }[];
+  gradeLevel?: string;
+  studentName?: string;
+  generatedAt?: string;
+  reportId?: string;
+}
+
+export interface QuizQuestionReview {
+  questionText: string;
+  studentAnswer: string;
+  correctAnswer: string;
+  isCorrect: boolean;
+}
+export interface QuizReviewDetail {
+  quizId: string;
+  quizTitle: string;
+  completedDate: string;
+  score: number;
+  maxScore: number;
+  percentage: number;
+  questions: QuizQuestionReview[];
+}
+
+// Interface for the detailed quiz history page data
+export interface TopicQuizHistory {
+  topicId: string;
+  topicName: string;
+  attempts: DetailedQuizAttempt[];
+}
+
+export interface DetailedQuizAttempt {
+  question_text: string;
+  student_answer: string;
+  correct_answer: string;
+  is_correct: boolean;
+  attempted_at: string;
+  quiz_title?: string;
+  topic_name?: string;
 }
 
 // Service functions for student progress
@@ -304,5 +349,37 @@ export const studentProgressService = {
       console.error('Error marking recommendation as acted on:', error);
       return false;
     }
-  }
+  },
+
+  // Get AI Summary Report from Edge Function
+  async getAISummaryReport(studentId: string, gradeLevel: string, studentName: string, forceRefresh = false): Promise<AISummaryReport | null> {
+    try {
+      const { data, error } = await supabase.functions.invoke('get-student-ai-summary-report', {
+        body: { studentId, gradeLevel, studentName, forceRefresh },
+      });
+
+      if (error) throw error;
+      return data as AISummaryReport;
+    } catch (error) {
+      console.error('Error fetching AI summary report from function:', error);
+      toast.error('Failed to load AI summary report');
+      return null;
+    }
+  },
+
+  // Get Detailed Quiz History by Topic from Edge Function
+  async getDetailedQuizHistoryByTopic(studentId: string, topicId: string): Promise<TopicQuizHistory | null> {
+    try {
+      const { data, error } = await supabase.functions.invoke('get-student-quiz-history-by-topic', {
+        body: { studentId, topicId },
+      });
+
+      if (error) throw error;
+      return data as TopicQuizHistory;
+    } catch (error) {
+      console.error('Error fetching detailed quiz history from function:', error);
+      toast.error('Failed to load detailed quiz history');
+      return null;
+    }
+  },
 };
