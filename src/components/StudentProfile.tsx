@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -52,30 +53,34 @@ const StudentProfile = ({ onStudentChange, currentStudentId }: StudentProfilePro
       setIsLoading(true);
       
       if (user) {
-        // Fetch from database
-        const { data, error } = await supabase
-          .from('students')
-          .select('*')
-          .eq('parent_id', user.id);
-          
-        if (error) {
-          console.error('Error fetching students:', error);
-          toast.error(language === 'id' ? 'Gagal memuat data siswa' : 'Failed to load student data');
-        } else if (data) {
-          const formattedStudents = data.map(item => ({
-            id: item.id,
-            name: item.name,
-            age: item.age || 6,
-            gradeLevel: item.grade_level as 'k-3' | '4-6' | '7-9',
-            avatar: DEFAULT_AVATARS[item.id.charCodeAt(0) % DEFAULT_AVATARS.length] // Generate avatar based on ID
-          }));
-          
-          setStudents(formattedStudents);
-          
-          // If no students, prompt to create one
-          if (formattedStudents.length === 0) {
-            setIsAddingStudent(true);
+        try {
+          // Fetch from database
+          const { data, error } = await supabase
+            .from('students')
+            .select('*')
+            .eq('parent_id', user.id);
+            
+          if (error) {
+            console.error('Error fetching students:', error);
+            toast.error(language === 'id' ? 'Gagal memuat data siswa' : 'Failed to load student data');
+          } else if (data) {
+            const formattedStudents = data.map(item => ({
+              id: item.id,
+              name: item.name,
+              age: item.age || 6,
+              gradeLevel: item.grade_level as 'k-3' | '4-6' | '7-9',
+              avatar: DEFAULT_AVATARS[item.id.charCodeAt(0) % DEFAULT_AVATARS.length] // Generate avatar based on ID
+            }));
+            
+            setStudents(formattedStudents);
+            
+            // If no students, prompt to create one
+            if (formattedStudents.length === 0) {
+              setIsAddingStudent(true);
+            }
           }
+        } catch (err) {
+          console.error('Unexpected error in fetchStudents:', err);
         }
       } else {
         // Use local storage fallback
@@ -159,6 +164,10 @@ const StudentProfile = ({ onStudentChange, currentStudentId }: StudentProfilePro
         setStudents([...students, student]);
         setActiveStudent(student);
         if (onStudentChange) onStudentChange(student);
+        
+        toast.warning(language === 'id' 
+          ? 'Login untuk menyimpan profil siswa secara permanen' 
+          : 'Login to save student profiles permanently');
       }
       
       setIsAddingStudent(false);
@@ -307,7 +316,8 @@ const StudentProfile = ({ onStudentChange, currentStudentId }: StudentProfilePro
     updateStudent: language === 'id' ? 'Perbarui Siswa' : 'Update Student',
     activeStudent: language === 'id' ? 'Siswa Aktif' : 'Active Student',
     otherStudents: language === 'id' ? 'Siswa Lainnya' : 'Other Students',
-    noStudent: language === 'id' ? 'Tidak ada profil siswa yang dipilih' : 'No student profile selected'
+    noStudent: language === 'id' ? 'Tidak ada profil siswa yang dipilih' : 'No student profile selected',
+    loginToSave: language === 'id' ? 'Login untuk menyimpan progres siswa' : 'Login to save student progress'
   };
 
   if (isLoading) {
@@ -325,6 +335,11 @@ const StudentProfile = ({ onStudentChange, currentStudentId }: StudentProfilePro
       <CardHeader>
         <CardTitle className="font-display">{translations.studentProfiles}</CardTitle>
         <CardDescription>{translations.manageProfiles}</CardDescription>
+        {!user && (
+          <div className="mt-2 text-sm text-amber-500 font-medium">
+            {translations.loginToSave}
+          </div>
+        )}
       </CardHeader>
       <CardContent>
         <div className="flex flex-col space-y-4">

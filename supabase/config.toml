@@ -29,10 +29,10 @@ enabled = true
 enabled = true
 
 [functions.ai-lesson-generator]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ai-edu-content]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ai-quiz-generator]
-verify_jwt = false
+verify_jwt = true

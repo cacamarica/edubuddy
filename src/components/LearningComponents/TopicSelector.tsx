@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Sparkles } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 interface TopicSelectorProps {
   subject: string;
@@ -34,30 +36,44 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
   gradeLevel
 }) => {
   const { language, t } = useLanguage();
+  const { user } = useAuth();
   const [studentInfo, setStudentInfo] = useState<{ name: string; age: number; gradeLevel: string } | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
 
   // Fetch student information if studentId is provided
   useEffect(() => {
     const fetchStudentInfo = async () => {
       if (studentId) {
-        const { data, error } = await supabase
-          .from('students')
-          .select('name, age, grade_level')
-          .eq('id', studentId)
-          .single();
-          
-        if (!error && data) {
-          setStudentInfo({
-            name: data.name,
-            age: data.age || 6,
-            gradeLevel: data.grade_level
-          });
+        setLoading(true);
+        try {
+          const { data, error } = await supabase
+            .from('students')
+            .select('name, age, grade_level')
+            .eq('id', studentId)
+            .maybeSingle(); // Using maybeSingle instead of single to handle case when no data is found
+            
+          if (error) {
+            console.error('Error fetching student info:', error);
+            toast.error(language === 'id' 
+              ? 'Gagal memuat informasi siswa' 
+              : 'Failed to load student information');
+          } else if (data) {
+            setStudentInfo({
+              name: data.name,
+              age: data.age || 6,
+              gradeLevel: data.grade_level
+            });
+          }
+        } catch (error) {
+          console.error('Error in fetchStudentInfo:', error);
+        } finally {
+          setLoading(false);
         }
       }
     };
     
     fetchStudentInfo();
-  }, [studentId]);
+  }, [studentId, language]);
 
   // Display message about personalized content
   const getPersonalizedMessage = () => {
@@ -74,6 +90,17 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
     }
     
     return '';
+  };
+
+  const handleCreateContent = () => {
+    if (!user && studentId) {
+      // Display a warning if there's no authenticated user but trying to use student features
+      toast.warning(language === 'id'
+        ? 'Login diperlukan untuk menyimpan progres belajar'
+        : 'Login required to save learning progress');
+    }
+    
+    onCreateContent();
   };
 
   return (
@@ -148,8 +175,8 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
       </CardContent>
       <CardFooter className="flex justify-center">
         <Button 
-          onClick={onCreateContent} 
-          disabled={!customTopic.trim()}
+          onClick={handleCreateContent} 
+          disabled={!customTopic.trim() || loading}
           className="bg-eduPurple hover:bg-eduPurple-dark"
         >
           <Sparkles className="mr-2 h-4 w-4" />
