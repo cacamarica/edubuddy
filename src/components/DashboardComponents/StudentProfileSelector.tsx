@@ -35,24 +35,28 @@ const StudentProfileSelector: React.FC<StudentProfileSelectorProps> = ({
       
       setIsLoading(true);
       
-      const { data, error } = await supabase
-        .from('students')
-        .select('*')
-        .eq('parent_id', user.id);
-        
-      if (error) {
-        console.error('Error fetching students:', error);
-      } else if (data) {
-        setStudents(data);
-        
-        // If no initial student is selected, select the first one
-        if (!initialStudentId && data.length > 0) {
-          setSelectedStudentId(data[0].id);
-          onStudentChange(data[0].id);
+      try {
+        const { data, error } = await supabase
+          .from('students')
+          .select('*')
+          .eq('parent_id', user.id);
+          
+        if (error) {
+          console.error('Error fetching students:', error);
+        } else if (data) {
+          setStudents(data);
+          
+          // If no initial student is selected, select the first one
+          if (!initialStudentId && data.length > 0) {
+            setSelectedStudentId(data[0].id);
+            onStudentChange(data[0].id);
+          }
         }
+      } catch (error) {
+        console.error('Error in student fetch operation:', error);
+      } finally {
+        setIsLoading(false);
       }
-      
-      setIsLoading(false);
     };
     
     fetchStudents();

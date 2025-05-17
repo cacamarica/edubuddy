@@ -7,8 +7,8 @@ import { LanguageProvider } from './contexts/LanguageContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { Toaster } from 'sonner';
 
-// Remove any references to CloudFlare Insights or similar analytics that might be causing CORS issues
-// This is handled in a cleaner way to prevent the CORS errors shown in the screenshot
+// CloudFlare Insights and all other analytics scripts have been removed
+// to prevent CORS errors when accessing the application
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
