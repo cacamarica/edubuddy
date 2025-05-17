@@ -42,6 +42,7 @@ serve(async (req) => {
           "heading": "Chapter 1 Title",
           "text": "Detailed content for chapter 1...",
           "image": {
+            "url": "",
             "description": "Description of an ideal image for this chapter",
             "alt": "Alt text for accessibility"
           }
@@ -53,6 +54,7 @@ serve(async (req) => {
         "title": "Activity Title",
         "instructions": "Detailed instructions for the activity...",
         "image": {
+          "url": "",
           "description": "Description of an ideal image for this activity",
           "alt": "Alt text for accessibility"
         }

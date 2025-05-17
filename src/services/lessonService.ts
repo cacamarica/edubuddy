@@ -2,6 +2,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { getAIEducationContent } from "./aiEducationService";
 import { toast } from "sonner";
+import { Json } from "@/integrations/supabase/types";
 
 // Types for lesson materials and progress
 export interface LessonChapter {
@@ -28,7 +29,7 @@ export interface LessonMaterial {
   id?: string;
   subject: string;
   topic: string;
-  grade_level: string;
+  grade_level: "k-3" | "4-6" | "7-9";
   title: string;
   introduction: string;
   chapters: LessonChapter[];
@@ -50,10 +51,29 @@ export interface LessonProgress {
   created_at?: string;
 }
 
+// Helper function to safely parse JSON data
+function safeParseJson<T>(jsonData: Json | null, defaultValue: T): T {
+  if (jsonData === null) return defaultValue;
+  
+  if (typeof jsonData === 'object') {
+    return jsonData as unknown as T;
+  }
+  
+  try {
+    if (typeof jsonData === 'string') {
+      return JSON.parse(jsonData) as T;
+    }
+    return defaultValue;
+  } catch (e) {
+    console.error('Error parsing JSON:', e);
+    return defaultValue;
+  }
+}
+
 // Service functions
 export const lessonService = {
   // Get lesson material by subject, topic, and grade level
-  async getLessonMaterial(subject: string, topic: string, gradeLevel: string): Promise<LessonMaterial | null> {
+  async getLessonMaterial(subject: string, topic: string, gradeLevel: "k-3" | "4-6" | "7-9"): Promise<LessonMaterial | null> {
     try {
       // First, try to get from database
       const { data, error } = await supabase
@@ -80,12 +100,12 @@ export const lessonService = {
         id: data.id,
         subject: data.subject,
         topic: data.topic,
-        grade_level: data.grade_level,
+        grade_level: data.grade_level as "k-3" | "4-6" | "7-9",
         title: data.title,
         introduction: data.introduction,
-        chapters: data.chapters,
-        fun_facts: data.fun_facts,
-        activity: data.activity,
+        chapters: safeParseJson<LessonChapter[]>(data.chapters, []),
+        fun_facts: safeParseJson<string[]>(data.fun_facts, []),
+        activity: safeParseJson<LessonActivity>(data.activity, { title: "Activity", instructions: "No activity available" }),
         conclusion: data.conclusion,
         summary: data.summary,
         created_at: data.created_at,
@@ -99,7 +119,7 @@ export const lessonService = {
   },
 
   // Generate lesson material using AI and store in database
-  async generateAndStoreLessonMaterial(subject: string, topic: string, gradeLevel: string): Promise<LessonMaterial | null> {
+  async generateAndStoreLessonMaterial(subject: string, topic: string, gradeLevel: "k-3" | "4-6" | "7-9"): Promise<LessonMaterial | null> {
     try {
       // Generate content using AI
       const result = await getAIEducationContent({
@@ -128,7 +148,22 @@ export const lessonService = {
         throw error;
       }
 
-      return data as LessonMaterial;
+      // Convert the database result back to our interface
+      return {
+        id: data.id,
+        subject: data.subject,
+        topic: data.topic,
+        grade_level: data.grade_level as "k-3" | "4-6" | "7-9",
+        title: data.title,
+        introduction: data.introduction,
+        chapters: safeParseJson<LessonChapter[]>(data.chapters, []),
+        fun_facts: safeParseJson<string[]>(data.fun_facts, []),
+        activity: safeParseJson<LessonActivity>(data.activity, { title: "Activity", instructions: "No activity available" }),
+        conclusion: data.conclusion,
+        summary: data.summary,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      };
     } catch (error) {
       console.error("Error generating lesson material:", error);
       toast.error("Failed to generate the lesson material");
@@ -137,42 +172,44 @@ export const lessonService = {
   },
 
   // Process AI content to ensure it matches our schema
-  processAIContent(content: any, subject: string, topic: string, gradeLevel: string): LessonMaterial {
+  processAIContent(content: any, subject: string, topic: string, gradeLevel: "k-3" | "4-6" | "7-9"): any {
     // Ensure chapters have the right format
-    const chapters = content.mainContent.map((section: any) => ({
-      heading: section.heading,
-      text: section.text,
-      image: section.image 
-        ? (section.image.url 
-            ? section.image 
-            : { url: section.image, alt: `Image for ${section.heading}` })
-        : undefined
-    }));
+    const chapters = Array.isArray(content.chapters) 
+      ? content.chapters.map((chapter: any) => ({
+          heading: chapter.heading,
+          text: chapter.text,
+          image: chapter.image 
+            ? {
+                url: chapter.image.url || `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(chapter.heading)}`,
+                alt: chapter.image.alt || `Image for ${chapter.heading}`,
+                caption: chapter.image.caption || chapter.image.description || ''
+              }
+            : undefined
+        }))
+      : [];
 
     // Process activity image if needed
-    let activity = content.activity;
+    let activity = content.activity || { title: "Activity", instructions: "No activity available" };
     if (activity && activity.image) {
-      if (!activity.image.url && typeof activity.image === 'string') {
-        activity.image = {
-          url: activity.image,
-          alt: `Image for ${activity.title} activity`,
-          caption: `Activity visual for ${activity.title}`
-        };
-      }
+      activity.image = {
+        url: activity.image.url || `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(activity.title || 'activity')}`,
+        alt: activity.image.alt || `Image for ${activity.title || 'activity'}`,
+        caption: activity.image.caption || activity.image.description || ''
+      };
     }
 
-    // Return properly formatted lesson material
+    // Return properly formatted lesson material for database storage
     return {
       subject,
       topic,
       grade_level: gradeLevel,
       title: content.title || `${topic} in ${subject}`,
       introduction: content.introduction || "",
-      chapters,
-      fun_facts: content.funFacts || [],
-      activity: activity || { title: "Activity", instructions: "No activity available" },
-      conclusion: content.conclusion,
-      summary: content.summary,
+      chapters: chapters,
+      fun_facts: Array.isArray(content.funFacts) ? content.funFacts : [],
+      activity: activity,
+      conclusion: content.conclusion || null,
+      summary: content.summary || null,
     };
   },
 

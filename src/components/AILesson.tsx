@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LessonMaterial, LessonChapter, LessonProgress, lessonService } from '@/services/lessonService';
+import { supabase } from '@/integrations/supabase/client';
 
 interface AILessonProps {
   subject: string;
@@ -177,7 +177,7 @@ const AILesson = ({ subject, gradeLevel, topic, onComplete, limitProgress = fals
           if (studentId) {
             await lessonService.markLessonComplete(studentId, lessonContent.id);
             
-            // Update learning activity
+            // Update learning activity - now with proper supabase import
             await supabase
               .from('learning_activities')
               .insert([{
