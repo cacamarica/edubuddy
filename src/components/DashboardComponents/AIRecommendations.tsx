@@ -1,6 +1,5 @@
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Lightbulb, CheckCircle, ArrowRight } from 'lucide-react';
 import { studentProgressService, AIRecommendation } from '@/services/studentProgressService';
@@ -55,89 +54,121 @@ const AIRecommendations: React.FC<AIRecommendationsProps> = ({ studentId }) => {
       navigate(navigationPath);
     }
   };
+    
+  // If there are no real recommendations, create some examples
+  const ensureRecommendations = () => {
+    if (recommendations.length === 0 && !isLoading) {
+      // Create mock recommendations for demonstration
+      const mockRecommendations = [
+        {
+          id: 'mock-1',
+          student_id: studentId,
+          recommendation_type: 'topic_suggestion',
+          recommendation: language === 'id' 
+            ? 'Berdasarkan aktivitas belajarmu, kami sarankan untuk berlatih soal Matematika tentang Perkalian.' 
+            : 'Based on your learning activity, we recommend practicing Math problems on Multiplication.',
+          created_at: new Date().toISOString(),
+          read: true,
+          acted_on: false
+        },
+        {
+          id: 'mock-2',
+          student_id: studentId,
+          recommendation_type: 'practice_suggestion',
+          recommendation: language === 'id'
+            ? 'Sepertinya kamu perlu lebih banyak latihan di pelajaran IPA tentang Tata Surya.'
+            : 'It seems you need more practice in Science about the Solar System.',
+          created_at: new Date(Date.now() - 86400000).toISOString(),
+          read: true,
+          acted_on: false
+        },
+        {
+          id: 'mock-3',
+          student_id: studentId,
+          recommendation_type: 'topic_suggestion',
+          recommendation: language === 'id'
+            ? 'Kami melihat kemajuan yang bagus di pelajaran Bahasa Inggris! Coba lanjutkan dengan mempelajari topik "Simple Past Tense".'
+            : 'We see good progress in your English learning! Try continuing with the "Simple Past Tense" topic.',
+          created_at: new Date(Date.now() - 172800000).toISOString(),
+          read: true,
+          acted_on: false
+        }
+      ];
+      
+      return mockRecommendations;
+    }
+    
+    return recommendations;
+  };
   
+  const displayRecommendations = ensureRecommendations();
+
   return (
-    <Card className="h-full">
-      <CardHeader>
+    <div className="h-full">
+      <div className="mb-4">
         <div className="flex items-center gap-2">
           <Lightbulb className="h-5 w-5 text-yellow-500" />
-          <CardTitle>{language === 'id' ? 'Rekomendasi AI' : 'AI Recommendations'}</CardTitle>
+          <h3 className="text-lg font-medium">{language === 'id' ? 'Rekomendasi AI' : 'AI Recommendations'}</h3>
         </div>
-        <CardDescription>
+        <p className="text-sm text-muted-foreground mt-1">
           {language === 'id' ? 'Saran pembelajaran berdasarkan aktivitas siswa' : 'Personalized learning suggestions based on student activity'}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <div className="flex justify-center items-center h-40">
-            <Spinner size="lg" />
-          </div>
-        ) : recommendations.length > 0 ? (
-          <div className="space-y-4">
-            {recommendations.map((rec) => (
-              <div 
-                key={rec.id} 
-                className={`p-4 rounded-lg border ${rec.acted_on ? 'bg-gray-50' : 'bg-eduPastel-purple'}`}
-              >
-                <div className="flex gap-3 items-start">
-                  {rec.acted_on ? (
-                    <CheckCircle className="h-5 w-5 text-green-500 shrink-0 mt-0.5" />
-                  ) : (
-                    <Lightbulb className="h-5 w-5 text-yellow-500 shrink-0 mt-0.5" />
+        </p>
+      </div>
+      
+      {isLoading ? (
+        <div className="flex justify-center items-center h-40">
+          <Spinner size="lg" />
+        </div>
+      ) : displayRecommendations.length > 0 ? (
+        <div className="space-y-4">
+          {displayRecommendations.map((rec) => (
+            <div 
+              key={rec.id} 
+              className={`p-4 rounded-lg border ${rec.acted_on ? 'bg-gray-50' : 'bg-blue-50 border-blue-200'}`}
+            >
+              <div className="flex gap-3 items-start">
+                {rec.acted_on ? (
+                  <CheckCircle className="h-5 w-5 text-green-500 shrink-0 mt-0.5" />
+                ) : (
+                  <Lightbulb className="h-5 w-5 text-yellow-500 shrink-0 mt-0.5" />
+                )}
+                <div className="space-y-2 flex-1">
+                  <p className={rec.acted_on ? 'text-muted-foreground' : ''}>{rec.recommendation}</p>
+                  
+                  {!rec.acted_on && rec.recommendation_type === 'topic_suggestion' && (
+                    <Button 
+                      size="sm" 
+                      className="w-full sm:w-auto mt-2"
+                      onClick={() => handleRecommendationAction(rec, '/ai-learning')}
+                    >
+                      {language === 'id' ? 'Mulai Pelajaran' : 'Start Lesson'}
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
                   )}
-                  <div className="space-y-2 flex-1">
-                    <p className={rec.acted_on ? 'text-muted-foreground' : ''}>{rec.recommendation}</p>
-                    
-                    {!rec.acted_on && rec.recommendation_type === 'topic_suggestion' && (
-                      <Button 
-                        size="sm" 
-                        className="w-full sm:w-auto mt-2"
-                        onClick={() => handleRecommendationAction(rec, '/ai-learning')}
-                      >
-                        {language === 'id' ? 'Mulai Pelajaran' : 'Start Lesson'}
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                      </Button>
-                    )}
-                    
-                    {!rec.acted_on && rec.recommendation_type === 'practice_suggestion' && (
-                      <Button 
-                        size="sm" 
-                        className="w-full sm:w-auto mt-2"
-                        onClick={() => handleRecommendationAction(rec, '/quiz')}
-                      >
-                        {language === 'id' ? 'Latihan Soal' : 'Practice Quiz'}
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
+                  
+                  {!rec.acted_on && rec.recommendation_type === 'practice_suggestion' && (
+                    <Button 
+                      size="sm" 
+                      className="w-full sm:w-auto mt-2"
+                      onClick={() => handleRecommendationAction(rec, '/quiz')}
+                    >
+                      {language === 'id' ? 'Latihan Soal' : 'Practice Quiz'}
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-8 text-muted-foreground">
-            {language === 'id' 
-              ? 'Belum ada rekomendasi. Lanjutkan pembelajaran untuk mendapatkan saran yang dipersonalisasi!' 
-              : 'No recommendations yet. Continue learning to get personalized suggestions!'}
-          </div>
-        )}
-        
-        {/* Show an example recommendation if no real ones exist */}
-        {!isLoading && recommendations.length === 0 && (
-          <div className="mt-6 p-4 rounded-lg border border-dashed border-gray-300">
-            <h4 className="font-medium text-sm mb-2">{language === 'id' ? 'Contoh Rekomendasi' : 'Example Recommendation'}</h4>
-            <div className="flex gap-3 items-start">
-              <Lightbulb className="h-5 w-5 text-yellow-500 shrink-0 mt-0.5" />
-              <p className="text-sm text-muted-foreground">
-                {language === 'id' 
-                  ? 'Berdasarkan aktivitas pembelajaran, kami sarankan untuk berlatih lebih banyak soal Matematika tentang Perkalian.' 
-                  : 'Based on learning activities, we recommend practicing more Math problems about Multiplication.'}
-              </p>
             </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-8 text-muted-foreground">
+          {language === 'id' 
+            ? 'Belum ada rekomendasi. Lanjutkan pembelajaran untuk mendapatkan saran yang dipersonalisasi!' 
+            : 'No recommendations yet. Continue learning to get personalized suggestions!'}
+        </div>
+      )}
+    </div>
   );
 };
 

@@ -11,13 +11,16 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { studentProgressService } from '@/services/studentProgressService';
 
-type Subject = 'math' | 'english' | 'science';
+type Subject = 'math' | 'english' | 'science' | 'history' | 'computer' | 'art' | 'music' | 'geography' | 'social';
 
 interface SubjectCardProps {
   subject: Subject;
   gradeLevel?: 'k-3' | '4-6' | '7-9';
   hasProgress?: boolean;
+  studentId?: string;
 }
 
 const subjectConfig = {
@@ -81,16 +84,162 @@ const subjectConfig = {
       '7-9': ['Chemistry Basics', 'Forces & Motion', 'Cell Biology'],
     },
   },
+  history: {
+    title: 'History',
+    description: {
+      'k-3': 'Discover historical figures, events, and traditions!',
+      '4-6': 'Explore ancient civilizations, important events, and cultural history!',
+      '7-9': 'Master historical analysis, world wars, and modern history!',
+    },
+    color: 'bg-eduPastel-yellow',
+    icon: Book,
+    progress: {
+      'k-3': 15,
+      '4-6': 22,
+      '7-9': 18,
+    },
+    lessons: {
+      'k-3': ['Community Helpers', 'Famous People', 'Holiday Traditions'],
+      '4-6': ['Ancient Egypt', 'Native Americans', 'American Revolution'],
+      '7-9': ['World War I', 'Civil Rights', 'Modern Global History'],
+    },
+  },
+  computer: {
+    title: 'Computer Science',
+    description: {
+      'k-3': 'Learn basic coding, digital safety, and technology basics!',
+      '4-6': 'Explore programming, digital skills, and simple algorithms!',
+      '7-9': 'Master coding languages, web development, and computational thinking!',
+    },
+    color: 'bg-eduPastel-purple',
+    icon: BookOpen,
+    progress: {
+      'k-3': 10,
+      '4-6': 15,
+      '7-9': 25,
+    },
+    lessons: {
+      'k-3': ['Computer Basics', 'Digital Safety', 'Introduction to Coding'],
+      '4-6': ['Block Coding', 'Digital Projects', 'Internet Safety'],
+      '7-9': ['JavaScript Basics', 'Web Development', 'Python Programming'],
+    },
+  },
+  art: {
+    title: 'Art',
+    description: {
+      'k-3': 'Express creativity through drawing, coloring, and crafts!',
+      '4-6': 'Explore different art mediums, techniques, and famous artists!',
+      '7-9': 'Master advanced art techniques, art history, and personal style!',
+    },
+    color: 'bg-eduPastel-red',
+    icon: Pencil,
+    progress: {
+      'k-3': 25,
+      '4-6': 18,
+      '7-9': 12,
+    },
+    lessons: {
+      'k-3': ['Basic Colors', 'Simple Shapes', 'Fun Crafts'],
+      '4-6': ['Painting Basics', 'Famous Artists', 'Mixed Media'],
+      '7-9': ['Advanced Drawing', 'Art History', 'Digital Art'],
+    },
+  },
+  music: {
+    title: 'Music',
+    description: {
+      'k-3': 'Explore rhythm, simple songs, and musical instruments!',
+      '4-6': 'Learn musical notation, instrumental basics, and music appreciation!',
+      '7-9': 'Develop music theory knowledge, composition, and performance skills!',
+    },
+    color: 'bg-eduPastel-blue',
+    icon: Book,
+    progress: {
+      'k-3': 30,
+      '4-6': 20,
+      '7-9': 15,
+    },
+    lessons: {
+      'k-3': ['Rhythm Games', 'Singing Fun', 'Instrument Discovery'],
+      '4-6': ['Basic Notes', 'Music Reading', 'Famous Composers'],
+      '7-9': ['Music Theory', 'Composition Basics', 'Music History'],
+    },
+  },
+  geography: {
+    title: 'Geography',
+    description: {
+      'k-3': 'Explore maps, landforms, and community locations!',
+      '4-6': 'Learn about continents, countries, and natural wonders!',
+      '7-9': 'Study climates, cultures, and global geography concepts!',
+    },
+    color: 'bg-eduPastel-green',
+    icon: BookOpen,
+    progress: {
+      'k-3': 15,
+      '4-6': 25,
+      '7-9': 18,
+    },
+    lessons: {
+      'k-3': ['Map Basics', 'My Neighborhood', 'Land and Water'],
+      '4-6': ['Continents & Oceans', 'World Landmarks', 'Map Reading'],
+      '7-9': ['Climate Zones', 'Cultural Geography', 'Global Issues'],
+    },
+  },
+  social: {
+    title: 'Social Studies',
+    description: {
+      'k-3': 'Learn about communities, families, and diversity!',
+      '4-6': 'Explore citizenship, government, and cultural traditions!',
+      '7-9': 'Master civic responsibility, global relationships, and economics!',
+    },
+    color: 'bg-eduPastel-yellow',
+    icon: Book,
+    progress: {
+      'k-3': 35,
+      '4-6': 20,
+      '7-9': 15,
+    },
+    lessons: {
+      'k-3': ['My Family', 'Community Helpers', 'Cultural Celebrations'],
+      '4-6': ['Government Basics', 'Cultural Traditions', 'Local History'],
+      '7-9': ['Civic Engagement', 'Global Economics', 'Social Issues'],
+    },
+  },
 };
 
-const SubjectCard = ({ subject, gradeLevel = 'k-3', hasProgress = true }: SubjectCardProps) => {
+const SubjectCard = ({ subject, gradeLevel = 'k-3', hasProgress = true, studentId }: SubjectCardProps) => {
   const navigate = useNavigate();
   const config = subjectConfig[subject];
   const Icon = config.icon;
+  const [progress, setProgress] = useState(config.progress[gradeLevel]);
+  const [isLoading, setIsLoading] = useState(false);
   
-  const handleContinueLearning = () => {
+  useEffect(() => {
+    const fetchSubjectProgress = async () => {
+      if (!studentId) return;
+      
+      setIsLoading(true);
+      try {
+        // Fetch progress data for this specific subject
+        const progressData = await studentProgressService.getSubjectProgress(studentId);
+        const subjectData = progressData.find(item => 
+          item.subject.toLowerCase() === config.title.toLowerCase()
+        );
+        
+        if (subjectData) {
+          setProgress(subjectData.progress);
+        }
+      } catch (error) {
+        console.error("Error fetching subject progress:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchSubjectProgress();
+  }, [studentId, subject, config.title]);
+    const handleContinueLearning = () => {
     // Default to first lesson if no progress, otherwise continue from most recent
-    const topicIndex = hasProgress ? Math.floor(config.progress[gradeLevel] / 100 * config.lessons[gradeLevel].length) : 0;
+    const topicIndex = hasProgress ? Math.floor(progress / 100 * config.lessons[gradeLevel].length) : 0;
     const selectedTopic = config.lessons[gradeLevel][topicIndex] || config.lessons[gradeLevel][0];
     
     // Navigate to AI Learning with subject, grade level and topic
@@ -99,6 +248,7 @@ const SubjectCard = ({ subject, gradeLevel = 'k-3', hasProgress = true }: Subjec
         gradeLevel,
         subject: config.title,
         topic: selectedTopic,
+        studentId, // Pass along student ID if available
         autoStart: true, // Signal to auto-start content
         isNewLesson: !hasProgress // Signal this is a new lesson for a new student
       } 
@@ -113,10 +263,13 @@ const SubjectCard = ({ subject, gradeLevel = 'k-3', hasProgress = true }: Subjec
           <CardTitle className="flex items-center gap-2">
             <Icon className="h-5 w-5" />
             {config.title}
-          </CardTitle>
-          {hasProgress ? (
+          </CardTitle>          {isLoading ? (
             <Badge variant="outline" className="text-xs">
-              {config.progress[gradeLevel]}% Complete
+              Loading...
+            </Badge>
+          ) : hasProgress ? (
+            <Badge variant="outline" className="text-xs">
+              {progress}% Complete
             </Badge>
           ) : (
             <Badge variant="outline" className="text-xs bg-eduPastel-purple/20">

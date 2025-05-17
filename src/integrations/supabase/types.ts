@@ -146,7 +146,7 @@ export type Database = {
           grade_level: string
           id?: string
           introduction: string
-          subject: string
+          subject?: string
           summary?: string | null
           title: string
           topic: string
@@ -604,3 +604,10 @@ export const Constants = {
     Enums: {},
   },
 } as const
+
+export type User = {
+  id: string;
+  fullName: string;
+  email: string;
+  accountType: 'student' | 'parent' | 'teacher';
+};

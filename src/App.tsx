@@ -1,4 +1,3 @@
-
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
@@ -15,6 +14,8 @@ import Auth from "./pages/Auth";
 import FAQ from "./pages/FAQ";
 import AccountSettings from "./pages/AccountSettings";
 import StudentProfilePage from "./pages/StudentProfilePage";
+import Subjects from "./pages/Subjects";
+import { StudentProfileProvider } from '@/contexts/StudentProfileContext';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -73,35 +74,37 @@ const ParentOnlyRoute = ({ children }: { children: React.ReactNode }) => {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/lessons" element={<Lessons />} />
-          <Route path="/quiz" element={<Quiz />} />
-          <Route path="/dashboard" element={
-            <ParentOnlyRoute>
-              <Dashboard />
-            </ParentOnlyRoute>
-          } />
-          
-          <Route path="/student-profile" element={
-            <ProtectedRoute>
-              <StudentProfilePage />
-            </ProtectedRoute>
-          } />
-          <Route path="/ai-learning" element={<AILearning />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/faq" element={<FAQ />} />
-          <Route path="/account-settings" element={
-            <ProtectedRoute>
-              <AccountSettings />
-            </ProtectedRoute>
-          } />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
+      <StudentProfileProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/lessons" element={<Lessons />} />
+            <Route path="/subjects" element={<Subjects />} />
+            <Route path="/quiz" element={<Quiz />} />
+            <Route path="/dashboard" element={
+              <ParentOnlyRoute>
+                <Dashboard />
+              </ParentOnlyRoute>
+            } />
+            <Route path="/student-profile" element={
+              <ProtectedRoute>
+                <StudentProfilePage />
+              </ProtectedRoute>
+            } />
+            <Route path="/ai-learning" element={<AILearning />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/faq" element={<FAQ />} />
+            <Route path="/account-settings" element={
+              <ProtectedRoute>
+                <AccountSettings />
+              </ProtectedRoute>
+            } />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </StudentProfileProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

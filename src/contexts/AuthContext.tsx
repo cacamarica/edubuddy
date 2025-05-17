@@ -1,12 +1,15 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Session, User } from '@supabase/supabase-js';
 import { toast } from 'sonner';
 import { useLanguage } from './LanguageContext';
 
+interface ExtendedUser extends User {
+  accountType: 'student' | 'parent' | 'teacher';
+}
+
 interface AuthContextProps {
-  user: User | null;
+  user: ExtendedUser | null;
   session: Session | null;
   signIn: (email: string, password: string) => Promise<{error: any | null}>;
   signUp: (email: string, password: string, fullName: string) => Promise<{error: any | null}>;
@@ -21,7 +24,7 @@ interface AuthContextProps {
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<ExtendedUser | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAuthReady, setIsAuthReady] = useState(false); // Track when auth is initialized
@@ -33,7 +36,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, currentSession) => {
         setSession(currentSession);
-        setUser(currentSession?.user ?? null);
+        setUser(currentSession?.user ? { ...currentSession.user, accountType: 'student' } : null); // Default accountType
         setLoading(false);
         setIsAuthReady(true);
       }
@@ -42,7 +45,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Get the initial session
     supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
       setSession(currentSession);
-      setUser(currentSession?.user ?? null);
+      setUser(currentSession?.user ? { ...currentSession.user, accountType: 'student' } : null); // Default accountType
       setLoading(false);
       setIsAuthReady(true);
     });

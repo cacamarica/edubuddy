@@ -1,5 +1,5 @@
 // filepath: g:\eduBuddy\edubuddy\src\pages\Lessons.tsx
-import { useEffect, useState, useContext } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -7,22 +7,18 @@ import SubjectCard from '@/components/SubjectCard';
 import LearningBuddy from '@/components/LearningBuddy';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Award, ChevronLeft, ChevronRight, Star, Sparkles, BookOpen, Medal } from 'lucide-react';
+import { Award, ChevronLeft, Star, Sparkles, BookOpen, Medal } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { studentProgressService, AIRecommendation, LearningActivity, QuizScore } from '@/services/studentProgressService';
-import { User } from '../integrations/supabase/types'; // Assuming the User type is defined in this file
-import { StudentProfileContext } from '../contexts/StudentProfileContext';
-import { validateStudentId as importedValidateStudentId } from '../lib/utils';
 
 const Lessons = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { t, language } = useLanguage();
-  const { selectedProfile, setSelectedProfile } = useContext(StudentProfileContext);
   const [gradeLevel, setGradeLevel] = useState<'k-3' | '4-6' | '7-9'>('k-3');
   const [studentId, setStudentId] = useState<string | null>(null);
   const [studentName, setStudentName] = useState<string | null>(null);
@@ -36,173 +32,81 @@ const Lessons = () => {
   const [isLoadingActivities, setIsLoadingActivities] = useState(false);
   
   useEffect(() => {
-    console.log('Primary Effect: Initializing student identity and grade level.');
-    setIsLoading(true);
-
-    let determinedStudentId: string | null = null;
-    let determinedStudentName: string | null = null;
-    let determinedGradeLevel: 'k-3' | '4-6' | '7-9' = 'k-3'; // Default grade
-
-    // 1. Check location.state
-    if (location.state) {
-      if (location.state.gradeLevel) {
-        determinedGradeLevel = location.state.gradeLevel;
-      }
-      const idFromLocation = importedValidateStudentId(location.state.studentId);
-      if (idFromLocation) {
-        determinedStudentId = idFromLocation;
-        determinedStudentName = location.state.studentName || null;
-        console.log('Primary Effect: Using studentId from location.state:', determinedStudentId);
+    // Get grade level and studentId from location state
+    if (location.state?.gradeLevel) {
+      setGradeLevel(location.state.gradeLevel);
+    }
+    
+    if (location.state?.studentId) {
+      setStudentId(location.state.studentId);
+      
+      // Get student name if available
+      if (location.state?.studentName) {
+        setStudentName(location.state.studentName);
       }
     }
-
-    // 2. Check selectedProfile if not found in location.state
-    if (!determinedStudentId && selectedProfile) {
-      const idFromProfile = importedValidateStudentId(selectedProfile.id);
-      if (idFromProfile) {
-        determinedStudentId = idFromProfile;
-        determinedStudentName = selectedProfile.name || null;
-        console.log('Primary Effect: Using studentId from selectedProfile:', determinedStudentId);
-      }
-    }
-
-    // 3. Check localStorage if not found yet
-    if (!determinedStudentId) {
-      const storedProfileStr = localStorage.getItem('selectedStudentProfile');
-      if (storedProfileStr) {
-        let potentialId: string | null = null;
-        let potentialName: string | null = null;
-        try {
-          const parsed = JSON.parse(storedProfileStr);
-          if (parsed && typeof parsed.id === 'string') {
-            potentialId = parsed.id;
-            potentialName = parsed.name || null;
-            // If selectedProfile is not set in context, update it from localStorage
-            if (!selectedProfile && setSelectedProfile) {
-              setSelectedProfile(parsed);
-            }
-          } else if (typeof parsed === 'string') { // Handles case where localStorage stores just the ID string after JSON.parse (e.g. "\"uuid-string\"")
-            potentialId = parsed;
-          }
-        } catch (e) {
-          // If not a JSON string, assume storedProfileStr is the ID itself
-          potentialId = storedProfileStr;
-        }
-        
-        const idFromStorage = importedValidateStudentId(potentialId);
-        if (idFromStorage) {
-          determinedStudentId = idFromStorage;
-          if (potentialName) determinedStudentName = potentialName; // Only use name if parsed from object
-          console.log('Primary Effect: Using studentId from localStorage:', determinedStudentId);
-        }
-      }
-    }
-
-    // Set the determined values
-    setGradeLevel(determinedGradeLevel);
-    setStudentName(determinedStudentName);
-
-    if (determinedStudentId) {
-      setStudentId(determinedStudentId);
-      // setIsLoading(false); // loadStudentData will set this after fetching
-    } else {
-      console.error('Primary Effect: No valid studentId resolved. Redirecting to dashboard.');
-      setStudentId(null);
-      setIsLoading(false); // Stop loading as we are redirecting
-      navigate('/dashboard');
-    }
-  }, [location.state, selectedProfile, user, navigate, setSelectedProfile]);
-
-  useEffect(() => {
+    
+    // Load student data
     const loadStudentData = async () => {
-      // If studentId is null, it's not determined yet. Don't log error, just return.
       if (!studentId) {
+        setIsLoading(false);
         return;
       }
-      // If studentId is not null, but not a string, then it's an actual issue.
-      if (typeof studentId !== 'string') {
-        console.error('loadStudentData: studentId has an invalid type:', studentId);
-        setIsLoading(false); // Stop loading as we can't proceed.
-        return;
-      }
-
+      
       setIsLoading(true);
-
+      
       try {
-        console.log('Fetching data for studentId:', studentId);
-
         // Get subject progress
         const progressData = await studentProgressService.getSubjectProgress(studentId);
-
-        // Get learning activities to determine weights for subjects
-        const activities = await studentProgressService.getLearningActivities(studentId);
-
-        let hasProgressOrQuizData = false;
         if (progressData.length > 0) {
-          const subjectActivityCounts = activities.reduce((counts, activity) => {
-            const subject = activity.subject.toLowerCase();
-            counts[subject] = (counts[subject] || 0) + 1;
-            return counts;
-          }, {});
-          let totalProgress = 0;
-          let totalWeight = 0;
-          progressData.forEach(item => {
-            const subject = item.subject.toLowerCase();
-            const weight = subjectActivityCounts[subject] || 1;
-            totalProgress += item.progress * weight;
-            totalWeight += weight;
-          });
-          const overallProgress = totalWeight > 0 
-            ? Math.round(totalProgress / totalWeight)
-            : 0;
+          // Calculate overall progress as an average
+          const overallProgress = Math.round(
+            progressData.reduce((sum, item) => sum + item.progress, 0) / progressData.length
+          );
           setProgress(overallProgress);
-          hasProgressOrQuizData = true;
-        } else {
-          setProgress(0); // Reset progress if no data
-        }
-
-        const quizScores = await studentProgressService.getQuizScores(studentId);
-        if (quizScores.length > 0) {
-          const totalQuizzes = quizScores.length;
-          const excellentQuizzes = quizScores.filter(quiz => quiz.percentage >= 80).length;
-          const goodQuizzes = quizScores.filter(quiz => quiz.percentage >= 60 && quiz.percentage < 80).length;
-          const totalStars = (excellentQuizzes * 3) + goodQuizzes;
-          setStars(totalStars);
-          hasProgressOrQuizData = true;
-        } else {
-          setStars(0); // Reset stars if no data
-        }
-
-        if (hasProgressOrQuizData) {
           setHasActivities(true);
         }
-
+        
+        // Get quiz scores for star calculation
+        const quizScores = await studentProgressService.getQuizScores(studentId);
+        if (quizScores.length > 0) {
+          // Calculate stars based on quiz performance
+          const totalStars = quizScores.reduce((sum, quiz) => {
+            return sum + Math.ceil(quiz.percentage / 20); // 1-5 stars based on percentage
+          }, 0);
+          setStars(totalStars);
+          setHasActivities(true);
+        }
+        
+        // Load recent activities
         await loadRecentActivities(studentId);
+        
+        // Load AI recommendations for Next Steps
         await loadAIRecommendations(studentId);
-
+        
       } catch (error) {
-        console.error('Error loading student data:', error);
+        console.error("Error loading student data:", error);
       } finally {
         setIsLoading(false);
       }
     };
-
+    
     loadStudentData();
-  }, [studentId, user]); // Added user to dependencies
-
+  }, [location.state]);
+  
   // Load recent activities from learning_activities and quiz_scores
   const loadRecentActivities = async (studentId: string) => {
     if (!user) return;
-
+    
     setIsLoadingActivities(true);
-
+    
     try {
-      // Fetch recent learning activities
+      // Get recent learning activities
       const activities = await studentProgressService.getLearningActivities(studentId, 5);
-
-      // Fetch recent quiz scores
+      
+      // Get recent quiz scores
       const quizzes = await studentProgressService.getQuizScores(studentId, 5);
-
+      
       // Combine and sort by date (most recent first)
       const combined = [
         ...activities.map(a => ({ 
@@ -216,13 +120,13 @@ const Lessons = () => {
           sortDate: q.completed_at || new Date().toISOString() 
         }))
       ];
-
+      
       combined.sort((a, b) => new Date(b.sortDate).getTime() - new Date(a.sortDate).getTime());
-
+      
       // Take only the 3 most recent activities
       setRecentActivities(combined.slice(0, 3));
-
-      // Update the hasActivities flag if there are activities
+      
+      // If we have activities, update the hasActivities flag
       if (combined.length > 0) {
         setHasActivities(true);
       }
@@ -424,75 +328,17 @@ const Lessons = () => {
     }
   };
   
-  const handleProfileSwitch = (newProfile) => {
-    if (user.accountType === 'student') {
-      toast.error(
-        language === 'id' 
-          ? 'Akun siswa tidak dapat mengganti profil.' 
-          : 'Student accounts cannot switch profiles.'
-      );
-      return;
-    }
-  
-    setSelectedProfile(newProfile);
-    localStorage.setItem('selectedStudentProfile', JSON.stringify(newProfile));
-  };
-  
-  const renderRecommendedNextSteps = () => {
-    if (isLoadingRecommendations) {
-      return Array(4).fill(0).map((_, index) => (
-        <div key={index} className="rounded-lg bg-gray-100 p-4 animate-pulse h-40"></div>
-      ));
-    }
-  
-    if (aiRecommendations && aiRecommendations.length > 0) {
-      return aiRecommendations.slice(0, 4).map((recommendation, i) => {
-        const colorClasses = [
-          "bg-eduPastel-blue", 
-          "bg-eduPastel-green", 
-          "bg-eduPastel-peach", 
-          "bg-eduPastel-yellow"
-        ];
-  
-        return (
-          <div 
-            key={recommendation.id} 
-            className={`rounded-lg ${colorClasses[i % 4]} p-4 hover:shadow-md transition-shadow cursor-pointer`}
-            onClick={() => handleStartLesson(
-              recommendation.recommendation_type, 
-              recommendation.recommendation,
-              recommendation.id
-            )}
-          >
-            <h3 className="font-bold mb-1">{recommendation.recommendation}</h3>
-            <p className="text-sm mb-2">{recommendation.recommendation_type}</p>
-            <Button size="sm" variant="secondary" className="w-full mt-2">
-              {language === 'id' ? 'Mulai' : 'Start'}
-            </Button>
-          </div>
-        );
-      });
-    }
-  
-    return getRecommendedLessons().map((lesson, i) => (
-      <div 
-        key={i} 
-        className={`rounded-lg ${lesson.color} p-4 hover:shadow-md transition-shadow cursor-pointer`}
-        onClick={() => handleStartLesson(lesson.subject, lesson.title)}
-      >
-        <h3 className="font-bold mb-1">{lesson.title}</h3>
-        <p className="text-sm mb-2">{lesson.subject}</p>
-        <p className="text-xs text-gray-600 mb-3">{lesson.description}</p>
-        <Button size="sm" variant="secondary" className="w-full">
-          {language === 'id' ? 'Mulai' : 'Start'}
-        </Button>
-      </div>
-    ));
-  };
+  // If we're loading from auth redirect and have no student ID
+  // Show student selector from dashboard or redirect to dash
+  if (user && !studentId && !isLoading) {
+    navigate('/dashboard');
+    return null;
+  }
   
   return (
     <div className="min-h-screen bg-white">
       <Header />
+      
       <main>
         <section className="py-8">
           <div className="container px-4 md:px-6">
@@ -551,38 +397,19 @@ const Lessons = () => {
                 </div>
               </div>
             )}
-              {/* Subjects */}
+            
+            {/* Subjects */}
             <div>
               <h2 className="text-2xl font-display font-bold mb-4">
                 {language === 'id' ? 'Mata Pelajaran' : 'Subjects'}
               </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+              
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                 <SubjectCard subject="math" gradeLevel={gradeLevel} hasProgress={hasActivities} studentId={studentId || undefined} />
                 <SubjectCard subject="english" gradeLevel={gradeLevel} hasProgress={hasActivities} studentId={studentId || undefined} />
                 <SubjectCard subject="science" gradeLevel={gradeLevel} hasProgress={hasActivities} studentId={studentId || undefined} />
-                <SubjectCard subject="history" gradeLevel={gradeLevel} hasProgress={hasActivities} studentId={studentId || undefined} />
-                <SubjectCard subject="computer" gradeLevel={gradeLevel} hasProgress={hasActivities} studentId={studentId || undefined} />
-                <SubjectCard subject="art" gradeLevel={gradeLevel} hasProgress={hasActivities} studentId={studentId || undefined} />
               </div>
-              
-              <div className="mt-6">
-                <button 
-                  onClick={() => navigate('/subjects', { state: { studentId, gradeLevel, hasActivities } })} 
-                  className="text-eduPurple hover:text-eduPurple-dark font-medium flex items-center"
-                >
-                  {language === 'id' ? 'Lihat Semua Mata Pelajaran' : 'View All Subjects'}
-                  <ChevronRight className="ml-1 h-4 w-4" />
-                </button>
-              </div>
-            </div>
             
-            <div className="text-center mt-8">
-              <Button onClick={handleGoToAILearning} className="bg-eduPurple hover:bg-eduPurple-dark">
-                <Sparkles className="mr-2 h-4 w-4" />
-                {language === 'id' ? 'Jelajahi Semua Topik dengan AI Learning' : 'Explore All Topics with AI Learning'}
-              </Button>
-            </div>
-
             {/* Recent Activity */}
             <div className="mt-12">
               <h2 className="text-2xl font-display font-bold mb-4">
@@ -711,7 +538,63 @@ const Lessons = () => {
             </h2>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {renderRecommendedNextSteps()}
+              {isLoadingRecommendations ? (
+                // Loading state for recommendations
+                Array(4).fill(0).map((_, index) => (
+                  <div key={index} className="rounded-lg bg-gray-100 p-4 animate-pulse h-40"></div>
+                ))
+              ) : aiRecommendations && aiRecommendations.length > 0 ? (
+                // Show AI recommendations if available
+                aiRecommendations.slice(0, 4).map((recommendation, i) => {
+                  const colorClasses = [
+                    "bg-eduPastel-blue", 
+                    "bg-eduPastel-green", 
+                    "bg-eduPastel-peach", 
+                    "bg-eduPastel-yellow"
+                  ];
+                  
+                  return (
+                    <div 
+                      key={recommendation.id} 
+                      className={`rounded-lg ${colorClasses[i % 4]} p-4 hover:shadow-md transition-shadow cursor-pointer`}
+                      onClick={() => handleStartLesson(
+                        recommendation.recommendation_type, 
+                        recommendation.recommendation,
+                        recommendation.id
+                      )}
+                    >
+                      <h3 className="font-bold mb-1">{recommendation.recommendation}</h3>
+                      <p className="text-sm mb-2">{recommendation.recommendation_type}</p>
+                      <Button size="sm" variant="secondary" className="w-full mt-2">
+                        {language === 'id' ? 'Mulai' : 'Start'}
+                      </Button>
+                    </div>
+                  );
+                })
+              ) : (
+                // Default lessons based on grade level
+                getRecommendedLessons().map((lesson, i) => (
+                  <div 
+                    key={i} 
+                    className={`rounded-lg ${lesson.color} p-4 hover:shadow-md transition-shadow cursor-pointer`}
+                    onClick={() => handleStartLesson(lesson.subject, lesson.title)}
+                  >
+                    <h3 className="font-bold mb-1">{lesson.title}</h3>
+                    <p className="text-sm mb-2">{lesson.subject}</p>
+                    <p className="text-xs text-gray-600 mb-3">{lesson.description}</p>
+                    <Button size="sm" variant="secondary" className="w-full">
+                      {language === 'id' ? 'Mulai' : 'Start'}
+                    </Button>
+                  </div>
+                ))
+              )}
+            </div>
+            
+            <div className="text-center mt-8">
+              <Button onClick={handleGoToAILearning} className="bg-eduPurple hover:bg-eduPurple-dark">
+                <Sparkles className="mr-2 h-4 w-4" />
+                {language === 'id' ? 'Jelajahi Semua Topik dengan AI Learning' : 'Explore All Topics with AI Learning'}
+              </Button>
             </div>
           </div>
         </section>

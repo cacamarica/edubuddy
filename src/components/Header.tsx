@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -102,11 +101,17 @@ const Header = () => {
     if (currentStudent) {
       navigate('/lessons', { 
         state: { 
-          gradeLevel: currentStudent.gradeLevel 
+          gradeLevel: currentStudent.gradeLevel || 'k-3', // Default grade level
+          studentId: currentStudent.id || null // Default studentId
         }
       });
     } else {
-      navigate('/lessons');
+      navigate('/lessons', {
+        state: {
+          gradeLevel: 'k-3', // Default grade level
+          studentId: null // Default studentId
+        }
+      });
     }
     setMobileMenuOpen(false);
   };

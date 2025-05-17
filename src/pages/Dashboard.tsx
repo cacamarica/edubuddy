@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,6 +18,7 @@ import StudentProfile from '@/components/StudentProfile';
 import StudentAchievements from '@/components/DashboardComponents/StudentAchievements';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { Spinner } from '@/components/ui/spinner';
+import { useStudentProfile } from '@/contexts/StudentProfileContext';
 
 // Fallback component to show when StudentProfile fails to load
 const StudentProfileFallback = ({ onBack }: { onBack: () => void }) => {
@@ -45,13 +45,24 @@ const StudentProfileFallback = ({ onBack }: { onBack: () => void }) => {
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [showStudentProfile, setShowStudentProfile] = useState(false);
-  const [currentStudentId, setCurrentStudentId] = useState<string | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
   const { language } = useLanguage();
   const { user } = useAuth();
-  
+  const { selectedProfile, setSelectedProfile } = useStudentProfile();
+
+  // Derive currentStudentId from the context's selectedProfile
+  const currentStudentId = selectedProfile?.id;
+
   const handleStudentChange = (studentId: string) => {
-    setCurrentStudentId(studentId);
+    // Called by StudentProfileSelector, which provides only the studentId.
+    // We update the selectedProfile in the context.
+    // A more robust solution would involve StudentProfileSelector providing the name as well,
+    // or fetching the student's details here. For now, use a placeholder name.
+    if (studentId) {
+      setSelectedProfile({ id: studentId, name: selectedProfile?.name || 'Selected Student' });
+    } else {
+      setSelectedProfile(null);
+    }
   };
   
   const handleShowStudentProfile = () => {
@@ -94,7 +105,11 @@ const Dashboard = () => {
               </Card>
             ) : (
               <StudentProfile 
-                onStudentChange={(student) => setCurrentStudentId(student.id)} 
+                onStudentChange={(student) => { // student is {id, name}
+                  if (student) {
+                    setSelectedProfile(student);
+                  }
+                }} 
                 currentStudentId={currentStudentId}
               />
             )}
@@ -133,7 +148,7 @@ const Dashboard = () => {
             <div className="max-w-md">
               <StudentProfileSelector 
                 onStudentChange={handleStudentChange}
-                initialStudentId={currentStudentId}
+                initialStudentId={currentStudentId} // This is now selectedProfile?.id
               />
             </div>
           </div>
@@ -155,103 +170,114 @@ const Dashboard = () => {
             
             {/* Overview Tab Content */}
             <TabsContent value="overview" className="space-y-4">
-              {!currentStudentId ? (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>
-                      {language === 'id' ? 'Ikhtisar Siswa' : 'Student Overview'}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
+              <div className="border rounded-lg bg-card text-card-foreground shadow">
+                <div className="flex flex-col space-y-1.5 p-6 pb-2">
+                  <h3 className="font-semibold text-lg leading-none tracking-tight">
+                    {language === 'id' ? 'Ikhtisar Siswa' : 'Student Overview'}
+                  </h3>
+                </div>
+                <div className="p-6 pt-0">
+                  {!currentStudentId ? (
                     <div className="text-center py-8 text-muted-foreground">
                       {language === 'id' 
                         ? 'Pilih siswa untuk melihat ikhtisar' 
                         : 'Select a student to view overview'}
                     </div>
-                  </CardContent>
-                </Card>
-              ) : (
-                <StudentProgressSummary studentId={currentStudentId} />
-              )}
+                  ) : isLoading ? (
+                    <div className="flex justify-center py-8">
+                      <Spinner />
+                    </div>
+                  ) : (
+                    <div className="student-progress-wrapper">
+                      <StudentProgressSummary studentId={currentStudentId} />
+                    </div>
+                  )}
+                </div>
+              </div>
             </TabsContent>
             
             {/* Activities Tab Content */}
             <TabsContent value="activities">
-              {/* Activities tab showing just activities */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>
+              <div className="border rounded-lg bg-card text-card-foreground shadow">
+                <div className="flex flex-col space-y-1.5 p-6 pb-2">
+                  <h3 className="font-semibold text-lg leading-none tracking-tight">
                     {language === 'id' ? 'Semua Aktivitas' : 'All Activities'}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
+                  </h3>
+                </div>
+                <div className="p-6 pt-0">
                   {isLoading ? (
                     <div className="flex justify-center py-8">
                       <Spinner />
                     </div>
-                  ) : currentStudentId ? (
-                    <RecentActivities studentId={currentStudentId} />
-                  ) : (
+                  ) : !currentStudentId ? (
                     <div className="text-center py-8 text-muted-foreground">
                       {language === 'id' 
                         ? 'Pilih siswa untuk melihat aktivitas' 
                         : 'Select a student to view activities'}
                     </div>
+                  ) : (
+                    <div className="activities-wrapper">
+                      <RecentActivities studentId={currentStudentId} />
+                    </div>
                   )}
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </TabsContent>
 
             {/* Achievements Tab Content */}
             <TabsContent value="achievements">
-              <Card>
-                <CardHeader>
-                  <CardTitle>
+              <div className="border rounded-lg bg-card text-card-foreground shadow">
+                <div className="flex flex-col space-y-1.5 p-6 pb-2">
+                  <h3 className="font-semibold text-lg leading-none tracking-tight">
                     {language === 'id' ? 'Pencapaian' : 'Achievements'}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
+                  </h3>
+                </div>
+                <div className="p-6 pt-0">
                   {isLoading ? (
                     <div className="flex justify-center py-8">
                       <Spinner />
                     </div>
-                  ) : currentStudentId ? (
-                    <StudentAchievements studentId={currentStudentId} />
-                  ) : (
+                  ) : !currentStudentId ? (
                     <div className="text-center py-8 text-muted-foreground">
                       {language === 'id' 
                         ? 'Pilih siswa untuk melihat pencapaian' 
                         : 'Select a student to view achievements'}
                     </div>
+                  ) : (
+                    <div className="achievements-wrapper">
+                      <StudentAchievements studentId={currentStudentId} />
+                    </div>
                   )}
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </TabsContent>
             
             {/* Recommendations Tab Content */}
             <TabsContent value="recommendations">
-              <Card>
-                <CardHeader>
-                  <CardTitle>
+              <div className="border rounded-lg bg-card text-card-foreground shadow">
+                <div className="flex flex-col space-y-1.5 p-6 pb-2">
+                  <h3 className="font-semibold text-lg leading-none tracking-tight">
                     {language === 'id' ? 'Rekomendasi AI' : 'AI Recommendations'}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
+                  </h3>
+                </div>
+                <div className="p-6 pt-0">
                   {isLoading ? (
                     <div className="flex justify-center py-8">
                       <Spinner />
                     </div>
-                  ) : currentStudentId ? (
-                    <AIRecommendations studentId={currentStudentId || ''} />
-                  ) : (
+                  ) : !currentStudentId ? (
                     <div className="text-center py-8 text-muted-foreground">
                       {language === 'id' 
                         ? 'Pilih siswa untuk melihat rekomendasi' 
                         : 'Select a student to view recommendations'}
                     </div>
+                  ) : (
+                    <div className="recommendations-wrapper">
+                      <AIRecommendations studentId={currentStudentId} />
+                    </div>
                   )}
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </TabsContent>
           </Tabs>
         </div>
