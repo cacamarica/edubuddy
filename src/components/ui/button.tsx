@@ -1,3 +1,4 @@
+
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
@@ -18,12 +19,23 @@ const buttonVariants = cva(
           "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
+        // Child-friendly button variants with bright colors
+        primary: "bg-blue-500 text-white hover:bg-blue-600 font-bold",
+        success: "bg-green-500 text-white hover:bg-green-600 font-bold",
+        warning: "bg-yellow-500 text-white hover:bg-yellow-600 font-bold",
+        danger: "bg-red-500 text-white hover:bg-red-600 font-bold",
+        purple: "bg-purple-500 text-white hover:bg-purple-600 font-bold",
+        pink: "bg-pink-500 text-white hover:bg-pink-600 font-bold",
+        orange: "bg-orange-500 text-white hover:bg-orange-600 font-bold",
+        fun: "bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 text-white font-bold hover:opacity-90",
       },
       size: {
         default: "h-10 px-4 py-2",
         sm: "h-9 rounded-md px-3",
         lg: "h-11 rounded-md px-8",
         icon: "h-10 w-10",
+        xl: "h-12 text-lg rounded-md px-10 py-3",
+        xxl: "h-14 text-xl rounded-md px-12 py-4",
       },
     },
     defaultVariants: {

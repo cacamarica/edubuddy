@@ -139,6 +139,7 @@ const AILearning = () => {
     setContentReady(false);
     setTopic('');
     setCustomTopic('');
+    setActiveTab('lesson');
   };
 
   const handleStudentChange = (student: Student) => {

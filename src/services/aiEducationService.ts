@@ -8,6 +8,7 @@ interface AIContentRequestParams {
   topic?: string;
   question?: string;
   includeImages?: boolean;
+  imageStyle?: 'cartoon' | 'drawing' | 'realistic' | 'comic' | 'watercolor';
 }
 
 export async function getAIEducationContent({
@@ -16,7 +17,8 @@ export async function getAIEducationContent({
   gradeLevel,
   topic,
   question,
-  includeImages = true
+  includeImages = true,
+  imageStyle = 'cartoon'
 }: AIContentRequestParams) {
   try {
     console.log(`Fetching ${contentType} content for ${topic} in ${subject} (grade: ${gradeLevel})`);
@@ -28,7 +30,8 @@ export async function getAIEducationContent({
         gradeLevel,
         topic,
         question,
-        includeImages
+        includeImages,
+        imageStyle
       }
     });
 
@@ -56,6 +59,14 @@ export async function getAIEducationContent({
             // Add caption if it's missing
             section.image.caption = section.image.alt || `Visual aid for ${section.heading}`;
           }
+          
+          // Handle case where image might be missing
+          if (!section.image.url || section.image.url.trim() === '') {
+            // Generate a placeholder image related to the topic
+            section.image.url = `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(topic)}-${encodeURIComponent(section.heading)}&backgroundColor=ffdfbf,ffd5dc,c0aede,d1d4f9,b6e3f4`;
+            section.image.alt = `Illustration for ${section.heading}`;
+            section.image.caption = `Visual representation for ${section.heading}`;
+          }
         }
         return section;
       });
@@ -71,6 +82,13 @@ export async function getAIEducationContent({
         } else if (!data.content.activity.image.caption) {
           data.content.activity.image.caption = 
             data.content.activity.image.alt || `Activity visual for ${data.content.activity.title}`;
+        }
+        
+        // Handle case where activity image might be missing
+        if (!data.content.activity.image.url || data.content.activity.image.url.trim() === '') {
+          data.content.activity.image.url = `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(topic)}-activity&backgroundColor=ffdfbf,ffd5dc,c0aede,d1d4f9,b6e3f4`;
+          data.content.activity.image.alt = `Illustration for ${data.content.activity.title} activity`;
+          data.content.activity.image.caption = `Visual aid for this activity`;
         }
       }
     } 
@@ -88,6 +106,13 @@ export async function getAIEducationContent({
           } else if (q.image && !q.image.caption) {
             q.image.caption = q.image.alt || `Visual aid for this question`;
           }
+          
+          // Handle case where question image might be missing
+          if (q.image && (!q.image.url || q.image.url.trim() === '')) {
+            q.image.url = `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(topic)}-q${q.id || Math.floor(Math.random() * 1000)}&backgroundColor=ffdfbf,ffd5dc,c0aede,d1d4f9,b6e3f4`;
+            q.image.alt = `Illustration for question about ${q.question.substring(0, 20)}...`;
+            q.image.caption = `Visual aid related to this question`;
+          }
           return q;
         });
         
@@ -96,7 +121,7 @@ export async function getAIEducationContent({
       } 
       else if (data.content.questions) {
         // Normalize image data in questions
-        data.content.questions = data.content.questions.map((q: any) => {
+        data.content.questions = data.content.questions.map((q: any, index: number) => {
           if (q.image && typeof q.image === 'string') {
             q.image = { 
               url: q.image, 
@@ -106,6 +131,23 @@ export async function getAIEducationContent({
           } else if (q.image && !q.image.caption) {
             q.image.caption = q.image.alt || `Visual aid for this question`;
           }
+          
+          // Handle case where question image might be missing
+          if (q.image && (!q.image.url || q.image.url.trim() === '')) {
+            q.image.url = `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(topic)}-q${index}&backgroundColor=ffdfbf,ffd5dc,c0aede,d1d4f9,b6e3f4`;
+            q.image.alt = `Illustration for question about ${q.question.substring(0, 20)}...`;
+            q.image.caption = `Visual aid related to this question`;
+          }
+          
+          // If question doesn't have an image, add a placeholder
+          if (!q.image) {
+            q.image = {
+              url: `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(topic)}-q${index}&backgroundColor=ffdfbf,ffd5dc,c0aede,d1d4f9,b6e3f4`,
+              alt: `Illustration for question about ${q.question.substring(0, 20)}...`,
+              caption: `Visual aid related to this question`
+            };
+          }
+          
           return q;
         });
       }
