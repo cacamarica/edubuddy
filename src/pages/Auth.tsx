@@ -200,7 +200,7 @@ const Auth = () => {
                             <FormLabel>{t('auth.password')}</FormLabel>
                             <FormControl>
                               <Input type="password" {...field} />
-                            </Control>
+                            </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
