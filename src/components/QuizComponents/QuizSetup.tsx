@@ -13,8 +13,8 @@ interface QuizSetupProps {
   questionCount: number;
   onQuestionCountChange: (count: number) => void;
   onStartQuiz: () => void;
-  onResumePreviousQuiz?: () => void; // Add this prop for resuming previous quiz
-  hasSavedProgress?: boolean; // Add this prop to show resume button
+  onResumePreviousQuiz?: () => void;
+  hasSavedProgress?: boolean;
   limited?: boolean;
 }
 
@@ -32,7 +32,7 @@ const QuizSetup: React.FC<QuizSetupProps> = ({
   const navigate = useNavigate();
   
   // Calculate max allowed questions for limited access
-  const maxLimitedQuestions = Math.max(1, Math.floor(10 * 0.3)); // 30% of 10 questions
+  const maxLimitedQuestions = Math.max(1, Math.floor(60 * 0.3)); // 30% of 60 questions
   
   return (
     <Card>
@@ -92,16 +92,16 @@ const QuizSetup: React.FC<QuizSetupProps> = ({
           <div className="flex flex-col gap-4">
             <Slider
               value={[questionCount]}
-              min={1}
-              max={limited ? maxLimitedQuestions : 20}
-              step={1}
+              min={10}
+              max={limited ? maxLimitedQuestions : 60}
+              step={5}
               onValueChange={(values) => onQuestionCountChange(values[0])}
               className="mx-2"
             />
             <div className="flex justify-between">
-              <span>1</span>
+              <span>10</span>
               <span className="font-medium">{questionCount} {t('quiz.questions')}</span>
-              <span>{limited ? maxLimitedQuestions : 20}</span>
+              <span>{limited ? maxLimitedQuestions : 60}</span>
             </div>
           </div>
         </div>

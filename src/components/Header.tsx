@@ -40,12 +40,12 @@ const Header = () => {
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <div className="flex items-center">
           <Link to="/" className="flex items-center">
-            <span className="sr-only">EduApp</span>
+            <span className="sr-only">EduBuddy</span>
             {/* Logo */}
             <div className="w-10 h-10 rounded-full bg-gradient-to-r from-eduPurple to-eduBlue flex items-center justify-center text-white font-bold text-lg mr-2">
               E
             </div>
-            <span className="text-xl font-bold font-display">EduApp</span>
+            <span className="text-xl font-bold font-display">EduBuddy</span>
           </Link>
         </div>
         

@@ -29,6 +29,17 @@ const translations: TranslationsType = {
     'header.faq': 'FAQ',
     'quiz.creating': 'Creating your quiz...',
     'quiz.moment': 'This will just take a moment',
+    'quiz.title': 'Quiz on',
+    'quiz.description': 'Test your knowledge about',
+    'quiz.in': 'in',
+    'quiz.questionCount': 'Number of Questions',
+    'quiz.questions': 'questions',
+    'quiz.start': 'Start Quiz',
+    'nav.home': 'Home',
+    'nav.lessons': 'Lessons',
+    'nav.quiz': 'Quiz',
+    'nav.dashboard': 'Dashboard',
+    'nav.menu': 'Menu',
     
     // Authentication
     'auth.signIn': 'Sign In',
@@ -47,7 +58,9 @@ const translations: TranslationsType = {
     'auth.signingUp': 'Creating account...',
     'auth.signInSuccess': 'Successfully signed in!',
     'auth.signUpSuccess': 'Account created! You can now sign in.',
-    'auth.signOutSuccess': 'You have been signed out.',
+    'auth.signOut': 'Sign Out',
+    'auth.signedOut': 'You have been signed out.',
+    'auth.signOutError': 'Error signing out. Please try again.',
   },
   id: {
     'language.select': 'Pilih bahasa',
@@ -59,6 +72,17 @@ const translations: TranslationsType = {
     'header.faq': 'FAQ',
     'quiz.creating': 'Membuat kuis Anda...',
     'quiz.moment': 'Ini akan memakan waktu sebentar',
+    'quiz.title': 'Kuis tentang',
+    'quiz.description': 'Uji pengetahuan Anda tentang',
+    'quiz.in': 'dalam',
+    'quiz.questionCount': 'Jumlah Pertanyaan',
+    'quiz.questions': 'pertanyaan',
+    'quiz.start': 'Mulai Kuis',
+    'nav.home': 'Beranda',
+    'nav.lessons': 'Pelajaran',
+    'nav.quiz': 'Kuis',
+    'nav.dashboard': 'Dasbor',
+    'nav.menu': 'Menu',
     
     // Authentication
     'auth.signIn': 'Masuk',
@@ -77,7 +101,9 @@ const translations: TranslationsType = {
     'auth.signingUp': 'Membuat akun...',
     'auth.signInSuccess': 'Berhasil masuk!',
     'auth.signUpSuccess': 'Akun dibuat! Anda sekarang dapat masuk.',
-    'auth.signOutSuccess': 'Anda telah keluar.',
+    'auth.signOut': 'Keluar',
+    'auth.signedOut': 'Anda telah keluar.',
+    'auth.signOutError': 'Kesalahan saat keluar. Silakan coba lagi.',
   }
 };
 

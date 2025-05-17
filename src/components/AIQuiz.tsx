@@ -10,7 +10,7 @@ import QuizError from "./QuizComponents/QuizError";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { studentProgressService } from "@/services/studentProgressService";
 import { toast } from "sonner";
-import { fetchQuizQuestions, saveQuizProgress, getQuizProgress, QuizProgress } from "@/services/quizService";
+import { fetchQuizQuestions, saveQuizProgress, getQuizProgress } from "@/services/quizService";
 
 export interface AIQuizProps {
   subject: string;
@@ -23,7 +23,7 @@ export interface AIQuizProps {
 const AIQuiz = ({ subject, gradeLevel, topic, onComplete, limitProgress = false }: AIQuizProps) => {
   const [quizStarted, setQuizStarted] = useState(false);
   const [quizComplete, setQuizComplete] = useState(false);
-  const [questionCount, setQuestionCount] = useState(5);
+  const [questionCount, setQuestionCount] = useState(10); // Default to 10 questions now
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
@@ -70,6 +70,9 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete, limitProgress = false 
     setError(null);
 
     try {
+      // Always reset selectedAnswer when fetching a new quiz
+      setSelectedAnswer(null);
+      
       // First check if the user is logged in
       if (!user) {
         const questions = await fetchQuizQuestions({
@@ -130,6 +133,9 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete, limitProgress = false 
           // Calculate current score
           const correctCount = savedProgress.correct_answers?.length || 0;
           setScore(correctCount);
+          
+          // Ensure selected answer is reset for the current question
+          setSelectedAnswer(null);
           
           toast.success(language === 'id' ? 'Kemajuan kuis dimuat' : 'Quiz progress loaded');
           return;
@@ -228,6 +234,8 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete, limitProgress = false 
     const newAnswers = [...answers];
     newAnswers[currentQuestionIndex] = selectedAnswer;
     setAnswers(newAnswers);
+    
+    // Reset selected answer for the next question
     setSelectedAnswer(null);
     
     // Save progress if user is logged in
@@ -290,6 +298,8 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete, limitProgress = false 
     
     if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
+      // Ensure selected answer is reset for the next question
+      setSelectedAnswer(null);
     } else {
       setQuizComplete(true);
       

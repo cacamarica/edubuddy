@@ -30,7 +30,7 @@ interface QuizQuestionCardProps {
   onCheckAnswer: () => void;
   onNextQuestion: () => void;
   onPrevQuestion: () => void;
-  onPauseQuiz?: () => void; // Add pause quiz functionality
+  onPauseQuiz?: () => void;
   questionNumber?: number;
 }
 
@@ -47,7 +47,7 @@ const QuizQuestionCard: React.FC<QuizQuestionCardProps> = ({
   onPauseQuiz,
   questionNumber,
 }) => {
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   // Use questionNumber if provided, otherwise use currentQuestionIndex + 1
   const displayQuestionNumber = questionNumber !== undefined ? questionNumber : currentQuestionIndex + 1;
   
@@ -83,7 +83,7 @@ const QuizQuestionCard: React.FC<QuizQuestionCardProps> = ({
         <div className="mb-6">
           <div className="flex justify-between items-center mb-2">
             <span className="text-sm font-medium">
-              Question {displayQuestionNumber} of {totalQuestions}
+              {language === 'id' ? 'Pertanyaan' : 'Question'} {displayQuestionNumber} {language === 'id' ? 'dari' : 'of'} {totalQuestions}
             </span>
             <span className="text-sm font-medium">
               {Math.round(((displayQuestionNumber) / totalQuestions) * 100)}%
@@ -116,17 +116,18 @@ const QuizQuestionCard: React.FC<QuizQuestionCardProps> = ({
           value={selectedAnswer !== null ? selectedAnswer.toString() : undefined} 
           onValueChange={(value) => onAnswerSelect(parseInt(value))}
           className="space-y-4"
+          key={`question-${currentQuestionIndex}`} // Add key to force re-render when question changes
         >
           {question.options.map((option, index) => (
             <div key={index} className="flex items-center space-x-2">
               <RadioGroupItem 
                 value={index.toString()} 
-                id={`option-${index}`} 
+                id={`option-${currentQuestionIndex}-${index}`} // Update ID to avoid conflicts
                 disabled={showFeedback}
                 className="h-5 w-5"
               />
               <Label 
-                htmlFor={`option-${index}`}
+                htmlFor={`option-${currentQuestionIndex}-${index}`}
                 className={`font-display text-lg p-2 rounded-md w-full ${
                   showFeedback && index === question.correctAnswer 
                     ? 'bg-green-100 text-green-800'

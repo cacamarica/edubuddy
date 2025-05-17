@@ -18,15 +18,20 @@ serve(async (req) => {
   try {
     const { subject, gradeLevel, topic, count = 10, language = 'en' } = await req.json();
 
-    // Create a prompt for OpenAI
+    // Ensure count is within acceptable range (10-60)
+    const questionCount = Math.max(10, Math.min(60, count));
+    
+    // Create a more detailed prompt for OpenAI to generate more comprehensive content
     const prompt = `
-    Create ${count} quiz questions about "${topic}" in ${subject} for grade ${gradeLevel} students in ${language === 'id' ? 'Indonesian' : 'English'} language. 
+    Create ${questionCount} quiz questions about "${topic}" in ${subject} for grade ${gradeLevel} students in ${language === 'id' ? 'Indonesian' : 'English'} language. 
     
     Each question should:
     - Be age-appropriate for the grade level
     - Have 4 possible answer options
     - Have exactly one correct answer
-    - Include an explanation of why the correct answer is right
+    - Include a detailed explanation of why the correct answer is right and why the others are wrong
+    - Be diverse in difficulty and focus on different aspects of the topic
+    - Include some scenario-based questions where relevant
 
     Return the questions in the following JSON format:
     [
@@ -39,7 +44,7 @@ serve(async (req) => {
       // ... more questions
     ]
     
-    Make sure the questions are diverse in difficulty, engaging for children, and educational.
+    Make sure the questions are diverse in difficulty, engaging for children, educational, and comprehensive enough for a thorough assessment of the topic.
     `;
     
     // Call OpenAI API to generate quiz questions
