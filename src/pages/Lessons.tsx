@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
@@ -10,6 +11,8 @@ import { Award, ChevronLeft, Star, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { supabase } from '@/integrations/supabase/client';
+import { studentProgressService, AIRecommendation } from '@/services/studentProgressService';
 
 const Lessons = () => {
   const location = useLocation();
@@ -23,6 +26,8 @@ const Lessons = () => {
   const [stars, setStars] = useState(0);
   const [hasActivities, setHasActivities] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [aiRecommendations, setAiRecommendations] = useState<AIRecommendation[]>([]);
+  const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
   
   useEffect(() => {
     // Get grade level and studentId from location state
@@ -39,32 +44,89 @@ const Lessons = () => {
       }
     }
     
-    // Simulate loading user data
-    setTimeout(() => {
-      // Check if this is a new student (no activities yet)
-      const isNewStudent = location.state?.isNewStudent || false;
-      
-      // For new students or when hasActivities is explicitly set to false in state
-      if (isNewStudent || location.state?.hasActivities === false) {
-        setProgress(0);
-        setStars(0);
-        setHasActivities(false);
-      } else if (studentId && !isNewStudent) {
-        // For existing students with activities
-        // Here we could fetch real data from a database
-        setProgress(30);
-        setStars(12);
-        setHasActivities(true);
-      } else {
-        // Default state when no student is selected
-        setProgress(0);
-        setStars(0);
-        setHasActivities(false);
+    // Load student data
+    const loadStudentData = async () => {
+      if (!studentId) {
+        setIsLoading(false);
+        return;
       }
       
-      setIsLoading(false);
-    }, 1000);
+      setIsLoading(true);
+      
+      try {
+        // Get subject progress
+        const progressData = await studentProgressService.getSubjectProgress(studentId);
+        if (progressData.length > 0) {
+          // Calculate overall progress as an average
+          const overallProgress = Math.round(
+            progressData.reduce((sum, item) => sum + item.progress, 0) / progressData.length
+          );
+          setProgress(overallProgress);
+          setHasActivities(true);
+        }
+        
+        // Get quiz scores for star calculation
+        const quizScores = await studentProgressService.getQuizScores(studentId);
+        if (quizScores.length > 0) {
+          // Calculate stars based on quiz performance
+          const totalStars = quizScores.reduce((sum, quiz) => {
+            return sum + Math.ceil(quiz.percentage / 20); // 1-5 stars based on percentage
+          }, 0);
+          setStars(totalStars);
+          setHasActivities(true);
+        }
+        
+        // Load AI recommendations for Next Steps
+        await loadAIRecommendations(studentId);
+        
+      } catch (error) {
+        console.error("Error loading student data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadStudentData();
   }, [location.state]);
+  
+  // Load AI recommendations from database or generate new ones
+  const loadAIRecommendations = async (studentId: string) => {
+    if (!user) return;
+    
+    setIsLoadingRecommendations(true);
+    
+    try {
+      // First try to get recommendations from the database
+      const recommendations = await studentProgressService.getAIRecommendations(studentId);
+      
+      if (recommendations && recommendations.length > 0) {
+        // Use existing recommendations
+        setAiRecommendations(recommendations);
+      } else {
+        // Generate recommendations based on grade level if none exist
+        const defaultRecommendations = getRecommendedLessons();
+        
+        // Save these to the database for future reference
+        for (const rec of defaultRecommendations) {
+          await studentProgressService.recordAIRecommendation({
+            student_id: studentId,
+            recommendation_type: rec.subject,
+            recommendation: rec.title,
+            acted_on: false,
+            read: false
+          });
+        }
+        
+        // Get the newly saved recommendations
+        const newRecommendations = await studentProgressService.getAIRecommendations(studentId);
+        setAiRecommendations(newRecommendations);
+      }
+    } catch (error) {
+      console.error("Error loading AI recommendations:", error);
+    } finally {
+      setIsLoadingRecommendations(false);
+    }
+  };
   
   const gradeName = {
     'k-3': language === 'id' ? 'Pemula (K-3)' : 'Early Learners (K-3)',
@@ -103,6 +165,29 @@ const Lessons = () => {
     });
   };
 
+  // Handle starting a lesson and mark recommendation as acted on
+  const handleStartLesson = async (subject: string, topic: string, recommendationId?: string) => {
+    // Mark recommendation as acted upon if we have an id
+    if (recommendationId && studentId) {
+      await studentProgressService.markRecommendationAsActedOn(recommendationId);
+      
+      // Refresh recommendations list
+      await loadAIRecommendations(studentId);
+    }
+    
+    // Navigate to AI Learning with the selected topic
+    navigate('/ai-learning', { 
+      state: { 
+        gradeLevel,
+        subject,
+        topic,
+        studentId,
+        studentName,
+        autoStart: true
+      } 
+    });
+  };
+
   // Render recommended lessons based on grade level
   const getRecommendedLessons = () => {
     switch (gradeLevel) {
@@ -124,13 +209,13 @@ const Lessons = () => {
             title: "Animal Friends",
             subject: "Science", 
             description: "Learn about different types of animals",
-            color: "bg-eduPastel-peach"
+            color: "bg-eduPastel-yellow"
           },
           {
             title: "Shape Adventure",
             subject: "Math",
             description: "Explore different shapes all around us",
-            color: "bg-eduPastel-yellow"
+            color: "bg-eduPastel-peach"
           }
         ];
       case '4-6':
@@ -273,8 +358,8 @@ const Lessons = () => {
                 </h2>
                 <p className="opacity-90">
                   {language === 'id'
-                    ? 'Buat pelajaran kustom, kuis, dan permainan tentang topik apapun dengan asisten pembelajaran AI kami!'
-                    : 'Create custom lessons, quizzes, and games about any topic with our AI learning assistant!'
+                    ? 'Buat pelajaran kustom, kuis, dan permainan tentang topik akademik dengan asisten pembelajaran AI kami!'
+                    : 'Create custom lessons, quizzes, and games about academic topics with our AI learning assistant!'
                   }
                 </p>
               </div>
@@ -397,33 +482,81 @@ const Lessons = () => {
             </h2>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {getRecommendedLessons().map((item, i) => (
-                <div 
-                  key={i} 
-                  className={`rounded-lg ${item.color} p-4 hover:shadow-md transition-shadow cursor-pointer`}
-                  onClick={() => navigate('/ai-learning', { 
-                    state: { 
-                      gradeLevel, 
-                      subject: item.subject, 
-                      topic: item.title,
-                      studentId,
-                      studentName,
-                      autoStart: true
-                    } 
-                  })}
-                >
-                  <span className="text-xs font-medium text-muted-foreground">{item.subject}</span>
-                  <h3 className="font-display font-semibold">{item.title}</h3>
-                  <p className="text-sm text-muted-foreground mt-1">{item.description}</p>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="mt-2 w-full justify-start text-eduPurple hover:text-eduPurple-dark hover:bg-white/50"
+              {isLoadingRecommendations ? (
+                // Loading state for recommendations
+                Array(4).fill(0).map((_, index) => (
+                  <div key={index} className="rounded-lg bg-gray-100 p-4 animate-pulse h-40"></div>
+                ))
+              ) : aiRecommendations && aiRecommendations.length > 0 ? (
+                // Show AI recommendations if available
+                aiRecommendations.slice(0, 4).map((recommendation, i) => {
+                  const colorClasses = [
+                    "bg-eduPastel-blue", 
+                    "bg-eduPastel-green", 
+                    "bg-eduPastel-peach", 
+                    "bg-eduPastel-yellow"
+                  ];
+                  
+                  return (
+                    <div 
+                      key={recommendation.id} 
+                      className={`rounded-lg ${colorClasses[i % 4]} p-4 hover:shadow-md transition-shadow cursor-pointer`}
+                      onClick={() => handleStartLesson(
+                        recommendation.recommendation_type, 
+                        recommendation.recommendation,
+                        recommendation.id
+                      )}
+                    >
+                      <span className="text-xs font-medium text-muted-foreground">
+                        {recommendation.recommendation_type}
+                      </span>
+                      <h3 className="font-display font-semibold">{recommendation.recommendation}</h3>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {language === 'id' 
+                          ? 'Direkomendasikan oleh AI berdasarkan profil siswa'
+                          : 'AI recommended based on student profile'
+                        }
+                      </p>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="mt-2 w-full justify-start text-eduPurple hover:text-eduPurple-dark hover:bg-white/50"
+                      >
+                        {t('learning.startLesson')}
+                      </Button>
+                    </div>
+                  );
+                })
+              ) : (
+                // Fallback to default recommendations
+                getRecommendedLessons().map((item, i) => (
+                  <div 
+                    key={i} 
+                    className={`rounded-lg ${item.color} p-4 hover:shadow-md transition-shadow cursor-pointer`}
+                    onClick={() => navigate('/ai-learning', { 
+                      state: { 
+                        gradeLevel, 
+                        subject: item.subject, 
+                        topic: item.title,
+                        studentId,
+                        studentName,
+                        autoStart: true
+                      } 
+                    })}
                   >
-                    {t('learning.startLesson')}
-                  </Button>
-                </div>
-              ))}
+                    <span className="text-xs font-medium text-muted-foreground">{item.subject}</span>
+                    <h3 className="font-display font-semibold">{item.title}</h3>
+                    <p className="text-sm text-muted-foreground mt-1">{item.description}</p>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="mt-2 w-full justify-start text-eduPurple hover:text-eduPurple-dark hover:bg-white/50"
+                    >
+                      {t('learning.startLesson')}
+                    </Button>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </section>

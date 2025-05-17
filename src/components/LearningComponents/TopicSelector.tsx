@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,6 +8,28 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+
+// List of allowed educational topics for AI learning
+const ALLOWED_TOPICS = [
+  // Math topics
+  'algebra', 'geometry', 'calculus', 'arithmetic', 'statistics', 'trigonometry', 'numbers', 'fractions',
+  'decimals', 'percentages', 'counting', 'multiplication', 'division', 'addition', 'subtraction',
+  
+  // Science topics
+  'biology', 'chemistry', 'physics', 'astronomy', 'earth science', 'animals', 'plants',
+  'human body', 'ecosystems', 'weather', 'elements', 'electricity', 'energy', 'forces', 'motion',
+  
+  // English/Language topics
+  'grammar', 'vocabulary', 'spelling', 'reading', 'writing', 'literature', 'poetry', 'fiction',
+  'essays', 'storytelling', 'alphabets', 'phonics', 'verbs', 'nouns', 'adjectives',
+  
+  // Social Studies topics
+  'history', 'geography', 'civics', 'economics', 'culture', 'maps', 'countries',
+  'continents', 'oceans', 'people', 'communities', 'government', 'landmarks',
+  
+  // Other academic subjects
+  'music', 'art', 'physical education', 'health', 'technology', 'computer science', 'coding'
+];
 
 interface TopicSelectorProps {
   subject: string;
@@ -39,6 +60,8 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
   const { user } = useAuth();
   const [studentInfo, setStudentInfo] = useState<{ name: string; age: number; gradeLevel: string } | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
+  const [isValidTopic, setIsValidTopic] = useState<boolean>(true);
+  const [validationMessage, setValidationMessage] = useState<string>('');
 
   // Fetch student information if studentId is provided
   useEffect(() => {
@@ -50,7 +73,7 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
             .from('students')
             .select('name, age, grade_level')
             .eq('id', studentId)
-            .maybeSingle(); // Using maybeSingle instead of single to handle case when no data is found
+            .maybeSingle();
             
           if (error) {
             console.error('Error fetching student info:', error);
@@ -75,6 +98,62 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
     fetchStudentInfo();
   }, [studentId, language]);
 
+  // Validate if topic is educational/school-related
+  const validateTopic = (topic: string) => {
+    if (!topic.trim()) {
+      setIsValidTopic(false);
+      setValidationMessage(language === 'id' 
+        ? 'Silakan masukkan topik pembelajaran' 
+        : 'Please enter a learning topic');
+      return false;
+    }
+    
+    const normalizedTopic = topic.toLowerCase().trim();
+    
+    // Check if the topic contains any of the allowed educational topics
+    const isEducational = ALLOWED_TOPICS.some(allowedTopic => 
+      normalizedTopic.includes(allowedTopic) || 
+      allowedTopic.includes(normalizedTopic)
+    );
+    
+    // Allow suggested topics automatically
+    const isSuggested = topicSuggestions.some(suggestion => 
+      suggestion.toLowerCase().includes(normalizedTopic) || 
+      normalizedTopic.includes(suggestion.toLowerCase())
+    );
+    
+    // Check if specific non-educational keywords are present
+    const nonEducationalKeywords = ['game', 'movie', 'entertainment', 'social media', 'dating', 'gambling'];
+    const hasNonEducationalKeyword = nonEducationalKeywords.some(keyword => 
+      normalizedTopic.includes(keyword)
+    );
+    
+    const isValid = isEducational || isSuggested || !hasNonEducationalKeyword;
+    
+    setIsValidTopic(isValid);
+    
+    if (!isValid) {
+      setValidationMessage(language === 'id'
+        ? 'Silakan masukkan topik akademik yang terkait dengan sekolah'
+        : 'Please enter an academic topic related to school subjects');
+    } else {
+      setValidationMessage('');
+    }
+    
+    return isValid;
+  };
+
+  // Handle topic change with validation
+  const handleTopicChange = (value: string) => {
+    onCustomTopicChange(value);
+    if (value.length > 3) {
+      validateTopic(value);
+    } else {
+      setIsValidTopic(true);
+      setValidationMessage('');
+    }
+  };
+
   // Display message about personalized content
   const getPersonalizedMessage = () => {
     if (studentInfo) {
@@ -93,6 +172,10 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
   };
 
   const handleCreateContent = () => {
+    if (!validateTopic(customTopic)) {
+      return;
+    }
+    
     if (!user && studentId) {
       // Display a warning if there's no authenticated user but trying to use student features
       toast.warning(language === 'id'
@@ -111,8 +194,8 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
         </CardTitle>
         <CardDescription>
           {language === 'id' 
-            ? 'Beritahu kami apa yang ingin Anda pelajari dan kami akan membuat konten khusus untuk Anda!' 
-            : 'Tell us what you want to learn about and we\'ll create custom content just for you!'}
+            ? 'Beritahu kami topik akademik apa yang ingin Anda pelajari dan kami akan membuat konten khusus untuk Anda!' 
+            : 'Tell us what academic topic you want to learn about and we\'ll create custom content just for you!'}
         </CardDescription>
         {(studentInfo || gradeLevel) && (
           <div className="mt-2 text-sm font-medium text-eduPurple">
@@ -139,15 +222,23 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
         </div>
         
         <div className="space-y-2">
-          <Label htmlFor="topic">{language === 'id' ? 'Topik' : 'Topic'}</Label>
+          <Label htmlFor="topic">
+            {language === 'id' ? 'Topik Akademik' : 'Academic Topic'}
+          </Label>
           <Input 
             id="customTopic"
             placeholder={language === 'id' 
-              ? "Masukkan topik apa pun yang ingin Anda pelajari..." 
-              : "Enter any topic you want to learn about..."}
+              ? "Masukkan topik akademik yang ingin Anda pelajari..." 
+              : "Enter an academic topic you want to learn about..."}
             value={customTopic}
-            onChange={(e) => onCustomTopicChange(e.target.value)}
+            onChange={(e) => handleTopicChange(e.target.value)}
+            className={!isValidTopic ? "border-red-500" : ""}
           />
+          {!isValidTopic && (
+            <p className="text-xs text-red-500 mt-1">
+              {validationMessage}
+            </p>
+          )}
           <div className="mt-2">
             <p className="text-sm text-muted-foreground mb-2">
               {language === 'id' 
@@ -162,7 +253,9 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
                   size="sm"
                   onClick={() => {
                     onTopicSelect(suggestion);
-                    onCustomTopicChange(suggestion); // Also update the input field
+                    onCustomTopicChange(suggestion);
+                    setIsValidTopic(true);
+                    setValidationMessage('');
                   }}
                   className="bg-eduPastel-purple hover:bg-eduPastel-purple/80"
                 >
@@ -176,7 +269,7 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
       <CardFooter className="flex justify-center">
         <Button 
           onClick={handleCreateContent} 
-          disabled={!customTopic.trim() || loading}
+          disabled={!customTopic.trim() || loading || !isValidTopic}
           className="bg-eduPurple hover:bg-eduPurple-dark"
         >
           <Sparkles className="mr-2 h-4 w-4" />

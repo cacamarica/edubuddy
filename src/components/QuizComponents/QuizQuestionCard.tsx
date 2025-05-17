@@ -1,3 +1,4 @@
+
 import React, { useEffect } from 'react';
 import {
   Card,
@@ -51,11 +52,10 @@ const QuizQuestionCard: React.FC<QuizQuestionCardProps> = ({
 }) => {
   const { t, language } = useLanguage();
   
-  // Play sound when feedback is shown
+  // Modified to use playSound correctly with just one argument
   useEffect(() => {
     if (showFeedback) {
       const isCorrect = selectedAnswer === question.correctAnswer;
-      // Call playSound with just the sound type parameter
       playSound(isCorrect ? 'correct' : 'incorrect');
     }
   }, [showFeedback, selectedAnswer, question.correctAnswer]);

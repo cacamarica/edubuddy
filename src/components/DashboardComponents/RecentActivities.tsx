@@ -5,9 +5,10 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { studentProgressService, LearningActivity, StudentBadge } from '@/services/studentProgressService';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Spinner } from '@/components/ui/spinner';
-import { format } from 'date-fns';
+import { format, formatDistance, subDays } from 'date-fns';
 import { BookOpen, PencilRuler, Gamepad, Award } from 'lucide-react';
 import CustomBadge from '@/components/Badge';
+import { useNavigate } from 'react-router-dom';
 
 interface RecentActivitiesProps {
   studentId: string;
@@ -19,46 +20,45 @@ const RecentActivities: React.FC<RecentActivitiesProps> = ({ studentId }) => {
   const [isLoadingActivities, setIsLoadingActivities] = useState(true);
   const [isLoadingBadges, setIsLoadingBadges] = useState(true);
   const { language } = useLanguage();
+  const navigate = useNavigate();
   
   useEffect(() => {
     const fetchActivities = async () => {
       if (!studentId) return;
       
       setIsLoadingActivities(true);
-      const data = await studentProgressService.getLearningActivities(studentId, 5);
+      const data = await studentProgressService.getLearningActivities(studentId, 10);
       
-      // Remove duplicate activities by keeping the most recent one for each topic
-      const uniqueActivities = data.reduce((acc: LearningActivity[], current) => {
-        const existingIndex = acc.findIndex(item => 
-          item.activity_type === current.activity_type && 
-          item.topic === current.topic && 
-          item.subject === current.subject
-        );
+      // Process to remove duplicates
+      const uniqueActivitiesMap = new Map<string, LearningActivity>();
+      
+      data.forEach(activity => {
+        // Create a unique key for this activity
+        const activityKey = `${activity.activity_type}-${activity.subject}-${activity.topic}`;
         
-        if (existingIndex === -1) {
-          acc.push(current);
+        if (!uniqueActivitiesMap.has(activityKey)) {
+          uniqueActivitiesMap.set(activityKey, activity);
         } else {
-          // Replace if current is more recent
-          const existing = acc[existingIndex];
-          const currentDate = new Date(current.last_interaction_at || '');
-          const existingDate = new Date(existing.last_interaction_at || '');
+          // If this activity already exists, keep the more recent one
+          const existingActivity = uniqueActivitiesMap.get(activityKey)!;
+          const existingDate = new Date(existingActivity.last_interaction_at || '');
+          const currentDate = new Date(activity.last_interaction_at || '');
           
           if (currentDate > existingDate) {
-            acc[existingIndex] = current;
+            uniqueActivitiesMap.set(activityKey, activity);
           }
         }
-        
-        return acc;
-      }, []);
-      
-      // Sort by most recent first
-      uniqueActivities.sort((a, b) => {
-        const dateA = new Date(a.last_interaction_at || '');
-        const dateB = new Date(b.last_interaction_at || '');
-        return dateB.getTime() - dateA.getTime();
       });
       
-      setActivities(uniqueActivities);
+      // Convert map values back to array and sort by date
+      const uniqueActivities = Array.from(uniqueActivitiesMap.values())
+        .sort((a, b) => {
+          const dateA = new Date(a.last_interaction_at || '');
+          const dateB = new Date(b.last_interaction_at || '');
+          return dateB.getTime() - dateA.getTime();
+        });
+      
+      setActivities(uniqueActivities.slice(0, 5)); // Limit to 5 most recent activities
       setIsLoadingActivities(false);
     };
     
@@ -106,10 +106,34 @@ const RecentActivities: React.FC<RecentActivitiesProps> = ({ studentId }) => {
     
     try {
       const date = new Date(dateString);
+      
+      // If date is within the last 7 days, show relative time (e.g., "2 days ago")
+      const now = new Date();
+      const diffTime = Math.abs(now.getTime() - date.getTime());
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (diffDays < 7) {
+        return formatDistance(date, now, { addSuffix: true });
+      }
+      
+      // Otherwise show date format
       return format(date, language === 'id' ? 'dd MMM yyyy' : 'MMM dd, yyyy');
     } catch (e) {
       return dateString;
     }
+  };
+  
+  const handleActivityClick = (activity: LearningActivity) => {
+    // Navigate to AI Learning with the activity details
+    navigate('/ai-learning', {
+      state: {
+        subject: activity.subject,
+        topic: activity.topic,
+        gradeLevel: 'k-3', // Default grade level
+        studentId: activity.student_id,
+        autoStart: true
+      }
+    });
   };
   
   return (
@@ -129,7 +153,11 @@ const RecentActivities: React.FC<RecentActivitiesProps> = ({ studentId }) => {
           ) : activities.length > 0 ? (
             <div className="space-y-4">
               {activities.map((activity) => (
-                <div key={activity.id} className="flex items-start gap-3 pb-4 border-b last:border-0">
+                <div 
+                  key={activity.id} 
+                  className="flex items-start gap-3 pb-4 border-b last:border-0 cursor-pointer hover:bg-gray-50 p-2 rounded-md transition-colors"
+                  onClick={() => handleActivityClick(activity)}
+                >
                   <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
                     {getActivityIcon(activity.activity_type)}
                   </div>
@@ -199,6 +227,7 @@ const RecentActivities: React.FC<RecentActivitiesProps> = ({ studentId }) => {
                       className="bg-eduPastel-purple text-eduPurple"
                     />
                   )}
+                  <p className="text-sm font-medium mt-1">{studentBadge.badge?.name}</p>
                   <p className="text-xs text-muted-foreground mt-1">
                     {formatDate(studentBadge.earned_at)}
                   </p>

@@ -249,6 +249,30 @@ export const studentProgressService = {
     }
   },
 
+  // Record a new AI recommendation
+  async recordAIRecommendation(recommendation: {
+    student_id: string;
+    recommendation_type: string;
+    recommendation: string;
+    read?: boolean;
+    acted_on?: boolean;
+  }): Promise<AIRecommendation | null> {
+    try {
+      const { data, error } = await supabase
+        .from('ai_recommendations')
+        .insert([recommendation])
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error recording AI recommendation:', error);
+      toast.error('Failed to record AI recommendation');
+      return null;
+    }
+  },
+
   // Mark recommendation as read
   async markRecommendationAsRead(id: string): Promise<boolean> {
     try {

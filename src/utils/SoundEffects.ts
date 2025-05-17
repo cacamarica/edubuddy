@@ -21,10 +21,8 @@ const audioCache: Record<string, HTMLAudioElement> = {};
 /**
  * Play a sound effect
  * @param type The type of sound effect to play
- * @param volume Volume level between 0.0 and 1.0
- * @returns A promise that resolves when the sound has started playing
  */
-export const playSound = async (type: SoundEffectType, volume = 0.5): Promise<void> => {
+export const playSound = (type: SoundEffectType): void => {
   try {
     const url = soundEffects[type];
     if (!url) {
@@ -40,14 +38,15 @@ export const playSound = async (type: SoundEffectType, volume = 0.5): Promise<vo
     }
     
     const audio = audioCache[type];
-    audio.volume = Math.max(0, Math.min(1, volume)); // Ensure volume is between 0 and 1
+    audio.volume = 0.5; // Set default volume
     audio.currentTime = 0; // Reset to beginning
     
     try {
-      await audio.play();
+      audio.play().catch(err => {
+        console.log("Audio autoplay was prevented:", err);
+      });
     } catch (err) {
       console.log("Audio autoplay was prevented:", err);
-      // Browser may prevent autoplay
     }
   } catch (error) {
     console.error("Error playing sound effect:", error);
