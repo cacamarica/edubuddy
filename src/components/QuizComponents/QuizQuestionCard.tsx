@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import {
   Card,
@@ -56,7 +55,7 @@ const QuizQuestionCard: React.FC<QuizQuestionCardProps> = ({
   useEffect(() => {
     if (showFeedback) {
       const isCorrect = selectedAnswer === question.correctAnswer;
-      // Fix here: playSound expects only 1 argument, not 2
+      // Call playSound with just the sound type parameter
       playSound(isCorrect ? 'correct' : 'incorrect');
     }
   }, [showFeedback, selectedAnswer, question.correctAnswer]);
@@ -183,4 +182,3 @@ const QuizQuestionCard: React.FC<QuizQuestionCardProps> = ({
 };
 
 export default QuizQuestionCard;
-
