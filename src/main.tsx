@@ -5,7 +5,7 @@ import App from './App.tsx';
 import './index.css';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { AuthProvider } from './contexts/AuthContext';
-import { Toaster } from 'sonner';
+import { Toaster } from 'sonner'; // Make sure we're using sonner directly
 import ErrorBoundary from './components/ErrorBoundary';
 
 // Use a try-catch block to handle potential errors during initialization

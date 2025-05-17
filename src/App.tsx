@@ -16,9 +16,10 @@ import AccountSettings from "./pages/AccountSettings";
 import StudentProfilePage from "./pages/StudentProfilePage";
 import Subjects from "./pages/Subjects";
 import { StudentProfileProvider } from '@/contexts/StudentProfileContext';
-import DetailedQuizHistoryPage from "./pages/DetailedQuizHistory"; // Kept from HEAD
-import ErrorBoundary from "@/components/ErrorBoundary"; // Ensured ErrorBoundary is imported
+import DetailedQuizHistoryPage from "./pages/DetailedQuizHistory";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
+// Create QueryClient with updated configuration (removed onError)
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -99,7 +100,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <StudentProfileProvider>
-        <ErrorBoundary fallback={ // Kept top-level ErrorBoundary from 5c8877cfd797284b52db0437a31a09d436b766f8
+        <ErrorBoundary fallback={ 
           <div className="flex h-screen flex-col items-center justify-center p-4 text-center">
             <h2 className="mb-4 text-2xl font-bold text-red-600">Application Error</h2>
             <p className="mb-4">Sorry, something went wrong with the application.</p>
@@ -196,13 +197,11 @@ const App = () => (
                   <AccountSettings />
                 </ProtectedRoute>
               } />
-              {/* Added route from HEAD */}
               <Route path="/student/:studentId/quiz-history/:topicId" element={
-                <ProtectedRoute> {/* Or ParentOnlyRoute if appropriate */}
+                <ProtectedRoute>
                   <DetailedQuizHistoryPage />
                 </ProtectedRoute>
               } />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
