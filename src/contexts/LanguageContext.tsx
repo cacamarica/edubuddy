@@ -9,7 +9,7 @@ interface Translation {
 interface LanguageContextType {
   language: Language;
   setLanguage: (language: Language) => void;
-  t: (key: string) => string;
+  t: (key: string, params?: Record<string, string | number>) => string;
 }
 
 interface TranslationsType {
@@ -33,10 +33,11 @@ const translations: TranslationsType = {
     'quiz.in': 'in',
     'quiz.questionCount': 'Number of Questions',
     'quiz.questions': 'questions',
-    'quiz.start': 'Start Quiz',
-    'quiz.create': 'Create Quiz',
+    'quiz.start': 'Start Quiz',    'quiz.create': 'Create Quiz',
     'quiz.howToPlay': 'How to Play',
     'quiz.finished': 'I\'ve Completed the Quiz!',
+    'quiz.question': 'Question {current} of {total}',
+    'quiz.saveAndExit': 'Save & Exit',
     'nav.home': 'Home',
     'nav.lessons': 'Lessons',
     'nav.quiz': 'Quiz',
@@ -148,10 +149,11 @@ const translations: TranslationsType = {
     'quiz.in': 'dalam',
     'quiz.questionCount': 'Jumlah Pertanyaan',
     'quiz.questions': 'pertanyaan',
-    'quiz.start': 'Mulai Kuis',
-    'quiz.create': 'Buat Kuis',
+    'quiz.start': 'Mulai Kuis',    'quiz.create': 'Buat Kuis',
     'quiz.howToPlay': 'Cara Bermain',
     'quiz.finished': 'Saya Telah Menyelesaikan Kuis!',
+    'quiz.question': 'Pertanyaan {current} dari {total}',
+    'quiz.saveAndExit': 'Simpan & Keluar',
     'nav.home': 'Beranda',
     'nav.lessons': 'Pelajaran',
     'nav.quiz': 'Kuis',
@@ -271,9 +273,17 @@ export const LanguageProvider = ({ children }: { children: React.ReactNode }) =>
   const setLanguage = (lang: Language) => {
     setLanguageState(lang);
   };
-
-  const t = (key: string) => {
-    return translations[language][key] || key;
+  const t = (key: string, params?: Record<string, string | number>) => {
+    let translatedText = translations[language][key] || key;
+    
+    // Replace parameters if provided
+    if (params) {
+      Object.entries(params).forEach(([paramKey, paramValue]) => {
+        translatedText = translatedText.replace(`{${paramKey}}`, String(paramValue));
+      });
+    }
+    
+    return translatedText;
   };
 
   return (

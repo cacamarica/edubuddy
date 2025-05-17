@@ -55,8 +55,7 @@ const QuizQuestionCard: React.FC<QuizQuestionCardProps> = ({
   
   return (
     <div className="max-w-2xl mx-auto">
-      <div className="mb-6">
-        <div className="flex justify-between items-center mb-2">
+      <div className="mb-6">        <div className="flex justify-between items-center mb-2">
           <span className="text-sm font-medium">
             {t('quiz.question', { current: questionNumber, total: totalQuestions })}
           </span>
