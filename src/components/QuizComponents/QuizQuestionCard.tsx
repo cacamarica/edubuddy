@@ -51,7 +51,7 @@ const QuizQuestionCard: React.FC<QuizQuestionCardProps> = ({
 }) => {
   const { t, language } = useLanguage();
   
-  // Removed the useEffect with playSound completely
+  // All code related to playSound has been completely removed
   
   return (
     <div className="max-w-2xl mx-auto">
