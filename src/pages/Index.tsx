@@ -62,6 +62,12 @@ const Index = () => {
                   and exciting games designed for students ages 5-15.
                 </p>
                 
+                <div className="flex items-center justify-center mt-2">
+                  <p className="text-xl font-display font-bold text-eduPurple-dark flex items-center gap-2">
+                    🧠 <span className="italic">Built by a Kid, for Kids.</span>
+                  </p>
+                </div>
+                
                 <div className="flex flex-col sm:flex-row gap-4 min-[400px]:gap-6">
                   <Button 
                     size="lg"

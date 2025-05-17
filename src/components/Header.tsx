@@ -38,6 +38,9 @@ const Header = () => {
           <Link to="/games" className="text-foreground hover:text-eduPurple transition-colors">
             Games
           </Link>
+          <Link to="/about" className="text-foreground hover:text-eduPurple transition-colors">
+            About Us
+          </Link>
         </nav>
         
         {/* Actions */}
@@ -113,6 +116,13 @@ const Header = () => {
               onClick={() => setIsMenuOpen(false)}
             >
               Games
+            </Link>
+            <Link 
+              to="/about" 
+              className="px-4 py-2 rounded-md hover:bg-eduPastel-purple transition-colors"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              About Us
             </Link>
             <Link 
               to="/dashboard" 

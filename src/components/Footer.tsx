@@ -1,6 +1,7 @@
 
 import { Link } from 'react-router-dom';
 import { BookOpen, HelpCircle, Mail, User } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
 
 const Footer = () => {
   return (
@@ -19,6 +20,9 @@ const Footer = () => {
             </Link>
             <p className="text-sm text-muted-foreground mb-4">
               Making learning fun and engaging for students of all ages!
+            </p>
+            <p className="text-sm text-muted-foreground italic">
+              "Helping kids grow. Helping parents stay in the loop."
             </p>
           </div>
           
@@ -44,6 +48,11 @@ const Footer = () => {
               <li>
                 <Link to="/games" className="text-muted-foreground hover:text-eduPurple transition-colors">
                   Games
+                </Link>
+              </li>
+              <li>
+                <Link to="/about" className="text-muted-foreground hover:text-eduPurple transition-colors">
+                  About Us
                 </Link>
               </li>
             </ul>
@@ -96,9 +105,14 @@ const Footer = () => {
             </ul>
           </div>
         </div>
+
+        <Separator className="my-6 bg-eduPurple/20" />
         
-        <div className="border-t border-eduPurple/10 mt-8 pt-6 text-center">
-          <p className="text-sm text-muted-foreground">
+        <div className="text-sm text-muted-foreground">
+          <p className="mb-3">
+            This platform was created by Danish Adlanahza Hartono, an 11-year-old 4th grader on a mission to help kids learn smarter — not just play games all day. With fun lessons, interactive quizzes, and an AI learning buddy, it's like having a virtual teacher and report assistant for every child.
+          </p>
+          <p className="text-center font-medium text-eduPurple-dark mt-4">
             &copy; 2025 EduBuddy. All rights reserved. An educational platform for children.
           </p>
         </div>

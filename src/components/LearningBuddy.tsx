@@ -19,7 +19,7 @@ interface Message {
   timestamp: Date;
 }
 
-// Static responses for when not using AI
+// Static responses for when not using AI or as fallback
 const BUDDY_RESPONSES = {
   general: [
     "That's a great question! Let me help you with that.",
@@ -58,7 +58,7 @@ const LearningBuddy = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: "Hi there! I'm your Learning Buddy. How can I help you today?",
+      text: "Hi there! I'm your Learning Buddy, a friendly teacher here to help you learn. What are you curious about today?",
       sender: 'buddy',
       timestamp: new Date(),
     },
@@ -102,12 +102,18 @@ const LearningBuddy = () => {
     try {
       setIsLoading(true);
       
+      // Call the OpenAI-connected edge function with a teacher prompt
       const { data, error } = await supabase.functions.invoke('ai-edu-content', {
         body: {
           contentType: 'buddy',
-          subject: 'general',
-          gradeLevel: 'k-3', // Default to younger students for simpler language
-          topic: question
+          role: 'teacher',
+          question,
+          prompt: `You are a friendly and enthusiastic teacher named Learning Buddy. Your goal is to help children (ages 5-15) learn in a fun and engaging way. 
+          Explain concepts in simple language appropriate for their age. Use examples, analogies, and occasionally emojis to make your explanations more engaging. 
+          Be encouraging, positive, and praise effort. Keep your responses concise (under 3 sentences for young children, under 5 for older ones) unless a detailed explanation is needed. 
+          Be warm and supportive like a favorite teacher would be.
+          
+          Question from student: ${question}`
         }
       });
       
@@ -123,7 +129,7 @@ const LearningBuddy = () => {
       }
       
       // Fallback in case the AI format is unexpected
-      return "I'm here to help! What would you like to know about?";
+      return "I'm here to help you learn! What subject are you studying today?";
     } catch (error) {
       console.error('Error getting AI buddy response:', error);
       setIsLoading(false);
@@ -235,12 +241,12 @@ const LearningBuddy = () => {
           {/* Header */}
           <div className="bg-eduPurple text-white px-4 py-3 flex items-center gap-3 rounded-t-lg">
             <Avatar className="h-8 w-8 border-2 border-white">
-              <AvatarImage src="https://api.dicebear.com/7.x/adventurer/svg?seed=buddy" alt="Learning Buddy" />
+              <AvatarImage src="https://api.dicebear.com/7.x/adventurer/svg?seed=teacher" alt="Learning Buddy" />
               <AvatarFallback>LB</AvatarFallback>
             </Avatar>
             <div>
               <h3 className="font-semibold">Learning Buddy</h3>
-              <p className="text-xs text-white/80">Always here to help!</p>
+              <p className="text-xs text-white/80">Your friendly teacher assistant!</p>
             </div>
             <Button 
               size="sm" 
@@ -296,7 +302,7 @@ const LearningBuddy = () => {
           <div className="p-3 border-t">
             <div className="flex gap-2">
               <Input
-                placeholder="Ask me anything..."
+                placeholder="Ask me anything about your homework..."
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={(e) => {
@@ -311,7 +317,7 @@ const LearningBuddy = () => {
               </Button>
             </div>
             <div className="mt-1 text-xs text-center text-muted-foreground">
-              <p>I can help explain things in a simple way!</p>
+              <p>Ask me anything! I'm here to help you learn in a fun way!</p>
             </div>
           </div>
         </div>
