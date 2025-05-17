@@ -39,7 +39,7 @@ const LearningContent: React.FC<LearningContentProps> = ({
   onReset,
   onQuizComplete,
 }) => {
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -89,42 +89,6 @@ const LearningContent: React.FC<LearningContentProps> = ({
     }
   }, [user]);
 
-  const translations = {
-    learningAbout: language === 'id' ? 'Belajar Tentang' : 'Learning About',
-    newTopic: language === 'id' ? 'Topik Baru' : 'New Topic',
-    lesson: language === 'id' ? 'Pelajaran' : 'Lesson',
-    quiz: language === 'id' ? 'Kuis' : 'Quiz',
-    game: language === 'id' ? 'Permainan' : 'Game',
-    recommendedNextSteps: language === 'id' ? 'Langkah Selanjutnya yang Direkomendasikan' : 'Recommended Next Steps',
-    startLesson: language === 'id' ? 'Mulai Pelajaran' : 'Start Lesson',
-    limitedAccessWarning: language === 'id' ? 'Akses Terbatas' : 'Limited Access',
-    limitedAccessDescription: language === 'id' 
-      ? 'Anda hanya dapat mengakses 30% konten. Masuk untuk mengakses semua konten.'
-      : 'You can only access 30% of content. Sign in to unlock all content.',
-    signIn: language === 'id' ? 'Masuk' : 'Sign In',
-    personalizedFor: language === 'id' ? 'Dipersonalisasi untuk' : 'Personalized for'
-  };
-  
-  const handleSignIn = () => {
-    navigate('/auth', { state: { action: 'signin' } });
-  };
-  
-  // Set the URL parameters to include the student ID
-  useEffect(() => {
-    const studentId = getStudentId();
-    if (studentId) {
-      // Update URL with student ID if not already present
-      if (!searchParams.has('studentId')) {
-        const newSearchParams = new URLSearchParams(searchParams);
-        newSearchParams.set('studentId', studentId);
-        navigate({
-          pathname: location.pathname,
-          search: newSearchParams.toString()
-        }, { replace: true });
-      }
-    }
-  }, [location, navigate, searchParams]);
-  
   // Use student's grade level if available
   const effectiveGradeLevel = studentInfo?.gradeLevel || gradeLevel;
   const studentId = studentInfo?.id || '';
@@ -134,11 +98,11 @@ const LearningContent: React.FC<LearningContentProps> = ({
       <div className="mb-6 flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-display font-bold">
-            {translations.learningAbout} {topic} <span className="text-muted-foreground">({subject})</span>
+            {t('learning.learningAbout')} {topic} <span className="text-muted-foreground">({subject})</span>
           </h2>
           {studentInfo && (
             <p className="text-sm text-eduPurple mt-1">
-              {translations.personalizedFor} {studentInfo.name} ({studentInfo.age} {language === 'id' ? 'tahun' : 'years'}, {language === 'id' ? 'Kelas' : 'Grade'} {studentInfo.gradeLevel})
+              {t('topic.personalizedFor')} {studentInfo.name} ({studentInfo.age} {t('topic.years')}, {t('topic.grade')} {studentInfo.gradeLevel})
             </p>
           )}
         </div>
@@ -147,7 +111,7 @@ const LearningContent: React.FC<LearningContentProps> = ({
           size="sm" 
           onClick={onReset}
         >
-          {translations.newTopic}
+          {t('learning.newTopic')}
         </Button>
       </div>
       
@@ -155,12 +119,12 @@ const LearningContent: React.FC<LearningContentProps> = ({
         <Alert className="mb-4 bg-yellow-50 border-yellow-200">
           <AlertDescription className="flex items-center justify-between">
             <div>
-              <span className="font-medium text-yellow-800">{translations.limitedAccessWarning}</span>
-              <p className="text-yellow-700">{translations.limitedAccessDescription}</p>
+              <span className="font-medium text-yellow-800">{t('learning.limitedAccessWarning')}</span>
+              <p className="text-yellow-700">{t('learning.limitedAccessDescription')}</p>
             </div>
-            <Button variant="outline" onClick={handleSignIn} className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => navigate('/auth', { state: { action: 'signin' } })} className="flex items-center gap-2">
               <LogIn className="h-4 w-4" />
-              {translations.signIn}
+              {t('auth.signIn')}
             </Button>
           </AlertDescription>
         </Alert>
@@ -170,15 +134,15 @@ const LearningContent: React.FC<LearningContentProps> = ({
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="lesson" className="flex items-center gap-2">
             <BookOpen className="h-4 w-4" />
-            <span className="hidden sm:inline">{translations.lesson}</span>
+            <span className="hidden sm:inline">{t('lesson')}</span>
           </TabsTrigger>
           <TabsTrigger value="quiz" className="flex items-center gap-2">
             <PencilRuler className="h-4 w-4" />
-            <span className="hidden sm:inline">{translations.quiz}</span>
+            <span className="hidden sm:inline">{t('quiz')}</span>
           </TabsTrigger>
           <TabsTrigger value="game" className="flex items-center gap-2">
             <Gamepad className="h-4 w-4" />
-            <span className="hidden sm:inline">{translations.game}</span>
+            <span className="hidden sm:inline">{t('game')}</span>
           </TabsTrigger>
         </TabsList>
         <div className="mt-6">

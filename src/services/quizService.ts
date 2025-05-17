@@ -26,7 +26,7 @@ export interface QuizProgress {
 
 // Fetch quiz questions from the database
 export const fetchQuizQuestions = async (params: QuizParams): Promise<QuizQuestion[]> => {
-  const { subject, gradeLevel, topic, questionCount = 10 } = params;
+  const { subject, gradeLevel, topic, questionCount = 10, language = 'en' } = params;
   
   try {
     // Query existing questions from the database
@@ -51,7 +51,10 @@ export const fetchQuizQuestions = async (params: QuizParams): Promise<QuizQuesti
     }
     
     // If we don't have enough questions, generate more with AI
-    const newQuestions = await generateQuizQuestions(params);
+    const newQuestions = await generateQuizQuestions({
+      ...params,
+      language // Pass the language to the generator
+    });
     
     // Store the new questions in the database
     if (newQuestions && newQuestions.length > 0) {

@@ -33,7 +33,7 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
   studentId,
   gradeLevel
 }) => {
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const [studentInfo, setStudentInfo] = useState<{ name: string; age: number; gradeLevel: string } | null>(null);
 
   // Fetch student information if studentId is provided
@@ -63,14 +63,14 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
   const getPersonalizedMessage = () => {
     if (studentInfo) {
       return language === 'id' 
-        ? `Konten akan disesuaikan untuk ${studentInfo.name} (${studentInfo.age} tahun, Kelas ${studentInfo.gradeLevel})`
-        : `Content will be tailored for ${studentInfo.name} (${studentInfo.age} years old, Grade ${studentInfo.gradeLevel})`;
+        ? `${t('topic.personalizedFor')} ${studentInfo.name} (${studentInfo.age} ${t('topic.years')}, ${t('topic.grade')} ${studentInfo.gradeLevel})`
+        : `${t('topic.personalizedFor')} ${studentInfo.name} (${studentInfo.age} ${t('topic.years')}, ${t('topic.grade')} ${studentInfo.gradeLevel})`;
     }
     
     if (gradeLevel) {
       return language === 'id'
-        ? `Konten akan disesuaikan untuk tingkat kelas ${gradeLevel}`
-        : `Content will be tailored for grade level ${gradeLevel}`;
+        ? `${t('learning.contentTailoredGrade')} ${gradeLevel}`
+        : `${t('learning.contentTailoredGrade')} ${gradeLevel}`;
     }
     
     return '';

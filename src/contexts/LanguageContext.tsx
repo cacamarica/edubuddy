@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 type Language = 'en' | 'id';
@@ -35,6 +34,9 @@ const translations: TranslationsType = {
     'quiz.questionCount': 'Number of Questions',
     'quiz.questions': 'questions',
     'quiz.start': 'Start Quiz',
+    'quiz.create': 'Create Quiz',
+    'quiz.howToPlay': 'How to Play',
+    'quiz.finished': 'I\'ve Completed the Quiz!',
     'nav.home': 'Home',
     'nav.lessons': 'Lessons',
     'nav.quiz': 'Quiz',
@@ -61,6 +63,75 @@ const translations: TranslationsType = {
     'auth.signOut': 'Sign Out',
     'auth.signedOut': 'You have been signed out.',
     'auth.signOutError': 'Error signing out. Please try again.',
+    
+    // Learning content
+    'learning.recommendedNextSteps': 'Recommended Next Steps',
+    'learning.startLesson': 'Start Lesson',
+    'lesson.title': 'Lesson about',
+    'lesson.description': 'Learn about',
+    'lesson.creating': 'Creating your lesson...',
+    'lesson.moment': 'This will just take a moment',
+    'lesson.start': 'Start Learning',
+    'lesson.next': 'Next Chapter',
+    'lesson.previous': 'Previous Chapter',
+    'lesson.finish': 'Finish Lesson',
+    'lesson.completed': 'Lesson Completed',
+    'lesson.funFacts': 'Fun Facts',
+    'lesson.activity': 'Activity',
+    'lesson.tryActivity': 'Try This Activity',
+    'lesson.create': 'Create Lesson',
+    
+    // Game
+    'game.title': 'Fun Game about',
+    'game.description': 'Play and learn about',
+    'game.creating': 'Creating your game...',
+    'game.moment': 'This will just take a moment',
+    'game.howToPlay': 'How to Play',
+    'game.materials': 'Materials Needed',
+    'game.easier': 'Make it Easier',
+    'game.harder': 'Make it Challenging',
+    'game.start': 'Start Game',
+    'game.finished': 'I\'ve Completed the Game!',
+    'game.create': 'Create Game',
+    
+    // Learning Buddy
+    'buddy.title': 'Learning Buddy',
+    'buddy.help': 'How can I help you learn today?',
+    'buddy.loading': 'Thinking...',
+    'buddy.askQuestion': 'Ask a question about any topic',
+    'buddy.send': 'Send',
+    'buddy.placeholder': 'What would you like to learn about?',
+    'buddy.examples': 'Examples',
+    'buddy.askExample1': 'What is photosynthesis?',
+    'buddy.askExample2': 'Explain multiplication to a 7-year-old',
+    'buddy.askExample3': 'How do airplanes fly?',
+    
+    // Topic selector
+    'topic.personalizedFor': 'Personalized for',
+    'topic.years': 'years',
+    'topic.grade': 'Grade',
+    
+    // Footer
+    'footer.trackProgress': 'Track Progress',
+    'footer.privacyPolicy': 'Privacy Policy',
+    'footer.termsOfService': 'Terms of Service',
+    'footer.contactUs': 'Contact Us',
+    'footer.copyright': 'All rights reserved',
+
+    // Student profile
+    'student.manage': 'Manage Profiles',
+    'student.add': 'Add Student',
+    'student.edit': 'Edit Student',
+    
+    // Additional translations for learning content
+    'learning.learningAbout': 'Learning About',
+    'learning.newTopic': 'New Topic',
+    'learning.limitedAccessWarning': 'Limited Access',
+    'learning.limitedAccessDescription': 'You can only access 30% of content. Sign in to unlock all content.',
+    'learning.contentTailoredGrade': 'Content will be tailored for grade level',
+    'lesson': 'Lesson',
+    'quiz': 'Quiz',
+    'game': 'Game'
   },
   id: {
     'language.select': 'Pilih bahasa',
@@ -78,6 +149,9 @@ const translations: TranslationsType = {
     'quiz.questionCount': 'Jumlah Pertanyaan',
     'quiz.questions': 'pertanyaan',
     'quiz.start': 'Mulai Kuis',
+    'quiz.create': 'Buat Kuis',
+    'quiz.howToPlay': 'Cara Bermain',
+    'quiz.finished': 'Saya Telah Menyelesaikan Kuis!',
     'nav.home': 'Beranda',
     'nav.lessons': 'Pelajaran',
     'nav.quiz': 'Kuis',
@@ -104,6 +178,75 @@ const translations: TranslationsType = {
     'auth.signOut': 'Keluar',
     'auth.signedOut': 'Anda telah keluar.',
     'auth.signOutError': 'Kesalahan saat keluar. Silakan coba lagi.',
+    
+    // Learning content
+    'learning.recommendedNextSteps': 'Langkah Selanjutnya yang Direkomendasikan',
+    'learning.startLesson': 'Mulai Pelajaran',
+    'lesson.title': 'Pelajaran tentang',
+    'lesson.description': 'Pelajari tentang',
+    'lesson.creating': 'Membuat pelajaran Anda...',
+    'lesson.moment': 'Ini akan memakan waktu sebentar',
+    'lesson.start': 'Mulai Belajar',
+    'lesson.next': 'Bab Selanjutnya',
+    'lesson.previous': 'Bab Sebelumnya',
+    'lesson.finish': 'Selesaikan Pelajaran',
+    'lesson.completed': 'Pelajaran Selesai',
+    'lesson.funFacts': 'Fakta Menarik',
+    'lesson.activity': 'Aktivitas',
+    'lesson.tryActivity': 'Coba Aktivitas Ini',
+    'lesson.create': 'Buat Pelajaran',
+    
+    // Game
+    'game.title': 'Permainan Seru tentang',
+    'game.description': 'Bermain dan belajar tentang',
+    'game.creating': 'Membuat permainan Anda...',
+    'game.moment': 'Ini akan memakan waktu sebentar',
+    'game.howToPlay': 'Cara Bermain',
+    'game.materials': 'Bahan yang Diperlukan',
+    'game.easier': 'Buat Lebih Mudah',
+    'game.harder': 'Buat Lebih Menantang',
+    'game.start': 'Mulai Permainan',
+    'game.finished': 'Saya Telah Menyelesaikan Permainan!',
+    'game.create': 'Buat Permainan',
+    
+    // Learning Buddy
+    'buddy.title': 'Teman Belajar',
+    'buddy.help': 'Bagaimana saya bisa membantu Anda belajar hari ini?',
+    'buddy.loading': 'Berpikir...',
+    'buddy.askQuestion': 'Ajukan pertanyaan tentang topik apa saja',
+    'buddy.send': 'Kirim',
+    'buddy.placeholder': 'Apa yang ingin Anda pelajari?',
+    'buddy.examples': 'Contoh',
+    'buddy.askExample1': 'Apa itu fotosintesis?',
+    'buddy.askExample2': 'Jelaskan perkalian untuk anak 7 tahun',
+    'buddy.askExample3': 'Bagaimana pesawat terbang?',
+    
+    // Topic selector
+    'topic.personalizedFor': 'Dipersonalisasi untuk',
+    'topic.years': 'tahun',
+    'topic.grade': 'Kelas',
+    
+    // Footer
+    'footer.trackProgress': 'Lacak Kemajuan',
+    'footer.privacyPolicy': 'Kebijakan Privasi',
+    'footer.termsOfService': 'Ketentuan Layanan',
+    'footer.contactUs': 'Hubungi Kami',
+    'footer.copyright': 'Semua hak dilindungi',
+
+    // Student profile
+    'student.manage': 'Kelola Profil',
+    'student.add': 'Tambah Siswa',
+    'student.edit': 'Edit Siswa',
+    
+    // Additional translations for learning content
+    'learning.learningAbout': 'Belajar Tentang',
+    'learning.newTopic': 'Topik Baru',
+    'learning.limitedAccessWarning': 'Akses Terbatas',
+    'learning.limitedAccessDescription': 'Anda hanya dapat mengakses 30% konten. Masuk untuk mengakses semua konten.',
+    'learning.contentTailoredGrade': 'Konten akan disesuaikan untuk tingkat kelas',
+    'lesson': 'Pelajaran',
+    'quiz': 'Kuis',
+    'game': 'Permainan'
   }
 };
 

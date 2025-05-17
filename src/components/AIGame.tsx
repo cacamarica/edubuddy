@@ -46,9 +46,7 @@ const AIGame = ({ subject, gradeLevel, topic, onComplete, limitProgress = false 
         gradeLevel,
         topic,
         // Add language parameter to get content in the selected language
-        question: language === 'id' ? 
-          `Buatkan permainan dalam Bahasa Indonesia tentang ${topic} untuk tingkat ${gradeLevel}` : 
-          undefined
+        language: language as 'en' | 'id'
       });
       
       setGameContent(result.content);
