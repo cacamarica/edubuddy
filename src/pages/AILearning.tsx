@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
@@ -135,6 +134,7 @@ const AILearning = () => {
     setStars(newStars);
   };
 
+  // Updated to correctly reset and return to topic selection
   const handleReset = () => {
     setContentReady(false);
     setTopic('');
@@ -309,7 +309,11 @@ const AILearning = () => {
                   <h2 className="text-2xl font-display font-bold">
                     Learning About: {topic} <span className="text-muted-foreground">({subject})</span>
                   </h2>
-                  <Button variant="outline" size="sm" onClick={handleReset}>
+                  <Button 
+                    variant="primary" 
+                    size="sm" 
+                    onClick={handleReset}
+                  >
                     New Topic
                   </Button>
                 </div>

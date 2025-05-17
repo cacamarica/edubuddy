@@ -13,7 +13,7 @@ interface AIQuizProps {
   subject: string;
   gradeLevel: 'k-3' | '4-6' | '7-9';
   topic: string;
-  onComplete?: (score: number, total: number) => void;
+  onComplete?: (score: number, total?: number) => void;
 }
 
 interface QuizImage {
@@ -264,8 +264,8 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
               {[5, 10, 15, 20, 30].map((count) => (
                 <Button 
                   key={count}
-                  variant={questionCount === count ? "default" : "outline"}
-                  className={questionCount === count ? "bg-eduPurple" : ""}
+                  variant={questionCount === count ? "primary" : "outline"}
+                  className={questionCount === count ? "" : ""}
                   onClick={() => handleQuestionCountChange(count)}
                 >
                   {count} questions
@@ -274,7 +274,11 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
             </div>
           </div>
           
-          <Button onClick={generateQuiz} className="bg-eduPurple hover:bg-eduPurple-dark">
+          <Button 
+            onClick={generateQuiz} 
+            className="bg-eduPurple hover:bg-eduPurple-dark"
+            variant="primary"
+          >
             <PencilRuler className="mr-2 h-4 w-4" />
             Start Quiz
           </Button>
