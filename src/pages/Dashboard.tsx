@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
-import { BookOpen, Settings, UserPlus, Users, ChevronLeft } from 'lucide-react';
+import { BookOpen, Settings, UserPlus, Users, ChevronLeft, Award } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { studentProgressService } from '@/services/studentProgressService';
@@ -16,6 +15,7 @@ import AIRecommendations from '@/components/DashboardComponents/AIRecommendation
 import StudentProgressSummary from '@/components/DashboardComponents/StudentProgressSummary';
 import StudentProfileSelector from '@/components/DashboardComponents/StudentProfileSelector';
 import StudentProfile from '@/components/StudentProfile';
+import StudentAchievements from '@/components/DashboardComponents/StudentAchievements';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { Spinner } from '@/components/ui/spinner';
 
@@ -136,6 +136,9 @@ const Dashboard = () => {
               <TabsTrigger value="activities">
                 {language === 'id' ? 'Aktivitas' : 'Activities'}
               </TabsTrigger>
+              <TabsTrigger value="achievements">
+                {language === 'id' ? 'Pencapaian' : 'Achievements'}
+              </TabsTrigger>
               <TabsTrigger value="recommendations">
                 {language === 'id' ? 'Rekomendasi' : 'Recommendations'}
               </TabsTrigger>
@@ -187,6 +190,31 @@ const Dashboard = () => {
                       {language === 'id' 
                         ? 'Pilih siswa untuk melihat aktivitas' 
                         : 'Select a student to view activities'}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="achievements" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>
+                    {language === 'id' ? 'Pencapaian' : 'Achievements'}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {isLoading ? (
+                    <div className="flex justify-center py-8">
+                      <Spinner />
+                    </div>
+                  ) : currentStudentId ? (
+                    <StudentAchievements studentId={currentStudentId} />
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      {language === 'id' 
+                        ? 'Pilih siswa untuk melihat pencapaian' 
+                        : 'Select a student to view achievements'}
                     </div>
                   )}
                 </CardContent>
