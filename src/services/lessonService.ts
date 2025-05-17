@@ -1,0 +1,253 @@
+
+import { supabase } from "@/integrations/supabase/client";
+import { getAIEducationContent } from "./aiEducationService";
+import { toast } from "sonner";
+
+// Types for lesson materials and progress
+export interface LessonChapter {
+  heading: string;
+  text: string;
+  image?: {
+    url: string;
+    alt: string;
+    caption?: string;
+  };
+}
+
+export interface LessonActivity {
+  title: string;
+  instructions: string;
+  image?: {
+    url: string;
+    alt: string;
+    caption?: string;
+  };
+}
+
+export interface LessonMaterial {
+  id?: string;
+  subject: string;
+  topic: string;
+  grade_level: string;
+  title: string;
+  introduction: string;
+  chapters: LessonChapter[];
+  fun_facts: string[];
+  activity: LessonActivity;
+  conclusion?: string;
+  summary?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface LessonProgress {
+  id?: string;
+  student_id: string;
+  lesson_id: string;
+  current_chapter: number;
+  is_completed: boolean;
+  last_read_at?: string;
+  created_at?: string;
+}
+
+// Service functions
+export const lessonService = {
+  // Get lesson material by subject, topic, and grade level
+  async getLessonMaterial(subject: string, topic: string, gradeLevel: string): Promise<LessonMaterial | null> {
+    try {
+      // First, try to get from database
+      const { data, error } = await supabase
+        .from('lesson_materials')
+        .select('*')
+        .eq('subject', subject)
+        .eq('topic', topic)
+        .eq('grade_level', gradeLevel)
+        .single();
+
+      if (error) {
+        if (error.code !== 'PGRST116') { // code for no rows returned
+          console.error("Error fetching lesson:", error);
+          throw error;
+        }
+        
+        // If not found in database, generate using AI
+        console.log("Lesson not found in database, generating with AI...");
+        return await this.generateAndStoreLessonMaterial(subject, topic, gradeLevel);
+      }
+
+      // Format the data to match our interface
+      return {
+        id: data.id,
+        subject: data.subject,
+        topic: data.topic,
+        grade_level: data.grade_level,
+        title: data.title,
+        introduction: data.introduction,
+        chapters: data.chapters,
+        fun_facts: data.fun_facts,
+        activity: data.activity,
+        conclusion: data.conclusion,
+        summary: data.summary,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      };
+    } catch (error) {
+      console.error("Error in getLessonMaterial:", error);
+      toast.error("Failed to load the lesson material");
+      return null;
+    }
+  },
+
+  // Generate lesson material using AI and store in database
+  async generateAndStoreLessonMaterial(subject: string, topic: string, gradeLevel: string): Promise<LessonMaterial | null> {
+    try {
+      // Generate content using AI
+      const result = await getAIEducationContent({
+        contentType: 'lesson',
+        subject,
+        gradeLevel,
+        topic
+      });
+
+      if (!result || !result.content) {
+        throw new Error("Failed to generate lesson content");
+      }
+
+      // Process the AI response to ensure it has the right format
+      const processedContent = this.processAIContent(result.content, subject, topic, gradeLevel);
+      
+      // Save to database
+      const { data, error } = await supabase
+        .from('lesson_materials')
+        .insert([processedContent])
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Error saving lesson to database:", error);
+        throw error;
+      }
+
+      return data as LessonMaterial;
+    } catch (error) {
+      console.error("Error generating lesson material:", error);
+      toast.error("Failed to generate the lesson material");
+      return null;
+    }
+  },
+
+  // Process AI content to ensure it matches our schema
+  processAIContent(content: any, subject: string, topic: string, gradeLevel: string): LessonMaterial {
+    // Ensure chapters have the right format
+    const chapters = content.mainContent.map((section: any) => ({
+      heading: section.heading,
+      text: section.text,
+      image: section.image 
+        ? (section.image.url 
+            ? section.image 
+            : { url: section.image, alt: `Image for ${section.heading}` })
+        : undefined
+    }));
+
+    // Process activity image if needed
+    let activity = content.activity;
+    if (activity && activity.image) {
+      if (!activity.image.url && typeof activity.image === 'string') {
+        activity.image = {
+          url: activity.image,
+          alt: `Image for ${activity.title} activity`,
+          caption: `Activity visual for ${activity.title}`
+        };
+      }
+    }
+
+    // Return properly formatted lesson material
+    return {
+      subject,
+      topic,
+      grade_level: gradeLevel,
+      title: content.title || `${topic} in ${subject}`,
+      introduction: content.introduction || "",
+      chapters,
+      fun_facts: content.funFacts || [],
+      activity: activity || { title: "Activity", instructions: "No activity available" },
+      conclusion: content.conclusion,
+      summary: content.summary,
+    };
+  },
+
+  // Get lesson progress for a student
+  async getLessonProgress(studentId: string, lessonId: string): Promise<LessonProgress | null> {
+    try {
+      const { data, error } = await supabase
+        .from('lesson_progress')
+        .select('*')
+        .eq('student_id', studentId)
+        .eq('lesson_id', lessonId)
+        .maybeSingle();
+
+      if (error) throw error;
+      
+      return data as LessonProgress;
+    } catch (error) {
+      console.error("Error fetching lesson progress:", error);
+      return null;
+    }
+  },
+
+  // Save or update lesson progress
+  async saveProgress(progress: LessonProgress): Promise<LessonProgress | null> {
+    try {
+      const { data, error } = await supabase
+        .from('lesson_progress')
+        .upsert([progress])
+        .select()
+        .single();
+
+      if (error) throw error;
+      
+      return data as LessonProgress;
+    } catch (error) {
+      console.error("Error saving lesson progress:", error);
+      toast.error("Failed to save your progress");
+      return null;
+    }
+  },
+
+  // Mark a lesson as complete
+  async markLessonComplete(studentId: string, lessonId: string): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('lesson_progress')
+        .upsert([{
+          student_id: studentId,
+          lesson_id: lessonId,
+          is_completed: true,
+          current_chapter: 999, // A high number to indicate completion
+          last_read_at: new Date().toISOString()
+        }]);
+
+      if (error) throw error;
+      
+      // Also record this in learning_activities table
+      await supabase
+        .from('learning_activities')
+        .insert([{
+          student_id: studentId,
+          activity_type: 'lesson',
+          subject: '', // These will be filled in by the component
+          topic: '',
+          completed: true,
+          progress: 100,
+          stars_earned: 5, // Default value
+          completed_at: new Date().toISOString()
+        }]);
+      
+      return true;
+    } catch (error) {
+      console.error("Error marking lesson as complete:", error);
+      toast.error("Failed to update lesson completion status");
+      return false;
+    }
+  }
+};

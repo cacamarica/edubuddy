@@ -9,7 +9,8 @@ import AIGame from '../AIGame';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 
 interface LearningContentProps {
   subject: string;
@@ -33,6 +34,8 @@ const LearningContent: React.FC<LearningContentProps> = ({
   const { language } = useLanguage();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
   
   // State for progress limitation
   const [showLimitedContentWarning, setShowLimitedContentWarning] = useState(false);
@@ -43,6 +46,14 @@ const LearningContent: React.FC<LearningContentProps> = ({
       setShowLimitedContentWarning(true);
     }
   }, [user]);
+
+  // Get student ID from URL or state for passing to the AILesson component
+  const getStudentId = () => {
+    const studentId = searchParams.get('studentId') || 
+                     (location.state && location.state.studentId) || 
+                     '';
+    return studentId;
+  };
   
   const translations = {
     learningAbout: language === 'id' ? 'Belajar Tentang' : 'Learning About',
@@ -62,6 +73,22 @@ const LearningContent: React.FC<LearningContentProps> = ({
   const handleSignIn = () => {
     navigate('/auth', { state: { action: 'signin' } });
   };
+  
+  // Set the URL parameters to include the student ID
+  useEffect(() => {
+    const studentId = getStudentId();
+    if (studentId) {
+      // Update URL with student ID if not already present
+      if (!searchParams.has('studentId')) {
+        const newSearchParams = new URLSearchParams(searchParams);
+        newSearchParams.set('studentId', studentId);
+        navigate({
+          pathname: location.pathname,
+          search: newSearchParams.toString()
+        }, { replace: true });
+      }
+    }
+  }, [location, navigate, searchParams]);
   
   return (
     <div className="max-w-4xl mx-auto">

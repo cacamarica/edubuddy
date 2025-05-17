@@ -121,6 +121,99 @@ export type Database = {
           },
         ]
       }
+      lesson_materials: {
+        Row: {
+          activity: Json | null
+          chapters: Json
+          conclusion: string | null
+          created_at: string
+          fun_facts: Json | null
+          grade_level: string
+          id: string
+          introduction: string
+          subject: string
+          summary: string | null
+          title: string
+          topic: string
+          updated_at: string
+        }
+        Insert: {
+          activity?: Json | null
+          chapters: Json
+          conclusion?: string | null
+          created_at?: string
+          fun_facts?: Json | null
+          grade_level: string
+          id?: string
+          introduction: string
+          subject: string
+          summary?: string | null
+          title: string
+          topic: string
+          updated_at?: string
+        }
+        Update: {
+          activity?: Json | null
+          chapters?: Json
+          conclusion?: string | null
+          created_at?: string
+          fun_facts?: Json | null
+          grade_level?: string
+          id?: string
+          introduction?: string
+          subject?: string
+          summary?: string | null
+          title?: string
+          topic?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      lesson_progress: {
+        Row: {
+          created_at: string
+          current_chapter: number
+          id: string
+          is_completed: boolean
+          last_read_at: string
+          lesson_id: string
+          student_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_chapter?: number
+          id?: string
+          is_completed?: boolean
+          last_read_at?: string
+          lesson_id: string
+          student_id: string
+        }
+        Update: {
+          created_at?: string
+          current_chapter?: number
+          id?: string
+          is_completed?: boolean
+          last_read_at?: string
+          lesson_id?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lesson_progress_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_progress_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string

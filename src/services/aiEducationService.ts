@@ -25,7 +25,10 @@ export async function getAIEducationContent({
   try {
     console.log(`Fetching ${contentType} content for ${topic} in ${subject} (grade: ${gradeLevel}, language: ${language})`);
     
-    const { data, error } = await supabase.functions.invoke('ai-edu-content', {
+    // Use different edge functions based on content type
+    const functionName = contentType === 'lesson' ? 'ai-lesson-generator' : 'ai-edu-content';
+    
+    const { data, error } = await supabase.functions.invoke(functionName, {
       body: {
         contentType,
         subject,
@@ -34,7 +37,7 @@ export async function getAIEducationContent({
         question,
         includeImages,
         imageStyle,
-        language // Pass the language to the edge function
+        language
       }
     });
 
@@ -45,7 +48,12 @@ export async function getAIEducationContent({
     
     console.log(`Successfully received ${contentType} content`);
     
-    // Process and normalize image data to ensure consistency
+    // For lesson content, return the data directly as it's already processed by the edge function
+    if (contentType === 'lesson' && functionName === 'ai-lesson-generator') {
+      return data;
+    }
+    
+    // Process and normalize image data for quiz and game content
     if (contentType === 'lesson' && data?.content?.mainContent) {
       // Process lesson content to ensure images are properly formatted
       data.content.mainContent = data.content.mainContent.map((section: any) => {
