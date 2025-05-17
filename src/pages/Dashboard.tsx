@@ -114,8 +114,8 @@ const Dashboard = () => {
             </Button>
           </div>
             <StudentProgressSummary 
-            studentId={currentStudentId || ''}
-          />
+              studentId={currentStudentId || ''}
+            />
           
           <div className="mb-4">
             <h2 className="text-xl font-semibold mb-2">
@@ -144,6 +144,7 @@ const Dashboard = () => {
               </TabsTrigger>
             </TabsList>
             
+            {/* Overview Tab Content */}
             <TabsContent value="overview" className="space-y-4">
               {/* Just show StudentProgressSummary in overview tab */}
               <Card>
@@ -170,6 +171,7 @@ const Dashboard = () => {
               </Card>
             </TabsContent>
             
+            {/* Activities Tab Content */}
             <TabsContent value="activities" className="space-y-4">
               {/* Activities tab showing just activities */}
               <Card>
@@ -196,6 +198,7 @@ const Dashboard = () => {
               </Card>
             </TabsContent>
 
+            {/* Achievements Tab Content */}
             <TabsContent value="achievements" className="space-y-4">
               <Card>
                 <CardHeader>
@@ -221,6 +224,7 @@ const Dashboard = () => {
               </Card>
             </TabsContent>
             
+            {/* Recommendations Tab Content */}
             <TabsContent value="recommendations" className="space-y-4">
               <Card>
                 <CardHeader>

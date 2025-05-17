@@ -20,9 +20,14 @@ const StudentAchievements: React.FC<StudentAchievementsProps> = ({ studentId }) 
       if (!studentId) return;
       
       setIsLoadingBadges(true);
-      const data = await studentProgressService.getStudentBadges(studentId);
-      setBadges(data);
-      setIsLoadingBadges(false);
+      try {
+        const data = await studentProgressService.getStudentBadges(studentId);
+        setBadges(data);
+      } catch (error) {
+        console.error("Error fetching badges:", error);
+      } finally {
+        setIsLoadingBadges(false);
+      }
     };
     
     fetchBadges();
@@ -30,20 +35,16 @@ const StudentAchievements: React.FC<StudentAchievementsProps> = ({ studentId }) 
   
   return (
     <div className="grid gap-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>{language === 'id' ? 'Pencapaian' : 'Achievements'}</CardTitle>
-          <CardDescription>
-            {language === 'id' ? 'Lencana yang diperoleh siswa' : 'Badges earned by the student'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <PaginatedBadges 
-            badges={badges} 
-            isLoading={isLoadingBadges}
-          />
-        </CardContent>
-      </Card>
+      {isLoadingBadges ? (
+        <div className="flex justify-center py-8">
+          <Spinner />
+        </div>
+      ) : (
+        <PaginatedBadges 
+          badges={badges} 
+          isLoading={false}
+        />
+      )}
     </div>
   );
 };
