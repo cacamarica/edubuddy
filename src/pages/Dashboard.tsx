@@ -13,6 +13,7 @@ import Footer from '@/components/Footer';
 import RecentActivities from '@/components/DashboardComponents/RecentActivities';
 import PaginatedActivities from '@/components/DashboardComponents/PaginatedActivities';
 import AIRecommendations from '@/components/DashboardComponents/AIRecommendations';
+import StudentProgressSummary from '@/components/DashboardComponents/StudentProgressSummary';
 import StudentProfileSelector from '@/components/DashboardComponents/StudentProfileSelector';
 import StudentProfile from '@/components/StudentProfile';
 import StudentAchievements from '@/components/DashboardComponents/StudentAchievements';
@@ -105,13 +106,24 @@ const Dashboard = () => {
             <h1 className="text-2xl font-bold">
               {language === 'id' ? 'Dasbor' : 'Dashboard'}
             </h1>
-            <Button 
-              onClick={handleShowStudentProfile}
-              className="flex items-center gap-2"
-            >
-              <Users className="h-4 w-4" />
-              {language === 'id' ? 'Kelola Profil Siswa' : 'Manage Student Profiles'}
-            </Button>
+            <div className="flex flex-wrap gap-3">
+              <Button 
+                onClick={handleShowStudentProfile}
+                className="flex items-center gap-2"
+              >
+                <Users className="h-4 w-4" />
+                {language === 'id' ? 'Kelola Profil Siswa' : 'Manage Student Profiles'}
+              </Button>
+              
+              <Button 
+                variant="outline"
+                onClick={() => window.location.href = '/account-settings'}
+                className="flex items-center gap-2"
+              >
+                <Settings className="h-4 w-4" />
+                {language === 'id' ? 'Pengaturan Akun' : 'Account Settings'}
+              </Button>
+            </div>
           </div>
           
           <div className="mb-4">
@@ -143,38 +155,28 @@ const Dashboard = () => {
             
             {/* Overview Tab Content */}
             <TabsContent value="overview" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>
-                    {language === 'id' ? 'Ikhtisar Siswa' : 'Student Overview'}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {!currentStudentId ? (
+              {!currentStudentId ? (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>
+                      {language === 'id' ? 'Ikhtisar Siswa' : 'Student Overview'}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
                     <div className="text-center py-8 text-muted-foreground">
                       {language === 'id' 
                         ? 'Pilih siswa untuk melihat ikhtisar' 
                         : 'Select a student to view overview'}
                     </div>
-                  ) : isLoading ? (
-                    <div className="flex justify-center py-8">
-                      <Spinner />
-                    </div>
-                  ) : (
-                    <div className="text-center py-8">
-                      <p className="text-muted-foreground">
-                        {language === 'id'
-                          ? 'Informasi siswa tersedia di tab tertentu'
-                          : 'Student information available in specific tabs'}
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              ) : (
+                <StudentProgressSummary studentId={currentStudentId} />
+              )}
             </TabsContent>
             
             {/* Activities Tab Content */}
-            <TabsContent value="activities" className="space-y-4">
+            <TabsContent value="activities">
               {/* Activities tab showing just activities */}
               <Card>
                 <CardHeader>
@@ -201,7 +203,7 @@ const Dashboard = () => {
             </TabsContent>
 
             {/* Achievements Tab Content */}
-            <TabsContent value="achievements" className="space-y-4">
+            <TabsContent value="achievements">
               <Card>
                 <CardHeader>
                   <CardTitle>
@@ -227,7 +229,7 @@ const Dashboard = () => {
             </TabsContent>
             
             {/* Recommendations Tab Content */}
-            <TabsContent value="recommendations" className="space-y-4">
+            <TabsContent value="recommendations">
               <Card>
                 <CardHeader>
                   <CardTitle>
