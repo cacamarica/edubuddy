@@ -230,6 +230,28 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete }: AIQuizProps) => {
     );
   }
 
+  // Guard against empty questions array or invalid currentQuestion index
+  if (!questions[currentQuestion]) {
+    // Reset to a valid state
+    setCurrentQuestion(0);
+    return (
+      <Card>
+        <CardContent className="pt-6 flex flex-col items-center justify-center h-64">
+          <p className="text-center font-display text-lg">Oops! Something went wrong with the quiz.</p>
+          <Button 
+            onClick={() => {
+              setQuestions([]);
+              setCurrentQuestion(0);
+            }} 
+            className="mt-4 bg-eduPurple hover:bg-eduPurple-dark"
+          >
+            Try Again
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>
