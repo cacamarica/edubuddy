@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -13,32 +13,39 @@ import { ChevronLeft, BookOpen, PencilRuler, Gamepad, Sparkles } from 'lucide-re
 import AILesson from '@/components/AILesson';
 import AIQuiz from '@/components/AIQuiz';
 import AIGame from '@/components/AIGame';
+import { toast } from 'sonner';
 
 // Common subject options based on grade level
 const subjectOptions = {
   'k-3': ['Math', 'Reading', 'Science', 'Social Studies'],
   '4-6': ['Math', 'Language Arts', 'Science', 'Social Studies', 'Art'],
-  '7-9': ['Math', 'Language Arts', 'Science', 'History', 'Geography', 'Art']
+  '7-9': ['Mathematics', 'Language Arts', 'Science', 'History', 'Geography', 'Art']
 };
 
 // Topic suggestions based on subject and grade level
 const topicSuggestions = {
   'k-3': {
     'Math': ['Counting', 'Addition', 'Subtraction', 'Shapes', 'Patterns'],
+    'Mathematics': ['Counting', 'Addition', 'Subtraction', 'Shapes', 'Patterns'],
     'Reading': ['Alphabet', 'Sight Words', 'Phonics', 'Story Elements', 'Rhyming'],
+    'English': ['Alphabet', 'Sight Words', 'Phonics', 'Story Elements', 'Rhyming'],
     'Science': ['Animals', 'Plants', 'Weather', 'Seasons', 'Five Senses'],
     'Social Studies': ['Community Helpers', 'Maps', 'Holidays', 'Family', 'Rules']
   },
   '4-6': {
     'Math': ['Fractions', 'Decimals', 'Multiplication', 'Division', 'Measurement'],
+    'Mathematics': ['Fractions', 'Decimals', 'Multiplication', 'Division', 'Measurement'],
     'Language Arts': ['Grammar', 'Vocabulary', 'Reading Comprehension', 'Writing Process', 'Poetry'],
+    'English': ['Grammar', 'Vocabulary', 'Reading Comprehension', 'Writing Process', 'Poetry'],
     'Science': ['Life Cycles', 'Habitats', 'Simple Machines', 'Earth', 'Matter'],
     'Social Studies': ['States', 'Historical Figures', 'Government', 'Economics', 'Geography'],
     'Art': ['Color Theory', 'Famous Artists', 'Art Techniques', 'Art History', 'Crafts']
   },
   '7-9': {
     'Math': ['Algebra', 'Geometry', 'Statistics', 'Probability', 'Equations'],
+    'Mathematics': ['Algebra', 'Geometry', 'Statistics', 'Probability', 'Equations'],
     'Language Arts': ['Literature Analysis', 'Essay Writing', 'Research Skills', 'Debate', 'Media Literacy'],
+    'English': ['Literature Analysis', 'Essay Writing', 'Research Skills', 'Debate', 'Media Literacy'],
     'Science': ['Biology', 'Chemistry', 'Physics', 'Astronomy', 'Environmental Science'],
     'History': ['Ancient Civilizations', 'World Wars', 'Civil Rights', 'American History', 'World History'],
     'Geography': ['Continents', 'Climate Zones', 'Natural Resources', 'Population', 'Cultures'],
@@ -52,11 +59,31 @@ const AILearning = () => {
   const [gradeLevel, setGradeLevel] = useState<'k-3' | '4-6' | '7-9'>(
     (location.state?.gradeLevel as 'k-3' | '4-6' | '7-9') || 'k-3'
   );
-  const [subject, setSubject] = useState<string>('Math');
-  const [topic, setTopic] = useState<string>('');
+  const [subject, setSubject] = useState<string>(location.state?.subject || 'Math');
+  const [topic, setTopic] = useState<string>(location.state?.topic || '');
   const [contentReady, setContentReady] = useState(false);
   const [activeTab, setActiveTab] = useState('lesson');
   const [stars, setStars] = useState(0);
+
+  // Handle auto-start of content if navigated with specific topic
+  useEffect(() => {
+    if (location.state?.topic && location.state?.autoStart && !contentReady) {
+      setTopic(location.state.topic);
+      setContentReady(true);
+      toast.success(`Starting ${location.state.topic} in ${location.state.subject}!`, {
+        position: "bottom-right",
+        duration: 3000,
+      });
+    }
+  }, [location.state, contentReady]);
+
+  // Update subject when grade level changes
+  useEffect(() => {
+    // If current subject is not available in the new grade level, set to first available
+    if (!subjectOptions[gradeLevel].includes(subject)) {
+      setSubject(subjectOptions[gradeLevel][0]);
+    }
+  }, [gradeLevel, subject]);
 
   const handleGoBack = () => {
     navigate('/lessons');
@@ -86,6 +113,14 @@ const AILearning = () => {
     'k-3': 'Early Learners (K-3)',
     '4-6': 'Intermediate (4-6)',
     '7-9': 'Advanced (7-9)'
+  };
+
+  // Find the right topic suggestions based on subject name
+  const getTopicSuggestionsForSubject = (subj: string) => {
+    // Handle different naming conventions for similar subjects
+    if (subj === 'Mathematics') return topicSuggestions[gradeLevel]['Math'] || [];
+    if (subj === 'English') return topicSuggestions[gradeLevel]['Language Arts'] || topicSuggestions[gradeLevel]['Reading'] || [];
+    return topicSuggestions[gradeLevel][subj] || [];
   };
 
   return (
@@ -145,7 +180,6 @@ const AILearning = () => {
                           className={gradeLevel === grade ? "bg-eduPurple hover:bg-eduPurple-dark" : ""}
                           onClick={() => {
                             setGradeLevel(grade as 'k-3' | '4-6' | '7-9');
-                            setSubject('Math'); // Reset subject when grade changes
                           }}
                         >
                           {gradeName[grade as keyof typeof gradeName]}
@@ -182,7 +216,7 @@ const AILearning = () => {
                     <div className="mt-2">
                       <p className="text-sm text-muted-foreground mb-2">Suggested topics for {subject}:</p>
                       <div className="flex flex-wrap gap-2">
-                        {topicSuggestions[gradeLevel][subject]?.map((suggestion) => (
+                        {getTopicSuggestionsForSubject(subject)?.map((suggestion) => (
                           <Button 
                             key={suggestion}
                             variant="outline"

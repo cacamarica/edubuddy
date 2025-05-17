@@ -45,6 +45,93 @@ const Lessons = () => {
     navigate('/ai-learning', { state: { gradeLevel } });
   };
 
+  // Render recommended lessons based on grade level
+  const getRecommendedLessons = () => {
+    switch (gradeLevel) {
+      case 'k-3':
+        return [
+          {
+            title: "Counting Fun",
+            subject: "Math",
+            description: "Practice counting numbers up to 20",
+            color: "bg-eduPastel-blue"
+          },
+          {
+            title: "Letter Sounds",
+            subject: "English",
+            description: "Learn the sounds that letters make",
+            color: "bg-eduPastel-green"
+          },
+          {
+            title: "Animal Friends",
+            subject: "Science", 
+            description: "Learn about different types of animals",
+            color: "bg-eduPastel-peach"
+          },
+          {
+            title: "Shape Adventure",
+            subject: "Math",
+            description: "Explore different shapes all around us",
+            color: "bg-eduPastel-yellow"
+          }
+        ];
+      case '4-6':
+        return [
+          {
+            title: "Fraction Basics",
+            subject: "Math",
+            description: "Learn about parts of a whole",
+            color: "bg-eduPastel-blue"
+          },
+          {
+            title: "Creative Writing",
+            subject: "English",
+            description: "Write your own exciting stories",
+            color: "bg-eduPastel-green"
+          },
+          {
+            title: "Simple Machines",
+            subject: "Science", 
+            description: "Discover how levers, pulleys and more work",
+            color: "bg-eduPastel-peach"
+          },
+          {
+            title: "States of Matter",
+            subject: "Science",
+            description: "Learn about solids, liquids, and gases",
+            color: "bg-eduPastel-yellow"
+          }
+        ];
+      case '7-9':
+        return [
+          {
+            title: "Algebra Fundamentals",
+            subject: "Mathematics",
+            description: "Learn to work with variables and equations",
+            color: "bg-eduPastel-blue"
+          },
+          {
+            title: "Essay Structure",
+            subject: "English",
+            description: "Master the art of writing persuasive essays",
+            color: "bg-eduPastel-green"
+          },
+          {
+            title: "Chemistry Basics",
+            subject: "Science", 
+            description: "Explore atoms, elements, and compounds",
+            color: "bg-eduPastel-peach"
+          },
+          {
+            title: "World Geography",
+            subject: "Geography",
+            description: "Learn about continents, countries, and cultures",
+            color: "bg-eduPastel-yellow"
+          }
+        ];
+    }
+  };
+
   return (
     <div className="flex flex-col min-h-screen">
       <Header />
@@ -193,33 +280,19 @@ const Lessons = () => {
             <h2 className="text-2xl font-display font-bold mb-6">Recommended Next Steps</h2>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {[
-                {
-                  title: "Counting Fun",
-                  subject: "Math",
-                  description: "Practice counting numbers up to 20",
-                  color: "bg-eduPastel-blue"
-                },
-                {
-                  title: "Letter Sounds",
-                  subject: "English",
-                  description: "Learn the sounds that letters make",
-                  color: "bg-eduPastel-green"
-                },
-                {
-                  title: "Animal Friends",
-                  subject: "Science", 
-                  description: "Learn about different types of animals",
-                  color: "bg-eduPastel-peach"
-                },
-                {
-                  title: "Shape Adventure",
-                  subject: "Math",
-                  description: "Explore different shapes all around us",
-                  color: "bg-eduPastel-yellow"
-                }
-              ].map((item, i) => (
-                <div key={i} className={`rounded-lg ${item.color} p-4 hover:shadow-md transition-shadow`}>
+              {getRecommendedLessons().map((item, i) => (
+                <div 
+                  key={i} 
+                  className={`rounded-lg ${item.color} p-4 hover:shadow-md transition-shadow cursor-pointer`}
+                  onClick={() => navigate('/ai-learning', { 
+                    state: { 
+                      gradeLevel, 
+                      subject: item.subject, 
+                      topic: item.title,
+                      autoStart: true
+                    } 
+                  })}
+                >
                   <span className="text-xs font-medium text-muted-foreground">{item.subject}</span>
                   <h3 className="font-display font-semibold">{item.title}</h3>
                   <p className="text-sm text-muted-foreground mt-1">{item.description}</p>

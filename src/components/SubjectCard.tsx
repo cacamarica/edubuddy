@@ -88,7 +88,19 @@ const SubjectCard = ({ subject, gradeLevel = 'k-3' }: SubjectCardProps) => {
   const Icon = config.icon;
   
   const handleContinueLearning = () => {
-    navigate(`/lessons/${subject}`, { state: { gradeLevel } });
+    // Default to first lesson if no progress, otherwise continue from most recent
+    const topicIndex = Math.floor(config.progress[gradeLevel] / 100 * config.lessons[gradeLevel].length);
+    const selectedTopic = config.lessons[gradeLevel][topicIndex] || config.lessons[gradeLevel][0];
+    
+    // Navigate to AI Learning with subject, grade level and topic
+    navigate('/ai-learning', { 
+      state: { 
+        gradeLevel,
+        subject: config.title,
+        topic: selectedTopic,
+        autoStart: true // Signal to auto-start content
+      } 
+    });
   };
 
   return (
@@ -111,7 +123,20 @@ const SubjectCard = ({ subject, gradeLevel = 'k-3' }: SubjectCardProps) => {
           <p className="text-sm font-medium">Popular Lessons:</p>
           <ul className="text-sm text-muted-foreground list-disc list-inside">
             {config.lessons[gradeLevel].map((lesson) => (
-              <li key={lesson}>{lesson}</li>
+              <li 
+                key={lesson} 
+                className="cursor-pointer hover:text-eduPurple transition-colors"
+                onClick={() => navigate('/ai-learning', { 
+                  state: { 
+                    gradeLevel,
+                    subject: config.title, 
+                    topic: lesson,
+                    autoStart: true
+                  } 
+                })}
+              >
+                {lesson}
+              </li>
             ))}
           </ul>
         </div>
