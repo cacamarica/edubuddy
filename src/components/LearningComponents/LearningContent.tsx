@@ -27,20 +27,30 @@ const LearningContent: React.FC<LearningContentProps> = ({
   onReset,
   onQuizComplete,
 }) => {
-  const { t } = useLanguage();
+  const { language } = useLanguage();
+  
+  const translations = {
+    learningAbout: language === 'id' ? 'Belajar Tentang' : 'Learning About',
+    newTopic: language === 'id' ? 'Topik Baru' : 'New Topic',
+    lesson: language === 'id' ? 'Pelajaran' : 'Lesson',
+    quiz: language === 'id' ? 'Kuis' : 'Quiz',
+    game: language === 'id' ? 'Permainan' : 'Game',
+    recommendedNextSteps: language === 'id' ? 'Langkah Selanjutnya yang Direkomendasikan' : 'Recommended Next Steps',
+    startLesson: language === 'id' ? 'Mulai Pelajaran' : 'Start Lesson'
+  };
   
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-6 flex justify-between items-center">
         <h2 className="text-2xl font-display font-bold">
-          {t('learning.learningAbout')} {topic} <span className="text-muted-foreground">({subject})</span>
+          {translations.learningAbout} {topic} <span className="text-muted-foreground">({subject})</span>
         </h2>
         <Button 
           variant="primary" 
           size="sm" 
           onClick={onReset}
         >
-          {t('learning.newTopic')}
+          {translations.newTopic}
         </Button>
       </div>
       
@@ -48,15 +58,15 @@ const LearningContent: React.FC<LearningContentProps> = ({
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="lesson" className="flex items-center gap-2">
             <BookOpen className="h-4 w-4" />
-            <span className="hidden sm:inline">{t('learning.lesson')}</span>
+            <span className="hidden sm:inline">{translations.lesson}</span>
           </TabsTrigger>
           <TabsTrigger value="quiz" className="flex items-center gap-2">
             <PencilRuler className="h-4 w-4" />
-            <span className="hidden sm:inline">{t('learning.quiz')}</span>
+            <span className="hidden sm:inline">{translations.quiz}</span>
           </TabsTrigger>
           <TabsTrigger value="game" className="flex items-center gap-2">
             <Gamepad className="h-4 w-4" />
-            <span className="hidden sm:inline">{t('learning.game')}</span>
+            <span className="hidden sm:inline">{translations.game}</span>
           </TabsTrigger>
         </TabsList>
         <div className="mt-6">

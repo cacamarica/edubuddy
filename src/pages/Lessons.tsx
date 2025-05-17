@@ -15,7 +15,7 @@ const Lessons = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { language } = useLanguage();
+  const { t, language } = useLanguage();
   const [gradeLevel, setGradeLevel] = useState<'k-3' | '4-6' | '7-9'>('k-3');
   const [studentId, setStudentId] = useState<string | null>(null);
   const [studentName, setStudentName] = useState<string | null>(null);
@@ -43,18 +43,23 @@ const Lessons = () => {
     setTimeout(() => {
       // Check if this is a new student (no activities yet)
       const isNewStudent = location.state?.isNewStudent || false;
-      const hasExistingActivities = !isNewStudent;
       
       // For new students or when hasActivities is explicitly set to false in state
       if (isNewStudent || location.state?.hasActivities === false) {
         setProgress(0);
         setStars(0);
         setHasActivities(false);
-      } else if (hasExistingActivities) {
+      } else if (studentId && !isNewStudent) {
         // For existing students with activities
+        // Here we could fetch real data from a database
         setProgress(30);
         setStars(12);
         setHasActivities(true);
+      } else {
+        // Default state when no student is selected
+        setProgress(0);
+        setStars(0);
+        setHasActivities(false);
       }
       
       setIsLoading(false);
@@ -388,7 +393,7 @@ const Lessons = () => {
         <section className="py-10 bg-eduPastel-gray">
           <div className="container px-4 md:px-6">
             <h2 className="text-2xl font-display font-bold mb-6">
-              {language === 'id' ? 'Rekomendasi Langkah Selanjutnya' : 'Recommended Next Steps'}
+              {t('learning.recommendedNextSteps')}
             </h2>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -415,7 +420,7 @@ const Lessons = () => {
                     size="sm" 
                     className="mt-2 w-full justify-start text-eduPurple hover:text-eduPurple-dark hover:bg-white/50"
                   >
-                    {language === 'id' ? 'Mulai Pelajaran' : 'Start Lesson'}
+                    {t('learning.startLesson')}
                   </Button>
                 </div>
               ))}

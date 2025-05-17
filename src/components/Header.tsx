@@ -5,12 +5,13 @@ import { Button } from '@/components/ui/button';
 import LanguageSelector from './LanguageSelector';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { BookOpen, LogOut, User } from 'lucide-react';
+import { BookOpen, LogOut, User, Menu } from 'lucide-react';
 
 const Header = () => {
   const { t, language } = useLanguage();
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   const handleSignOut = async () => {
     await signOut();
@@ -42,6 +43,69 @@ const Header = () => {
             </Link>
           </nav>
         </div>
+        
+        {/* Mobile menu button */}
+        <div className="md:hidden flex items-center">
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+          <Link to="/" className="ml-2 flex items-center">
+            <BookOpen className="h-5 w-5 text-eduPurple" />
+            <span className="font-bold text-lg text-eduPurple">EduBuddy</span>
+          </Link>
+        </div>
+        
+        {/* Mobile menu */}
+        {isMobileMenuOpen && (
+          <div className="absolute top-14 left-0 w-full bg-background border-b border-border/40 md:hidden z-50">
+            <nav className="container py-3">
+              <ul className="space-y-2">
+                {user && (
+                  <li>
+                    <Link 
+                      to="/dashboard" 
+                      className="block px-4 py-2 hover:bg-muted rounded-md"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      {t('header.dashboard')}
+                    </Link>
+                  </li>
+                )}
+                <li>
+                  <Link 
+                    to="/lessons" 
+                    className="block px-4 py-2 hover:bg-muted rounded-md"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    {t('header.lessons')}
+                  </Link>
+                </li>
+                <li>
+                  <Link 
+                    to="/faq" 
+                    className="block px-4 py-2 hover:bg-muted rounded-md"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    {t('header.faq')}
+                  </Link>
+                </li>
+                <li>
+                  <Link 
+                    to="/about" 
+                    className="block px-4 py-2 hover:bg-muted rounded-md"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    {t('header.about')}
+                  </Link>
+                </li>
+              </ul>
+            </nav>
+          </div>
+        )}
         
         <div className="flex flex-1 items-center justify-between md:justify-end space-x-2">
           <div className="flex items-center">

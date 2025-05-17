@@ -12,6 +12,9 @@ import LearningContent from '@/components/LearningComponents/LearningContent';
 import useLearningGradeLevel from '@/hooks/useLearningGradeLevel';
 import useStarsManager from '@/hooks/useStarsManager';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { LogIn } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface Student {
   id: string;
@@ -26,6 +29,7 @@ const AILearning = () => {
   const navigate = useNavigate();
   const { stars, addStars } = useStarsManager();
   const { t, language } = useLanguage();
+  const { user } = useAuth();
   
   const initialGradeLevel = (location.state?.gradeLevel as 'k-3' | '4-6' | '7-9') || 'k-3';
   const { 
@@ -43,18 +47,59 @@ const AILearning = () => {
   const [currentStudent, setCurrentStudent] = useState<Student | null>(null);
   const [showProfileManager, setShowProfileManager] = useState(false);
   const [customTopic, setCustomTopic] = useState('');
+  const [aiUsageCount, setAiUsageCount] = useState<number>(0);
+  
+  // Load AI usage count from localStorage on component mount
+  useEffect(() => {
+    const storedCount = localStorage.getItem('aiUsageCount');
+    if (storedCount) {
+      setAiUsageCount(parseInt(storedCount));
+    }
+  }, []);
+
+  // Update localStorage when aiUsageCount changes
+  useEffect(() => {
+    localStorage.setItem('aiUsageCount', aiUsageCount.toString());
+  }, [aiUsageCount]);
+
+  // Reset AI usage count when user logs in
+  useEffect(() => {
+    if (user && aiUsageCount > 0) {
+      setAiUsageCount(0);
+      localStorage.setItem('aiUsageCount', '0');
+    }
+  }, [user]);
 
   // Handle auto-start of content if navigated with specific topic
   useEffect(() => {
     if (location.state?.topic && location.state?.autoStart && !contentReady) {
       setTopic(location.state.topic);
       setContentReady(true);
+      
+      // If user is not logged in, increment AI usage count
+      if (!user) {
+        setAiUsageCount(prev => prev + 1);
+      }
+      
       toast.success(`${language === 'id' ? 'Memulai' : 'Starting'} ${location.state.topic} ${language === 'id' ? 'di' : 'in'} ${location.state.subject}!`, {
         position: "bottom-right",
         duration: 3000,
       });
     }
-  }, [location.state, contentReady, language]);
+  }, [location.state, contentReady, language, user]);
+
+  // Load student from location state
+  useEffect(() => {
+    if (location.state?.studentId && location.state?.studentName) {
+      setCurrentStudent({
+        id: location.state.studentId,
+        name: location.state.studentName,
+        age: location.state.studentAge || 8,
+        gradeLevel: location.state.gradeLevel || 'k-3',
+        avatar: location.state.studentAvatar
+      });
+    }
+  }, [location.state]);
 
   // Update subject when grade level changes
   useEffect(() => {
@@ -72,7 +117,13 @@ const AILearning = () => {
   }, [currentStudent, updateGradeLevelFromStudent]);
 
   const handleGoBack = () => {
-    navigate('/lessons');
+    navigate('/lessons', { 
+      state: { 
+        studentId: currentStudent?.id,
+        studentName: currentStudent?.name,
+        gradeLevel
+      } 
+    });
   };
 
   const handleTopicSelect = (suggestion: string) => {
@@ -82,9 +133,31 @@ const AILearning = () => {
 
   const handleCreateContent = () => {
     const finalTopic = customTopic.trim() ? customTopic : topic;
+    
+    // Check if non-logged in user has reached AI usage limit
+    if (!user && aiUsageCount >= 2) {
+      toast.error(
+        language === 'id'
+          ? 'Batas penggunaan AI tercapai. Silakan masuk untuk melanjutkan.'
+          : 'AI usage limit reached. Please sign in to continue.',
+        {
+          action: {
+            label: language === 'id' ? 'Masuk' : 'Sign In',
+            onClick: () => navigate('/auth', { state: { action: 'signin' } }),
+          },
+        }
+      );
+      return;
+    }
+    
     if (finalTopic.trim()) {
       setTopic(finalTopic);
       setContentReady(true);
+      
+      // Increment AI usage count for non-logged in users
+      if (!user) {
+        setAiUsageCount(prev => prev + 1);
+      }
     } else {
       toast.error(language === 'id' ? "Silakan masukkan topik atau pilih salah satu dari saran" : "Please enter a topic or select one from the suggestions");
     }
@@ -143,6 +216,32 @@ const AILearning = () => {
                 {!currentStudent && (
                   <div className="md:col-span-3">
                     <StudentProfile onStudentChange={handleStudentChange} />
+                  </div>
+                )}
+                
+                {/* AI Usage Limit Warning for non-logged in users */}
+                {!user && (
+                  <div className="md:col-span-3 mb-4">
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-center justify-between">
+                      <div>
+                        <h3 className="font-medium text-yellow-800">
+                          {language === 'id' ? 'Penggunaan Terbatas' : 'Limited Access'}
+                        </h3>
+                        <p className="text-sm text-yellow-700">
+                          {language === 'id'
+                            ? `Anda telah menggunakan ${aiUsageCount}/2 percobaan AI. Masuk untuk akses tak terbatas.`
+                            : `You've used ${aiUsageCount}/2 AI attempts. Sign in for unlimited access.`}
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        onClick={() => navigate('/auth', { state: { action: 'signin' } })}
+                        className="flex items-center gap-2"
+                      >
+                        <LogIn className="h-4 w-4" />
+                        {language === 'id' ? 'Masuk' : 'Sign In'}
+                      </Button>
+                    </div>
                   </div>
                 )}
                 

@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { getAIEducationContent } from '@/services/aiEducationService';
-import { BookOpen, Star, Image, ArrowLeft, ArrowRight } from 'lucide-react';
+import { BookOpen, Star, Image, ArrowLeft, ArrowRight, LogIn } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface AILessonProps {
   subject: string;
@@ -46,6 +49,18 @@ const AILesson = ({ subject, gradeLevel, topic, onComplete }: AILessonProps) => 
   const [currentSection, setCurrentSection] = useState(0);
   const [lessonCompleted, setLessonCompleted] = useState(false);
   const [readingTime, setReadingTime] = useState('10-15 minutes');
+  const { user } = useAuth();
+  const { language } = useLanguage();
+  const navigate = useNavigate();
+
+  // Calculating the maximum allowed section for non-logged in users (30% of content)
+  const getMaxAllowedSection = () => {
+    if (!lessonContent) return 0;
+    if (user) return lessonContent.mainContent.length - 1; // No limit for logged in users
+    
+    // For non-logged in users, limit to 30% of the content (at least 1 section)
+    return Math.max(0, Math.floor(lessonContent.mainContent.length * 0.3) - 1);
+  };
 
   const generateLesson = async () => {
     setIsLoading(true);
@@ -104,15 +119,40 @@ const AILesson = ({ subject, gradeLevel, topic, onComplete }: AILessonProps) => 
   };
 
   const handleNextSection = () => {
-    if (lessonContent && currentSection < lessonContent.mainContent.length - 1) {
-      setCurrentSection(currentSection + 1);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    } else {
-      setLessonCompleted(true);
-      toast.success("You completed the lesson! Great job!", {
-        icon: <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />,
-      });
-      if (onComplete) onComplete();
+    const maxAllowedSection = getMaxAllowedSection();
+    
+    if (lessonContent) {
+      // Check if the user can proceed to the next section
+      if (currentSection < lessonContent.mainContent.length - 1) {
+        // Check if they've reached their limit (for non-logged in users)
+        if (currentSection >= maxAllowedSection && !user) {
+          // Show login prompt for non-logged in users who hit the limit
+          toast.info(
+            language === 'id'
+              ? 'Masuk untuk mengakses seluruh pelajaran'
+              : 'Sign in to access the full lesson',
+            {
+              duration: 5000,
+              action: {
+                label: language === 'id' ? 'Masuk' : 'Sign In',
+                onClick: () => navigate('/auth', { state: { action: 'signin' } }),
+              },
+            }
+          );
+          return;
+        }
+        
+        // If they can proceed, go to the next section
+        setCurrentSection(currentSection + 1);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        // Mark lesson as completed
+        setLessonCompleted(true);
+        toast.success("You completed the lesson! Great job!", {
+          icon: <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />,
+        });
+        if (onComplete) onComplete();
+      }
     }
   };
 
@@ -230,6 +270,8 @@ const AILesson = ({ subject, gradeLevel, topic, onComplete }: AILessonProps) => 
 
   // Extract the current section for easier access
   const currentSectionContent = lessonContent.mainContent[currentSection];
+  const maxAllowedSection = getMaxAllowedSection();
+  const isLastViewableSection = !user && currentSection >= maxAllowedSection;
 
   // Split the text into paragraphs for better readability
   const paragraphs = currentSectionContent.text.split('\n\n');
@@ -321,6 +363,29 @@ const AILesson = ({ subject, gradeLevel, topic, onComplete }: AILessonProps) => 
             </div>
           )}
           
+          {/* Free vs. Premium Content Divider */}
+          {!user && currentSection === maxAllowedSection && (
+            <div className="mt-8 border-t pt-6 text-center">
+              <div className="bg-eduPastel-purple p-4 rounded-lg">
+                <h3 className="font-semibold font-display text-lg mb-2">
+                  {language === 'id' ? 'Dapatkan Akses Penuh' : 'Get Full Access'}
+                </h3>
+                <p className="mb-4">
+                  {language === 'id' 
+                    ? 'Masuk untuk melanjutkan pelajaran dan akses semua fitur!' 
+                    : 'Sign in to continue this lesson and access all features!'}
+                </p>
+                <Button 
+                  onClick={() => navigate('/auth', { state: { action: 'signin' } })}
+                  className="bg-eduPurple hover:bg-eduPurple-dark"
+                >
+                  <LogIn className="mr-2 h-4 w-4" />
+                  {language === 'id' ? 'Masuk Sekarang' : 'Sign In Now'}
+                </Button>
+              </div>
+            </div>
+          )}
+          
           <div className="w-full bg-muted h-2 rounded-full mt-8">
             <div 
               className="bg-eduPurple h-2 rounded-full" 
@@ -343,7 +408,11 @@ const AILesson = ({ subject, gradeLevel, topic, onComplete }: AILessonProps) => 
           <ArrowLeft className="h-4 w-4" />
           Previous
         </Button>
-        <Button onClick={handleNextSection} className="bg-eduPurple hover:bg-eduPurple-dark flex items-center gap-2">
+        <Button 
+          onClick={handleNextSection}
+          className={`flex items-center gap-2 ${isLastViewableSection ? 'bg-gray-400 hover:bg-gray-500' : 'bg-eduPurple hover:bg-eduPurple-dark'}`}
+          disabled={isLastViewableSection}
+        >
           {currentSection < lessonContent.mainContent.length - 1 ? (
             <>
               Next
