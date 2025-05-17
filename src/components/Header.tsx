@@ -23,7 +23,7 @@ const Header = () => {
         <div className="mr-4 hidden md:flex">
           <Link to="/" className="mr-6 flex items-center space-x-2">
             <BookOpen className="h-5 w-5 text-eduPurple" />
-            <span className="font-bold text-lg text-eduPurple">EduFun</span>
+            <span className="font-bold text-lg text-eduPurple">EduBuddy</span>
           </Link>
           <nav className="flex items-center gap-6 text-sm">
             {user && (

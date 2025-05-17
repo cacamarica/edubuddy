@@ -18,9 +18,10 @@ const Lessons = () => {
   const { language } = useLanguage();
   const [gradeLevel, setGradeLevel] = useState<'k-3' | '4-6' | '7-9'>('k-3');
   const [studentId, setStudentId] = useState<string | null>(null);
+  const [studentName, setStudentName] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [stars, setStars] = useState(0);
-  const [loaded, setLoaded] = useState(false);
+  const [hasActivities, setHasActivities] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
   useEffect(() => {
@@ -31,13 +32,31 @@ const Lessons = () => {
     
     if (location.state?.studentId) {
       setStudentId(location.state.studentId);
+      
+      // Get student name if available
+      if (location.state?.studentName) {
+        setStudentName(location.state.studentName);
+      }
     }
     
     // Simulate loading user data
     setTimeout(() => {
-      setProgress(30);
-      setStars(12);
-      setLoaded(true);
+      // Check if this is a new student (no activities yet)
+      const isNewStudent = location.state?.isNewStudent || false;
+      const hasExistingActivities = !isNewStudent;
+      
+      // For new students or when hasActivities is explicitly set to false in state
+      if (isNewStudent || location.state?.hasActivities === false) {
+        setProgress(0);
+        setStars(0);
+        setHasActivities(false);
+      } else if (hasExistingActivities) {
+        // For existing students with activities
+        setProgress(30);
+        setStars(12);
+        setHasActivities(true);
+      }
+      
       setIsLoading(false);
     }, 1000);
   }, [location.state]);
@@ -73,7 +92,8 @@ const Lessons = () => {
     navigate('/ai-learning', { 
       state: { 
         gradeLevel,
-        studentId
+        studentId,
+        studentName
       } 
     });
   };
@@ -202,7 +222,9 @@ const Lessons = () => {
             
             <div className="flex flex-col md:flex-row md:items-center md:justify-between">
               <div>
-                <h1 className="text-3xl font-display font-bold">{gradeName[gradeLevel]}</h1>
+                <h1 className="text-3xl font-display font-bold">
+                  {studentName ? `${studentName} - ${gradeName[gradeLevel]}` : gradeName[gradeLevel]}
+                </h1>
                 <p className="text-muted-foreground">
                   {language === 'id' 
                     ? 'Pilih mata pelajaran untuk melanjutkan petualangan belajarmu!'
@@ -229,7 +251,7 @@ const Lessons = () => {
                 
                 <div className="flex items-center gap-1">
                   <Award className="h-5 w-5 text-eduPurple" />
-                  <span className="font-semibold">3</span>
+                  <span className="font-semibold">{hasActivities ? '3' : '0'}</span>
                 </div>
               </div>
             </div>
@@ -266,9 +288,9 @@ const Lessons = () => {
         <section className="py-12">
           <div className="container px-4 md:px-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <SubjectCard subject="math" gradeLevel={gradeLevel} />
-              <SubjectCard subject="english" gradeLevel={gradeLevel} />
-              <SubjectCard subject="science" gradeLevel={gradeLevel} />
+              <SubjectCard subject="math" gradeLevel={gradeLevel} hasProgress={hasActivities} />
+              <SubjectCard subject="english" gradeLevel={gradeLevel} hasProgress={hasActivities} />
+              <SubjectCard subject="science" gradeLevel={gradeLevel} hasProgress={hasActivities} />
             </div>
             
             {/* Recent Activity */}
@@ -277,7 +299,7 @@ const Lessons = () => {
                 {language === 'id' ? 'Aktivitas Terbaru' : 'Recent Activity'}
               </h2>
               
-              {loaded ? (
+              {hasActivities ? (
                 <div className="border rounded-lg overflow-hidden">
                   <div className="grid grid-cols-1 divide-y">
                     <div className="p-4 flex items-center justify-between">
@@ -332,20 +354,30 @@ const Lessons = () => {
                   </div>
                 </div>
               ) : (
-                <div className="flex items-center justify-center h-32 rounded-lg border border-dashed">
-                  <div className="animate-pulse flex space-x-4">
-                    <div className="rounded-full bg-muted h-10 w-10"></div>
-                    <div className="flex-1 space-y-6 py-1">
-                      <div className="h-2 bg-muted rounded"></div>
-                      <div className="space-y-3">
-                        <div className="grid grid-cols-3 gap-4">
-                          <div className="h-2 bg-muted rounded col-span-2"></div>
-                          <div className="h-2 bg-muted rounded col-span-1"></div>
-                        </div>
-                        <div className="h-2 bg-muted rounded"></div>
-                      </div>
-                    </div>
+                <div className="border rounded-lg p-6 text-center">
+                  <div className="mb-4 w-16 h-16 rounded-full bg-eduPastel-purple mx-auto flex items-center justify-center">
+                    <Award className="h-8 w-8 text-eduPurple" />
                   </div>
+                  <h3 className="text-lg font-semibold mb-2">
+                    {language === 'id' ? 'Belum Ada Aktivitas' : 'No Activities Yet'}
+                  </h3>
+                  <p className="text-muted-foreground">
+                    {language === 'id' 
+                      ? 'Mulai petualangan belajarmu dengan memilih pelajaran atau aktivitas.'
+                      : 'Start your learning adventure by selecting a lesson or activity.'}
+                  </p>
+                  <Button 
+                    className="mt-4 bg-eduPurple hover:bg-eduPurple-dark"
+                    onClick={() => navigate('/ai-learning', { 
+                      state: { 
+                        gradeLevel,
+                        studentId,
+                        studentName
+                      } 
+                    })}
+                  >
+                    {language === 'id' ? 'Mulai Belajar' : 'Start Learning'}
+                  </Button>
                 </div>
               )}
             </div>
@@ -370,6 +402,7 @@ const Lessons = () => {
                       subject: item.subject, 
                       topic: item.title,
                       studentId,
+                      studentName,
                       autoStart: true
                     } 
                   })}

@@ -8,10 +8,13 @@ import {
 } from '@/components/ui/popover';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
-import { MessageCircle, Send, Star, HelpCircle } from 'lucide-react';
+import { MessageCircle, Send, Star, HelpCircle, LogIn } from 'lucide-react';
 import { toast } from 'sonner';
 import { getAIEducationContent } from "@/services/aiEducationService";
 import { Spinner } from '@/components/ui/spinner';
+import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface Message {
   id: string;
@@ -54,6 +57,8 @@ const BUDDY_RESPONSES = {
   ],
 };
 
+const MAX_FREE_MESSAGES = 5;  // Maximum messages for non-signed in users
+
 const LearningBuddy = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
@@ -67,18 +72,28 @@ const LearningBuddy = () => {
   const [inputValue, setInputValue] = useState('');
   const [isAIEnabled, setIsAIEnabled] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const { user } = useAuth();
+  const { language } = useLanguage();
+  const navigate = useNavigate();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Count user messages to enforce the limit for non-signed in users
+  const userMessageCount = messages.filter(msg => msg.sender === 'user').length;
+  const hasReachedMessageLimit = !user && userMessageCount >= MAX_FREE_MESSAGES;
 
-  // Store messages in localStorage
+  // Store messages in localStorage with user-specific keys
   useEffect(() => {
     if (messages.length > 1) { // Don't save just the intro message
-      localStorage.setItem('learningBuddy_messages', JSON.stringify(messages));
+      const storageKey = user ? `learningBuddy_messages_${user.id}` : 'learningBuddy_messages_guest';
+      localStorage.setItem(storageKey, JSON.stringify(messages));
     }
-  }, [messages]);
+  }, [messages, user]);
 
-  // Load messages from localStorage
+  // Load messages from localStorage with user-specific keys
   useEffect(() => {
-    const savedMessages = localStorage.getItem('learningBuddy_messages');
+    const storageKey = user ? `learningBuddy_messages_${user.id}` : 'learningBuddy_messages_guest';
+    const savedMessages = localStorage.getItem(storageKey);
+    
     if (savedMessages) {
       try {
         const parsedMessages = JSON.parse(savedMessages);
@@ -92,7 +107,7 @@ const LearningBuddy = () => {
         console.error('Error loading saved messages:', error);
       }
     }
-  }, []);
+  }, [user]);
 
   const getBuddyResponse = async (question: string): Promise<string> => {
     // If AI is not enabled or there's an error, fall back to static responses
@@ -161,6 +176,23 @@ const LearningBuddy = () => {
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
     
+    // Check if the user has reached the message limit
+    if (hasReachedMessageLimit) {
+      setIsOpen(false); // Close the popover
+      toast.error(
+        language === 'id'
+          ? 'Silakan masuk untuk mengirim lebih banyak pesan'
+          : 'Please sign in to send more messages',
+        {
+          action: {
+            label: language === 'id' ? 'Masuk' : 'Sign In',
+            onClick: () => navigate('/auth', { state: { action: 'signin' } }),
+          },
+        }
+      );
+      return;
+    }
+    
     // Add user message
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -192,6 +224,24 @@ const LearningBuddy = () => {
         toast.success("Great question! You earned a star! ⭐", {
           position: "bottom-right",
         });
+      }
+      
+      // If this is the last message for a non-signed in user, show a notification
+      if (!user && userMessageCount + 1 >= MAX_FREE_MESSAGES) {
+        setTimeout(() => {
+          toast.info(
+            language === 'id'
+              ? 'Ini adalah pesan terakhirmu sebagai tamu. Masuk untuk pesan tak terbatas!'
+              : 'This is your last free message. Sign in for unlimited messages!',
+            {
+              duration: 6000,
+              action: {
+                label: language === 'id' ? 'Masuk' : 'Sign In',
+                onClick: () => navigate('/auth', { state: { action: 'signin' } }),
+              },
+            }
+          );
+        }, 1000);
       }
     } catch (error) {
       console.error('Error in buddy response:', error);
@@ -282,25 +332,53 @@ const LearningBuddy = () => {
           
           {/* Input */}
           <div className="p-3 border-t">
-            <div className="flex gap-2">
-              <Input
-                placeholder="Ask me anything about your homework..."
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleSendMessage();
-                  }
-                }}
-                disabled={isLoading}
-              />
-              <Button size="icon" onClick={handleSendMessage} disabled={isLoading}>
-                <Send className="h-5 w-5" />
-              </Button>
-            </div>
-            <div className="mt-1 text-xs text-center text-muted-foreground">
-              <p>Ask me anything! I'm here to help you learn in a fun way!</p>
-            </div>
+            {hasReachedMessageLimit ? (
+              <div className="flex flex-col items-center gap-2">
+                <p className="text-sm text-center">
+                  {language === 'id' 
+                    ? 'Kamu telah mencapai batas pesan. Masuk untuk melanjutkan percakapan.'
+                    : 'You have reached the message limit. Sign in to continue chatting.'}
+                </p>
+                <Button 
+                  className="w-full bg-eduPurple hover:bg-eduPurple-dark"
+                  onClick={() => navigate('/auth', { state: { action: 'signin' } })}
+                >
+                  <LogIn className="mr-2 h-4 w-4" />
+                  {language === 'id' ? 'Masuk' : 'Sign In'}
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Ask me anything about your homework..."
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleSendMessage();
+                      }
+                    }}
+                    disabled={isLoading}
+                  />
+                  <Button size="icon" onClick={handleSendMessage} disabled={isLoading}>
+                    <Send className="h-5 w-5" />
+                  </Button>
+                </div>
+                {!user && (
+                  <div className="mt-2 text-xs text-center text-muted-foreground">
+                    <p>
+                      {language === 'id'
+                        ? `${MAX_FREE_MESSAGES - userMessageCount} pesan tersisa. Masuk untuk pesan tak terbatas.`
+                        : `${MAX_FREE_MESSAGES - userMessageCount} messages remaining. Sign in for unlimited messages.`}
+                    </p>
+                  </div>
+                )}
+                <div className="mt-1 text-xs text-center text-muted-foreground">
+                  <p>Ask me anything! I'm here to help you learn in a fun way!</p>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </PopoverContent>

@@ -17,6 +17,7 @@ type Subject = 'math' | 'english' | 'science';
 interface SubjectCardProps {
   subject: Subject;
   gradeLevel?: 'k-3' | '4-6' | '7-9';
+  hasProgress?: boolean;
 }
 
 const subjectConfig = {
@@ -82,14 +83,14 @@ const subjectConfig = {
   },
 };
 
-const SubjectCard = ({ subject, gradeLevel = 'k-3' }: SubjectCardProps) => {
+const SubjectCard = ({ subject, gradeLevel = 'k-3', hasProgress = true }: SubjectCardProps) => {
   const navigate = useNavigate();
   const config = subjectConfig[subject];
   const Icon = config.icon;
   
   const handleContinueLearning = () => {
     // Default to first lesson if no progress, otherwise continue from most recent
-    const topicIndex = Math.floor(config.progress[gradeLevel] / 100 * config.lessons[gradeLevel].length);
+    const topicIndex = hasProgress ? Math.floor(config.progress[gradeLevel] / 100 * config.lessons[gradeLevel].length) : 0;
     const selectedTopic = config.lessons[gradeLevel][topicIndex] || config.lessons[gradeLevel][0];
     
     // Navigate to AI Learning with subject, grade level and topic
@@ -98,7 +99,8 @@ const SubjectCard = ({ subject, gradeLevel = 'k-3' }: SubjectCardProps) => {
         gradeLevel,
         subject: config.title,
         topic: selectedTopic,
-        autoStart: true // Signal to auto-start content
+        autoStart: true, // Signal to auto-start content
+        isNewLesson: !hasProgress // Signal this is a new lesson for a new student
       } 
     });
   };
@@ -112,9 +114,15 @@ const SubjectCard = ({ subject, gradeLevel = 'k-3' }: SubjectCardProps) => {
             <Icon className="h-5 w-5" />
             {config.title}
           </CardTitle>
-          <Badge variant="outline" className="text-xs">
-            {config.progress[gradeLevel]}% Complete
-          </Badge>
+          {hasProgress ? (
+            <Badge variant="outline" className="text-xs">
+              {config.progress[gradeLevel]}% Complete
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="text-xs bg-eduPastel-purple/20">
+              New
+            </Badge>
+          )}
         </div>
         <CardDescription>{config.description[gradeLevel]}</CardDescription>
       </CardHeader>
@@ -131,7 +139,8 @@ const SubjectCard = ({ subject, gradeLevel = 'k-3' }: SubjectCardProps) => {
                     gradeLevel,
                     subject: config.title, 
                     topic: lesson,
-                    autoStart: true
+                    autoStart: true,
+                    isNewLesson: !hasProgress
                   } 
                 })}
               >
@@ -146,7 +155,7 @@ const SubjectCard = ({ subject, gradeLevel = 'k-3' }: SubjectCardProps) => {
           className="w-full bg-eduPurple hover:bg-eduPurple-dark"
           onClick={handleContinueLearning}
         >
-          Continue Learning
+          {hasProgress ? 'Continue Learning' : 'Start Learning'}
         </Button>
       </CardFooter>
     </Card>
