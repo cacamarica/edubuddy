@@ -80,7 +80,7 @@ const About = () => {
               <p className="mb-4">
                 {language === 'id'
                   ? 'Platform kami menggabungkan berbagai pendekatan pembelajaran untuk memenuhi kebutuhan setiap siswa. Dengan memanfaatkan teknologi AI, kami menawarkan konten yang dipersonalisasi yang beradaptasi dengan tingkat pemahaman dan gaya belajar yang unik dari masing-masing siswa.'
-                  : 'Our platform combines diverse learning approaches to meet the needs of every student. By leveraging AI technology, we offer personalized content that adapts to each student's unique comprehension level and learning style.'}
+                  : 'Our platform combines diverse learning approaches to meet the needs of every student. By leveraging AI technology, we offer personalized content that adapts to each student\'s unique comprehension level and learning style.'}
               </p>
               
               <div className="mt-6">
@@ -126,7 +126,7 @@ const About = () => {
                   <span>
                     {language === 'id'
                       ? 'Pembelajaran yang dipersonalisasi berdasarkan kebutuhan dan kemampuan setiap siswa'
-                      : 'Personalized learning based on each student\'s needs and abilities'}
+                      : "Personalized learning based on each student's needs and abilities"}
                   </span>
                 </li>
                 <li className="flex items-start">
