@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { PostgrestError } from "@supabase/supabase-js";
 
@@ -88,7 +87,7 @@ export interface DetailedQuizAttempt {
   attempted_at: string;
   subject_id: string;
   topic_id: string;
-  quiz_title?: string; // Adding this field to fix error
+  quiz_title?: string; 
 }
 
 export interface TopicQuizHistory {
@@ -96,27 +95,26 @@ export interface TopicQuizHistory {
   subject: string;
   attempts: DetailedQuizAttempt[];
   averageScore: number;
-  topicName?: string; // Adding this field to fix error
+  topicName?: string;
 }
 
-// Enhanced AI Summary Report interface with proper array types
+// Enhanced AI Summary Report interface with proper types for data arrays
 export interface AISummaryReport {
   studentId: string;
   studentName: string;
   gradeLevel: string;
   strengths: string[];
   areasForImprovement: string[];
-  overallSummary: string; // Adding this field to fix error
+  overallSummary: string;
   activityAnalysis: string;
   quizReview: {
     topics: string[];
     scores: number[];
   };
-  knowledgeGrowthChartData: {
-    labels: string[];
-    data: number[];
-    length: number; // Adding length property for array-like behavior
-  };
+  knowledgeGrowthChartData: Array<{
+    date: string;
+    score: number;
+  }>;
   generatedAt: string;
   version: number;
 }
@@ -132,7 +130,7 @@ export interface ActivityRecordData {
   recommendation_id?: string;
 }
 
-// Mock implementation of the studentProgressService
+// Implementation of the studentProgressService
 export const studentProgressService = {
   // Get subject progress for a student
   async getSubjectProgress(studentId: string): Promise<SubjectProgress[]> {
@@ -155,7 +153,7 @@ export const studentProgressService = {
   },
   
   // Get AI summary report for a student
-  async getAISummaryReport(studentId: string, gradeLevel: string, studentName: string, forceRefresh = false): Promise<AISummaryReport> {
+  async getAISummaryReport(studentId: string, gradeLevel: string, studentName: string, forceRefresh = false): Promise<AISummaryReport | null> {
     try {
       // Check for existing report if not forcing refresh
       if (!forceRefresh) {
@@ -167,30 +165,28 @@ export const studentProgressService = {
           .limit(1);
           
         if (!error && data && data.length > 0) {
-          // If report is less than a day old, return it
+          // If report exists, parse and return it
           const reportData = data[0].report_data;
-          // Convert to proper AISummaryReport format with array-like behavior
+          
+          // Handle possible JSON formats - convert if it's a string
+          const parsedData = typeof reportData === 'string' ? JSON.parse(reportData) : reportData;
+          
+          // Convert to proper AISummaryReport format
           const formattedReport: AISummaryReport = {
             studentId: studentId,
             studentName,
             gradeLevel,
-            strengths: Array.isArray(reportData.strengths) ? reportData.strengths : [],
-            areasForImprovement: Array.isArray(reportData.areasForImprovement) ? reportData.areasForImprovement : [],
-            overallSummary: reportData.overallSummary || '',
-            activityAnalysis: reportData.activityAnalysis || '',
+            strengths: Array.isArray(parsedData?.strengths) ? parsedData.strengths : [],
+            areasForImprovement: Array.isArray(parsedData?.areasForImprovement) ? parsedData.areasForImprovement : [],
+            overallSummary: parsedData?.overallSummary || '',
+            activityAnalysis: parsedData?.activityAnalysis || '',
             quizReview: {
-              topics: Array.isArray(reportData.quizReview?.topics) ? reportData.quizReview.topics : [],
-              scores: Array.isArray(reportData.quizReview?.scores) ? reportData.quizReview.scores : []
+              topics: Array.isArray(parsedData?.quizReview?.topics) ? parsedData.quizReview.topics : [],
+              scores: Array.isArray(parsedData?.quizReview?.scores) ? parsedData.quizReview.scores : []
             },
-            knowledgeGrowthChartData: {
-              labels: Array.isArray(reportData.knowledgeGrowthChartData?.labels) 
-                ? reportData.knowledgeGrowthChartData.labels 
-                : [],
-              data: Array.isArray(reportData.knowledgeGrowthChartData?.data) 
-                ? reportData.knowledgeGrowthChartData.data 
-                : [],
-              length: reportData.knowledgeGrowthChartData?.labels?.length || 0
-            },
+            knowledgeGrowthChartData: Array.isArray(parsedData?.knowledgeGrowthChartData) ? 
+              parsedData.knowledgeGrowthChartData : 
+              [],
             generatedAt: data[0].generated_at,
             version: data[0].version
           };
@@ -224,23 +220,17 @@ export const studentProgressService = {
           studentId,
           studentName,
           gradeLevel,
-          strengths: Array.isArray(aiData.strengths) ? aiData.strengths : [],
-          areasForImprovement: Array.isArray(aiData.areasForImprovement) ? aiData.areasForImprovement : [],
-          overallSummary: aiData.overallSummary || '',
-          activityAnalysis: aiData.activityAnalysis || '',
+          strengths: Array.isArray(aiData?.strengths) ? aiData.strengths : [],
+          areasForImprovement: Array.isArray(aiData?.areasForImprovement) ? aiData.areasForImprovement : [],
+          overallSummary: aiData?.overallSummary || '',
+          activityAnalysis: aiData?.activityAnalysis || '',
           quizReview: {
-            topics: Array.isArray(aiData.quizReview?.topics) ? aiData.quizReview.topics : [],
-            scores: Array.isArray(aiData.quizReview?.scores) ? aiData.quizReview.scores : []
+            topics: Array.isArray(aiData?.quizReview?.topics) ? aiData.quizReview.topics : [],
+            scores: Array.isArray(aiData?.quizReview?.scores) ? aiData.quizReview.scores : []
           },
-          knowledgeGrowthChartData: {
-            labels: Array.isArray(aiData.knowledgeGrowthChartData?.labels) 
-              ? aiData.knowledgeGrowthChartData.labels 
-              : [],
-            data: Array.isArray(aiData.knowledgeGrowthChartData?.data) 
-              ? aiData.knowledgeGrowthChartData.data 
-              : [],
-            length: aiData.knowledgeGrowthChartData?.labels?.length || 0
-          },
+          knowledgeGrowthChartData: Array.isArray(aiData?.knowledgeGrowthChartData) ? 
+            aiData.knowledgeGrowthChartData : 
+            [],
           generatedAt: new Date().toISOString(),
           version: 1
         };
@@ -270,11 +260,12 @@ export const studentProgressService = {
         topics: ['Math', 'Reading', 'Science'],
         scores: [65, 85, 70]
       },
-      knowledgeGrowthChartData: {
-        labels: ['Jan', 'Feb', 'Mar', 'Apr'],
-        data: [30, 45, 60, 70],
-        length: 4
-      },
+      knowledgeGrowthChartData: [
+        { date: '2023-01-15', score: 30 },
+        { date: '2023-02-15', score: 45 },
+        { date: '2023-03-15', score: 60 },
+        { date: '2023-04-15', score: 70 }
+      ],
       generatedAt: new Date().toISOString(),
       version: 1
     };
@@ -408,7 +399,7 @@ export const studentProgressService = {
     }
   },
   
-  // Get learning activities for a student
+  // Get learning activities for a student - Fix the argument count
   async getLearningActivities(studentId: string): Promise<LearningActivity[]> {
     try {
       const { data, error } = await supabase
@@ -491,7 +482,7 @@ export const studentProgressService = {
       return data.map(item => ({
         ...item,
         badge: item.badges
-      })) as StudentBadge[];
+      })) as unknown as StudentBadge[];
     } catch (error) {
       console.error('Error in getStudentBadges:', error);
       return [];
@@ -537,4 +528,3 @@ export const studentProgressService = {
     }
   }
 };
-

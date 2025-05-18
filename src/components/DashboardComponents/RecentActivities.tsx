@@ -19,7 +19,7 @@ const RecentActivities: React.FC<RecentActivitiesProps> = ({ studentId }) => {
       if (!studentId) return;
       
       setIsLoadingActivities(true);
-      const data = await studentProgressService.getLearningActivities(studentId, 20); // Get more activities for pagination
+      const data = await studentProgressService.getLearningActivities(studentId); // Fixed parameter count
       
       // Process to remove duplicates
       const uniqueActivitiesMap = new Map<string, LearningActivity>();

@@ -71,7 +71,7 @@ const EnhancedRecentActivities: React.FC<EnhancedRecentActivitiesProps> = ({ stu
       
       setIsLoading(true);
       try {
-        const data = await studentProgressService.getLearningActivities(studentId, 20);
+        const data = await studentProgressService.getLearningActivities(studentId);
         
         // Process to remove duplicates
         const uniqueActivitiesMap = new Map<string, LearningActivity>();

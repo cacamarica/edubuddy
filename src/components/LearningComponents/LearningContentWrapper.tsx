@@ -11,7 +11,7 @@ interface LearningContentWrapperProps {
   onTabChange: (tab: string) => void;
   onReset: () => void;
   onQuizComplete?: (score: number) => void;
-  recommendationId?: string; // Add support for recommendation tracking
+  recommendationId?: string;
 }
 
 const LearningContentWrapper = ({
@@ -62,7 +62,7 @@ const LearningContentWrapper = ({
         isComplete={isComplete}
         progress={progress}
       />
-        <LearningContent 
+      <LearningContent 
         subject={subject}
         gradeLevel={gradeLevel}
         topic={topic}

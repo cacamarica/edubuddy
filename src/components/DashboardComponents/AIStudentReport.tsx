@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -17,6 +18,7 @@ interface AIStudentReportProps {
   isLoading: boolean;
 }
 
+type ChartDataPoint = { date: string; score: number };
 type Granularity = 'daily' | 'weekly' | 'monthly' | 'yearly';
 
 // Helper functions for date aggregation
@@ -70,7 +72,7 @@ const AIStudentReport: React.FC<AIStudentReportProps> = ({ report, isExpanded, t
   const hasMinimalData = report?.overallSummary && 
                         (report.strengths?.length > 0 || 
                          report.areasForImprovement?.length > 0 || 
-                         (report.knowledgeGrowthChartData && report.knowledgeGrowthChartData.length > 0) // Changed to allow chart with 1 point before processing
+                         (report.knowledgeGrowthChartData && report.knowledgeGrowthChartData.length > 0) 
                         );
 
   if (!hasMinimalData) {
@@ -114,21 +116,25 @@ const AIStudentReport: React.FC<AIStudentReportProps> = ({ report, isExpanded, t
   };
 
   const processedChartData = useMemo(() => {
-  if (!report?.knowledgeGrowthChartData) return [];
+    if (!report?.knowledgeGrowthChartData || !Array.isArray(report.knowledgeGrowthChartData)) return [];
 
-  // Filter data based on date range
-  const filteredData = report.knowledgeGrowthChartData.filter(item => {
-    const itemDate = new Date(item.date);
-    if (isNaN(itemDate.getTime())) return false;
-    if (dateRange.from && itemDate < dateRange.from) return false;
-    if (dateRange.to && itemDate > new Date(dateRange.to.getTime() + 86399999)) return false; // Include the whole 'to' day
-    return true;
-  });
+    // Filter data based on date range
+    const filteredData = report.knowledgeGrowthChartData.filter((item: ChartDataPoint) => {
+      if (!item.date) return false;
+      
+      const itemDate = new Date(item.date);
+      if (isNaN(itemDate.getTime())) return false;
+      if (dateRange.from && itemDate < dateRange.from) return false;
+      if (dateRange.to && itemDate > new Date(dateRange.to.getTime() + 86399999)) return false; // Include the whole 'to' day
+      return true;
+    });
 
-  // Process data based on granularity
-  const aggregatedData: Record<string, { sum: number; count: number; date: Date }> = {};
+    // Process data based on granularity
+    const aggregatedData: Record<string, { sum: number; count: number; date: Date }> = {};
 
-    filteredData.forEach(item => {
+    filteredData.forEach((item: ChartDataPoint) => {
+      if (!item.date) return;
+      
       const date = new Date(item.date);
       if (isNaN(date.getTime())) return;
 
@@ -241,7 +247,7 @@ const AIStudentReport: React.FC<AIStudentReportProps> = ({ report, isExpanded, t
           ) : null}
 
           {/* Knowledge Growth Chart */}
-          {report.knowledgeGrowthChartData && report.knowledgeGrowthChartData.length > 0 ? ( // Check original data length
+          {report.knowledgeGrowthChartData && Array.isArray(report.knowledgeGrowthChartData) && report.knowledgeGrowthChartData.length > 0 ? (
             <div className="mt-4">
               <h4 className="font-semibold mb-2 text-gray-800">
                 {language === 'id' ? 'Grafik Pertumbuhan Pengetahuan' : 'Knowledge Growth Chart'}
@@ -291,7 +297,7 @@ const AIStudentReport: React.FC<AIStudentReportProps> = ({ report, isExpanded, t
                     />
                   </PopoverContent>
                 </Popover>
-                 <Button variant="outline" size="sm" onClick={() => setDateRange({ from: undefined, to: undefined })} disabled={!dateRange.from && !dateRange.to}>
+                <Button variant="outline" size="sm" onClick={() => setDateRange({ from: undefined, to: undefined })} disabled={!dateRange.from && !dateRange.to}>
                   {language === 'id' ? 'Reset Tanggal' : 'Reset Dates'}
                 </Button>
               </div>
@@ -319,7 +325,7 @@ const AIStudentReport: React.FC<AIStudentReportProps> = ({ report, isExpanded, t
                   </ResponsiveContainer>
                 </div>
               ) : (
-                 <div className="text-center py-4 text-muted-foreground">
+                <div className="text-center py-4 text-muted-foreground">
                   {language === 'id' ? 'Tidak cukup data untuk granularitas atau rentang tanggal yang dipilih.' : 'Not enough data for selected granularity or date range.'}
                 </div>
               )}

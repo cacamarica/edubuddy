@@ -7,7 +7,7 @@ export interface Badge {
   name: string;
   description: string;
   image_url: string;
-  category: string;
+  category?: string;
   created_at: string;
 }
 
@@ -15,7 +15,8 @@ export interface StudentBadge {
   id: string;
   student_id: string;
   badge_id: string;
-  awarded_at: string;
+  earned_at: string;
+  awarded_at?: string; // Make awarded_at optional since it doesn't exist in the database
   badge?: Badge;
 }
 
@@ -35,10 +36,12 @@ export const fetchStudentBadges = async (studentId: string): Promise<StudentBadg
       return [];
     }
     
+    // Type assertion to convert the query result to StudentBadge[]
     return data.map(item => ({
       ...item,
-      badge: item.badges
-    })) as StudentBadge[];
+      badge: item.badges,
+      awarded_at: item.earned_at // Map earned_at to awarded_at for compatibility
+    })) as unknown as StudentBadge[];
   } catch (error) {
     console.error("Error in fetchStudentBadges:", error);
     return [];
@@ -54,7 +57,7 @@ export const awardBadge = async (studentId: string, badgeId: string): Promise<bo
         {
           student_id: studentId,
           badge_id: badgeId,
-          awarded_at: new Date().toISOString()
+          earned_at: new Date().toISOString()
         }
       ]);
       

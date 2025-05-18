@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Lightbulb, CheckCircle, ArrowRight, FileText, BarChart3, HelpCircle, Check, X, RefreshCw } from 'lucide-react'; // Added RefreshCw
-import { studentProgressService, AIRecommendation, AISummaryReport, QuizReviewDetail } from '@/services/studentProgressService'; // Updated imports
+import { Lightbulb, CheckCircle, ArrowRight, FileText, BarChart3, HelpCircle, Check, X, RefreshCw } from 'lucide-react';
+import { studentProgressService, AIRecommendation, AISummaryReport } from '@/services/studentProgressService';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Spinner } from '@/components/ui/spinner';
 import { useNavigate } from 'react-router-dom';
@@ -12,29 +13,41 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts'; // Added recharts
-import { toast } from 'sonner'; // For user feedback
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+import { toast } from 'sonner';
 
 // Time interval types for the chart
 type TimeInterval = 'daily' | 'weekly' | 'monthly' | 'yearly';
+type ChartDataPoint = { date: string; score: number };
 
 interface AIRecommendationsProps {
   studentId: string;
   gradeLevel: 'k-3' | '4-6' | '7-9'; 
 }
 
-// AIRecommendation interface might need to be augmented if reasoning/impact is added
-// interface AIRecommendation { ... reasoning?: string; potentialImpact?: string; }
+interface QuizData {
+  quizId: string;
+  quizTitle: string;
+  completedDate: string;
+  score: number;
+  maxScore: number;
+  percentage: number;
+  questions: Array<{
+    questionText: string;
+    studentAnswer: string;
+    correctAnswer: string;
+    isCorrect: boolean;
+  }>;
+}
 
-debugger
 const AIRecommendations: React.FC<AIRecommendationsProps> = ({ studentId, gradeLevel }) => {  
   const [recommendations, setRecommendations] = useState<AIRecommendation[]>([]);
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(true);
   const [summaryReport, setSummaryReport] = useState<AISummaryReport | null>(null);
   const [isLoadingReport, setIsLoadingReport] = useState(true);
-  const [forceRefreshReport, setForceRefreshReport] = useState(false); // For report refresh
-  const [timeInterval, setTimeInterval] = useState<TimeInterval>('daily'); // Default to daily view
-  const [isChartLoading, setIsChartLoading] = useState(false); // Loading state for chart transitions
+  const [forceRefreshReport, setForceRefreshReport] = useState(false);
+  const [timeInterval, setTimeInterval] = useState<TimeInterval>('daily');
+  const [isChartLoading, setIsChartLoading] = useState(false);
   const { language } = useLanguage();
   const navigate = useNavigate();
   const { selectedProfile } = useStudentProfile();
@@ -43,7 +56,7 @@ const AIRecommendations: React.FC<AIRecommendationsProps> = ({ studentId, gradeL
     setIsLoadingRecommendations(true);
     setIsLoadingReport(true);
 
-    // Fetch AI Recommendations (existing logic)
+    // Fetch AI Recommendations
     try {
       const recData = await studentProgressService.getAIRecommendations(studentId);
       setRecommendations(recData);
@@ -68,20 +81,18 @@ const AIRecommendations: React.FC<AIRecommendationsProps> = ({ studentId, gradeL
           toast.success(language === 'id' ? 'Laporan berhasil diperbarui' : 'Report refreshed successfully');
         }
       } else {
-        // This case should ideally not happen if props are correctly passed
         setSummaryReport(null);
         console.warn("Student ID, grade level, or name missing for AI summary report fetch.");
       }
     } catch (error) {
       console.error("Failed to load AI summary report:", error);
       toast.error(language === 'id' ? 'Gagal memuat laporan ringkasan AI' : 'Failed to load AI summary report');
-      setSummaryReport(null); // Ensure report is null on error
+      setSummaryReport(null);
     } finally {
       setIsLoadingReport(false);
-      setForceRefreshReport(false); // Reset refresh trigger
+      setForceRefreshReport(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [studentId, gradeLevel, selectedProfile?.name, language]); // Removed studentProgressService from deps as it's stable
+  }, [studentId, gradeLevel, selectedProfile?.name, language]);
 
   useEffect(() => {
     if (studentId && gradeLevel && selectedProfile?.name) {
@@ -90,10 +101,9 @@ const AIRecommendations: React.FC<AIRecommendationsProps> = ({ studentId, gradeL
   }, [studentId, gradeLevel, selectedProfile?.name, forceRefreshReport, fetchRecommendationsAndReport]);
   
   const handleForceRefreshReport = () => {
-    setForceRefreshReport(true); // This will trigger the useEffect
+    setForceRefreshReport(true);
   };
 
-  // Minor update to handleStartLesson to ensure proper string casting
   const handleStartLesson = async (rec: AIRecommendation) => {
     if (rec.id) {
       await studentProgressService.markRecommendationAsActedOn(rec.id.toString());
@@ -130,23 +140,7 @@ const AIRecommendations: React.FC<AIRecommendationsProps> = ({ studentId, gradeL
     
   const ensureRecommendations = () => {
     if (recommendations.length === 0 && !isLoadingRecommendations) {
-      // Mock recommendations can be kept or removed if backend is reliable
-      const mockRecommendations = [
-        {
-          id: 'mock-1',
-          student_id: studentId,
-          recommendation_type: 'Math:Multiplication',
-          recommendation: language === 'id' 
-            ? 'Latih soal Matematika tentang Perkalian.' 
-            : 'Practice Math problems on Multiplication.',
-          created_at: new Date().toISOString(),
-          read: true,
-          acted_on: false
-        },
-        // ... other mock recommendations
-      ];
-      // return mockRecommendations; // Uncomment if you want to keep mocks as fallback
-      return []; // Or return empty if backend should always provide
+      return [];
     }
     return recommendations;
   };
@@ -168,16 +162,17 @@ const AIRecommendations: React.FC<AIRecommendationsProps> = ({ studentId, gradeL
     try {
       return new Date(dateString).toLocaleDateString(language === 'id' ? 'id-ID' : 'en-US', { month: 'short', day: 'numeric' });
     } catch (e) {
-      return dateString; // fallback to original if parsing fails
+      return dateString;
     }
   };
+  
   // Function to filter chart data based on time interval
   const getFilteredChartData = useCallback(() => {
-    if (!summaryReport?.knowledgeGrowthChartData || summaryReport.knowledgeGrowthChartData.length === 0) {
+    if (!summaryReport?.knowledgeGrowthChartData || !Array.isArray(summaryReport.knowledgeGrowthChartData)) {
       return [];
     }
     
-    const data = [...summaryReport.knowledgeGrowthChartData];
+    const data = [...summaryReport.knowledgeGrowthChartData] as ChartDataPoint[];
     const now = new Date();
     
     // Sort data by date (oldest to newest)
@@ -261,7 +256,8 @@ const AIRecommendations: React.FC<AIRecommendationsProps> = ({ studentId, gradeL
         return data;
     }
   }, [summaryReport?.knowledgeGrowthChartData, timeInterval]);
-    // Helper function to get ISO week number
+  
+  // Helper function to get ISO week number
   const getWeekNumber = (date: Date) => {
     const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
     d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
@@ -297,6 +293,88 @@ const AIRecommendations: React.FC<AIRecommendationsProps> = ({ studentId, gradeL
     } catch (e) {
       return dateString;
     }
+  };
+  
+  // Helper function to convert quiz review data to components
+  const renderQuizReview = () => {
+    if (!summaryReport?.quizReview) return null;
+    
+    // Generate dummy quiz data for display
+    const quizData: QuizData[] = [];
+    
+    if (summaryReport.quizReview.topics && Array.isArray(summaryReport.quizReview.topics) && 
+        summaryReport.quizReview.scores && Array.isArray(summaryReport.quizReview.scores)) {
+      
+      const topics = summaryReport.quizReview.topics;
+      const scores = summaryReport.quizReview.scores;
+      
+      // Only create quiz data if both arrays exist and have content
+      if (topics.length > 0 && scores.length > 0) {
+        // Use the minimum length of both arrays
+        const length = Math.min(topics.length, scores.length);
+        
+        for (let i = 0; i < length; i++) {
+          quizData.push({
+            quizId: `quiz-${i}`,
+            quizTitle: topics[i],
+            completedDate: new Date().toISOString(),
+            score: scores[i],
+            maxScore: 100,
+            percentage: scores[i],
+            questions: [
+              {
+                questionText: "Example question",
+                studentAnswer: "Student answer",
+                correctAnswer: "Correct answer",
+                isCorrect: scores[i] > 70
+              }
+            ]
+          });
+        }
+      }
+    }
+    
+    if (quizData.length === 0) return null;
+    
+    return (
+      <div className="mt-4">
+        <h4 className="font-semibold mb-2 text-gray-800">
+          {language === 'id' ? 'Tinjauan Hasil Kuis' : 'Quiz Results Review'}
+        </h4>
+        <Accordion type="single" collapsible className="w-full">
+          {quizData.map((quiz, index) => (
+            <AccordionItem value={`item-${index}`} key={quiz.quizId || index}>
+              <AccordionTrigger className="text-sm hover:no-underline">
+                <div className="flex justify-between w-full pr-2">
+                  <span>{quiz.quizTitle}</span>
+                  <span className={`font-semibold ${quiz.percentage >= 70 ? 'text-green-600' : 'text-red-600'}`}>
+                    {language === 'id' ? 'Nilai': 'Score'}: {quiz.score}/{quiz.maxScore} ({quiz.percentage}%)
+                  </span>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="text-xs bg-white p-3 rounded-md border mt-1">
+                <p className="mb-2 text-gray-600"> {language === 'id' ? 'Tanggal Selesai': 'Completed'}: {new Date(quiz.completedDate).toLocaleDateString()}</p>
+                <h5 className="font-semibold mb-1 text-gray-700">{language === 'id' ? 'Detail Jawaban': 'Answer Details'}:</h5>
+                <ul className="space-y-2">
+                  {quiz.questions.map((q, qIndex) => (
+                    <li key={qIndex} className="p-2 border-b last:border-b-0">
+                      <p className="font-medium text-gray-700 mb-0.5"> {language === 'id' ? `Pertanyaan ${qIndex + 1}`: `Question ${qIndex + 1}`}: {q.questionText}</p>
+                      <p className={`text-gray-600 ${q.isCorrect ? '' : 'text-red-500'}`}>
+                        {language === 'id' ? 'Jawabanmu': 'Your Answer'}: {q.studentAnswer} 
+                        {q.isCorrect ? <Check className="inline h-4 w-4 text-green-500 ml-1" /> : <X className="inline h-4 w-4 text-red-500 ml-1" />}
+                      </p>
+                      {!q.isCorrect && (
+                        <p className="text-green-600">{language === 'id' ? 'Jawaban Benar': 'Correct Answer'}: {q.correctAnswer}</p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </AccordionContent>
+            </AccordionItem>
+          ))}
+        </Accordion>
+      </div>
+    );
   };
 
   return (
@@ -335,7 +413,7 @@ const AIRecommendations: React.FC<AIRecommendationsProps> = ({ studentId, gradeL
               <h4 className="font-semibold mb-1 text-gray-800">{language === 'id' ? 'Ringkasan Umum' : 'Overall Summary'}</h4>
               <p className="text-gray-700 whitespace-pre-wrap">{summaryReport.overallSummary}</p>
             </div>
-            {summaryReport.studentName && ( // Display student name and grade from report
+            {summaryReport.studentName && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
                 <div>
                   <h4 className="font-semibold text-gray-800">{language === 'id' ? 'Siswa' : 'Student'}</h4>
@@ -362,13 +440,16 @@ const AIRecommendations: React.FC<AIRecommendationsProps> = ({ studentId, gradeL
             <div>
               <h4 className="font-semibold mb-1 text-gray-800">{language === 'id' ? 'Analisis Aktivitas' : 'Activity Analysis'}</h4>
               <p className="text-gray-700 whitespace-pre-wrap">{summaryReport.activityAnalysis}</p>
-            </div>            {/* Knowledge Growth Chart */}
-            {summaryReport.knowledgeGrowthChartData && summaryReport.knowledgeGrowthChartData.length > 0 && (
+            </div>
+            
+            {/* Knowledge Growth Chart */}
+            {summaryReport.knowledgeGrowthChartData && Array.isArray(summaryReport.knowledgeGrowthChartData) && summaryReport.knowledgeGrowthChartData.length > 0 && (
               <div className="mt-4">
                 <div className="flex justify-between items-center mb-2">
                   <h4 className="font-semibold text-gray-800">
                     {language === 'id' ? 'Grafik Pertumbuhan Pengetahuan (Skor Kuis)' : 'Knowledge Growth Chart (Quiz Scores)'}
-                  </h4>                  <div className="flex space-x-2 text-xs">
+                  </h4>
+                  <div className="flex space-x-2 text-xs">
                     <button 
                       className={`px-2 py-1 rounded transition-all duration-200 ${timeInterval === 'daily' ? 'bg-purple-100 text-purple-700 font-medium' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                       onClick={() => {
@@ -423,7 +504,8 @@ const AIRecommendations: React.FC<AIRecommendationsProps> = ({ studentId, gradeL
                       {language === 'id' ? 'Tahunan' : 'Yearly'}
                     </button>
                   </div>
-                </div>                <div style={{ width: '100%', height: 300 }} className="bg-white p-2 rounded shadow relative">
+                </div>
+                <div style={{ width: '100%', height: 300 }} className="bg-white p-2 rounded shadow relative">
                   {isChartLoading && (
                     <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-70 z-10">
                       <Spinner size="sm" />
@@ -438,7 +520,8 @@ const AIRecommendations: React.FC<AIRecommendationsProps> = ({ studentId, gradeL
                     >
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="date" tickFormatter={formatXAxis} />
-                      <YAxis domain={[0, 100]} />                      <Tooltip 
+                      <YAxis domain={[0, 100]} />
+                      <Tooltip 
                         formatter={(value: number) => [`${value}%`, language === 'id' ? 'Skor' : 'Score']}
                         labelFormatter={(label: string) => formatXAxis(label)}
                         contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.9)', borderRadius: '4px', padding: '8px', boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)' }}
@@ -460,49 +543,8 @@ const AIRecommendations: React.FC<AIRecommendationsProps> = ({ studentId, gradeL
               </div>
             )}
 
-            {/* Detailed Quiz Review Section - Placeholder for Table */}
-            {summaryReport.quizReview && summaryReport.quizReview.length > 0 && (
-              <div className="mt-4">
-                <h4 className="font-semibold mb-2 text-gray-800">
-                  {language === 'id' ? 'Tinjauan Hasil Kuis' : 'Quiz Results Review'}
-                </h4>
-                {/* TODO: Replace Accordion with Paginated Table linking to DetailedQuizHistoryPage */}
-                <Accordion type="single" collapsible className="w-full">
-                  {summaryReport.quizReview.map((quiz, index) => (
-                    <AccordionItem value={`item-${index}`} key={quiz.quizId || index}>
-                      <AccordionTrigger className="text-sm hover:no-underline">
-                        <div className="flex justify-between w-full pr-2">
-                          <span>{quiz.quizTitle}</span>
-                          <span className={`font-semibold ${quiz.percentage >= 70 ? 'text-green-600' : 'text-red-600'}`}>
-                            {language === 'id' ? 'Nilai': 'Score'}: {quiz.score}/{quiz.maxScore} ({quiz.percentage}%)
-                          </span>
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent className="text-xs bg-white p-3 rounded-md border mt-1">
-                        <p className="mb-2 text-gray-600"> {language === 'id' ? 'Tanggal Selesai': 'Completed'}: {new Date(quiz.completedDate).toLocaleDateString()}</p>
-                        <h5 className="font-semibold mb-1 text-gray-700">{language === 'id' ? 'Detail Jawaban': 'Answer Details'}:</h5>
-                        <ul className="space-y-2">
-                          {quiz.questions.map((q, qIndex) => (
-                            <li key={qIndex} className="p-2 border-b last:border-b-0">
-                              <p className="font-medium text-gray-700 mb-0.5"> {language === 'id' ? `Pertanyaan ${qIndex + 1}`: `Question ${qIndex + 1}`}: {q.questionText}</p>
-                              <p className={`text-gray-600 ${q.isCorrect ? '' : 'text-red-500'}`}>
-                                {language === 'id' ? 'Jawabanmu': 'Your Answer'}: {q.studentAnswer} 
-                                {q.isCorrect ? <Check className="inline h-4 w-4 text-green-500 ml-1" /> : <X className="inline h-4 w-4 text-red-500 ml-1" />}
-                              </p>
-                              {!q.isCorrect && (
-                                <p className="text-green-600">{language === 'id' ? 'Jawaban Benar': 'Correct Answer'}: {q.correctAnswer}</p>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
-                        {/* Link to detailed history page - to be part of table row */}
-                        {/* <Button size="xs" variant="link" onClick={() => navigate(`/student/${studentId}/quiz-history/${quiz.quizId}`)}>View Full History</Button> */}
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
-                </Accordion>
-              </div>
-            )}
+            {/* Render Quiz Review Section */}
+            {renderQuizReview()}
           </div>
         ) : (
           <div className="text-center py-8 text-muted-foreground p-4 border rounded-lg bg-gray-50">
@@ -553,20 +595,6 @@ const AIRecommendations: React.FC<AIRecommendationsProps> = ({ studentId, gradeL
                     </div>
                     <h4 className={`font-semibold mb-1 text-gray-800 ${rec.acted_on ? 'line-through' : ''}`}>{topicText}</h4>
                     <p className={`text-xs text-gray-600 mb-1 ${rec.acted_on ? 'line-through' : ''}`}>{rec.recommendation}</p>
-                    
-                    {/* Placeholder for AI Reasoning & Impact - to be added */}
-                    {/* {rec.reasoning && (
-                      <div className="mt-2 text-xs text-gray-500 flex items-start">
-                        <HelpCircle className="h-3 w-3 mr-1 mt-0.5 shrink-0 text-blue-500" />
-                        <span><strong>Reasoning:</strong> {rec.reasoning}</span>
-                      </div>
-                    )}
-                    {rec.potentialImpact && (
-                       <div className="mt-1 text-xs text-gray-500 flex items-start">
-                         <BarChart3 className="h-3 w-3 mr-1 mt-0.5 shrink-0 text-green-500" />
-                         <span><strong>Impact:</strong> {rec.potentialImpact}</span>
-                       </div>
-                    )} */}
                   </div>
                   
                   {!rec.acted_on && (
