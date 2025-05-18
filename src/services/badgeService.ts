@@ -1,15 +1,32 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Badge, StudentBadge } from "./studentProgressService";
 
 // Badge types based on different achievements
 export type BadgeType = 
-  "quiz_completion" | 
-  "perfect_score" | 
-  "subject_mastery" | 
-  "first_quiz" |
-  "lesson_completion" |
-  "streak";
+  "quiz_completion_first" | 
+  "quiz_completion_5" |
+  "quiz_completion_10" |
+  "quiz_perfect_score" | 
+  "quiz_score_improvement" |
+  "lesson_completion_first" |
+  "lesson_completion_5" |
+  "lesson_completion_10" |
+  "lesson_completion_25" |
+  "subject_math_5" |
+  "subject_science_5" |
+  "subject_language_5" |
+  "streak_3_days" |
+  "streak_7_days" |
+  "streak_14_days" |
+  "growth_retry_quiz" |
+  "growth_difficult_lesson" |
+  "game_first" |
+  "game_5" |
+  "curiosity_questions_5" |
+  "curiosity_questions_10" |
+  "family_session";
 
 interface BadgeAwardParams {
   studentId: string;
@@ -18,13 +35,26 @@ interface BadgeAwardParams {
   topic?: string;
   score?: number;
   totalQuestions?: number;
+  streakDays?: number;
+  questionsAsked?: number;
+  lessonCount?: number;
 }
 
 export const badgeService = {
   // Check and award badges based on achievements
   async checkAndAwardBadges(params: BadgeAwardParams): Promise<Badge | null> {
     try {
-      const { studentId, badgeType, subject, topic, score, totalQuestions } = params;
+      const { 
+        studentId, 
+        badgeType, 
+        subject, 
+        topic, 
+        score, 
+        totalQuestions, 
+        streakDays, 
+        questionsAsked, 
+        lessonCount 
+      } = params;
       
       // First, get existing badges to prevent duplicates
       let existingBadges: any[] = [];
@@ -50,70 +80,98 @@ export const badgeService = {
 
       // Map of existing badge types this student has
       const existingBadgeTypes = new Set(existingBadges.map(eb => eb.badges?.type));
-
-      if (badgeType === "quiz_completion" && subject) {
-        const badgeName = `${subject.charAt(0).toUpperCase() + subject.slice(1)} Quiz Completed`;
-        const badgeDesc = `Completed a quiz in ${subject}`;
-        
-        // Check if student already has this badge
-        if (!existingBadgeTypes.has(`quiz_${subject.toLowerCase()}`)) {
-          return this.awardBadge({
-            studentId,
-            name: badgeName,
-            description: badgeDesc,
-            type: `quiz_${subject.toLowerCase()}`,
-            imageUrl: `/badges/quiz_${subject.toLowerCase()}.png`
-          });
+      
+      // Check for first quiz badge
+      if (badgeType === "quiz_completion_first") {
+        if (!existingBadgeTypes.has("quiz_completion_first")) {
+          return this.awardBadgeByType(studentId, "quiz_completion_first");
         }
       }
       
-      if (badgeType === "perfect_score" && score === totalQuestions && score && score > 0) {
-        const badgeName = "Perfect Score";
-        const badgeDesc = "Achieved a perfect score on a quiz";
-        
-        // Check if student already has this badge
-        if (!existingBadgeTypes.has("perfect_score")) {
-          return this.awardBadge({
-            studentId,
-            name: badgeName,
-            description: badgeDesc,
-            type: "perfect_score",
-            imageUrl: "/badges/perfect_score.png"
-          });
+      // Check for perfect score badge
+      if (badgeType === "quiz_perfect_score" && score === totalQuestions && score && score > 0) {
+        if (!existingBadgeTypes.has("quiz_perfect_score")) {
+          return this.awardBadgeByType(studentId, "quiz_perfect_score");
         }
       }
       
-      if (badgeType === "first_quiz") {
-        const badgeName = "First Quiz Completed";
-        const badgeDesc = "Completed your first quiz";
-        
-        // Check if student already has this badge
-        if (!existingBadgeTypes.has("first_quiz")) {
-          return this.awardBadge({
-            studentId,
-            name: badgeName,
-            description: badgeDesc,
-            type: "first_quiz",
-            imageUrl: "/badges/first_quiz.png"
-          });
+      // Check for quiz improvement badge
+      if (badgeType === "quiz_score_improvement") {
+        if (!existingBadgeTypes.has("quiz_score_improvement")) {
+          return this.awardBadgeByType(studentId, "quiz_score_improvement");
         }
       }
-
-      if (badgeType === "lesson_completion" && subject && topic) {
-        const badgeName = `${topic} Lesson Completed`;
-        const badgeDesc = `Completed the ${topic} lesson in ${subject}`;
-        
-        // Check if student already has this badge
-        const badgeTypeId = `lesson_${subject.toLowerCase()}_${topic.toLowerCase().replace(/\s/g, "_")}`;
-        if (!existingBadgeTypes.has(badgeTypeId)) {
-          return this.awardBadge({
-            studentId,
-            name: badgeName,
-            description: badgeDesc,
-            type: badgeTypeId,
-            imageUrl: `/badges/lesson_${subject.toLowerCase()}.png`
-          });
+      
+      // Check for lesson completion badges
+      if (badgeType === "lesson_completion_first") {
+        if (!existingBadgeTypes.has("lesson_completion_first")) {
+          return this.awardBadgeByType(studentId, "lesson_completion_first");
         }
+      }
+      
+      // Check for completed 5 lessons badge
+      if (badgeType === "lesson_completion_5" && lessonCount && lessonCount >= 5) {
+        if (!existingBadgeTypes.has("lesson_completion_5")) {
+          return this.awardBadgeByType(studentId, "lesson_completion_5");
+        }
+      }
+      
+      // Check for completed 10 lessons badge
+      if (badgeType === "lesson_completion_10" && lessonCount && lessonCount >= 10) {
+        if (!existingBadgeTypes.has("lesson_completion_10")) {
+          return this.awardBadgeByType(studentId, "lesson_completion_10");
+        }
+      }
+      
+      // Check for completed 25 lessons badge
+      if (badgeType === "lesson_completion_25" && lessonCount && lessonCount >= 25) {
+        if (!existingBadgeTypes.has("lesson_completion_25")) {
+          return this.awardBadgeByType(studentId, "lesson_completion_25");
+        }
+      }
+      
+      // Check for subject badges
+      if (badgeType.startsWith("subject_") && subject) {
+        // Extract subject name from badge type or use provided subject
+        const subjectFromBadge = badgeType.split('_')[1];
+        const targetSubject = subjectFromBadge || subject.toLowerCase();
+        
+        if (subject.toLowerCase() === targetSubject && !existingBadgeTypes.has(badgeType)) {
+          return this.awardBadgeByType(studentId, badgeType);
+        }
+      }
+      
+      // Check for streak badges
+      if (badgeType.startsWith("streak_") && streakDays) {
+        const daysRequired = parseInt(badgeType.split('_')[1]);
+        if (streakDays >= daysRequired && !existingBadgeTypes.has(badgeType)) {
+          return this.awardBadgeByType(studentId, badgeType);
+        }
+      }
+      
+      // Check for growth mindset badges
+      if (badgeType.startsWith("growth_") && !existingBadgeTypes.has(badgeType)) {
+        return this.awardBadgeByType(studentId, badgeType);
+      }
+      
+      // Check for game badges
+      if (badgeType.startsWith("game_")) {
+        if (!existingBadgeTypes.has(badgeType)) {
+          return this.awardBadgeByType(studentId, badgeType);
+        }
+      }
+      
+      // Check for curiosity badges
+      if (badgeType.startsWith("curiosity_") && questionsAsked) {
+        const questionsRequired = parseInt(badgeType.split('_')[2]);
+        if (questionsAsked >= questionsRequired && !existingBadgeTypes.has(badgeType)) {
+          return this.awardBadgeByType(studentId, badgeType);
+        }
+      }
+      
+      // Check for family engagement badge
+      if (badgeType === "family_session" && !existingBadgeTypes.has("family_session")) {
+        return this.awardBadgeByType(studentId, "family_session");
       }
       
       // No new badge awarded
@@ -121,6 +179,35 @@ export const badgeService = {
       
     } catch (error) {
       console.error("Error checking and awarding badges:", error);
+      return null;
+    }
+  },
+  
+  // Award a badge by its type
+  async awardBadgeByType(studentId: string, badgeType: BadgeType): Promise<Badge | null> {
+    try {
+      // Get badge data by type
+      const { data: badgeData, error: badgeError } = await supabase
+        .from("badges")
+        .select("*")
+        .eq("type", badgeType)
+        .single();
+        
+      if (badgeError || !badgeData) {
+        console.error("Error finding badge with type:", badgeType, badgeError);
+        return null;
+      }
+      
+      // Award the badge using the existing method
+      return this.awardBadge({
+        studentId,
+        name: badgeData.name,
+        description: badgeData.description,
+        type: badgeType,
+        imageUrl: badgeData.image_url
+      });
+    } catch (error) {
+      console.error("Error awarding badge by type:", error);
       return null;
     }
   },

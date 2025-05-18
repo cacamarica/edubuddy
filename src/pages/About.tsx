@@ -80,7 +80,7 @@ const About = () => {
               <p className="mb-4">
                 {language === 'id'
                   ? 'Platform kami menggabungkan berbagai pendekatan pembelajaran untuk memenuhi kebutuhan setiap siswa. Dengan memanfaatkan teknologi AI, kami menawarkan konten yang dipersonalisasi yang beradaptasi dengan tingkat pemahaman dan gaya belajar yang unik dari masing-masing siswa.'
-                  : 'Our platform combines diverse learning approaches to meet the needs of every student. By leveraging AI technology, we offer personalized content that adapts to each student\'s unique comprehension level and learning style.'}
+                  : "Our platform combines diverse learning approaches to meet the needs of every student. By leveraging AI technology, we offer personalized content that adapts to each student's unique comprehension level and learning style."}
               </p>
               
               <div className="mt-6">

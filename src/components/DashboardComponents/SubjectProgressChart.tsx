@@ -2,12 +2,51 @@
 import React from 'react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { Spinner } from '@/components/ui/spinner';
+import { Book, Calculator, Flask, Globe, PenTool, Puzzle, Brain, BookOpen } from 'lucide-react';
 
 interface SubjectProgressChartProps {
   subjectProgress: any[];
   isLoading: boolean;
   language: string;
 }
+
+// Map subjects to their corresponding icons
+const SubjectIcon = ({ subject }: { subject: string }) => {
+  const iconProps = { className: "h-4 w-4 mr-2", strokeWidth: 2 };
+  
+  switch (subject.toLowerCase()) {
+    case 'math':
+      return <Calculator {...iconProps} />;
+    case 'science':
+      return <Flask {...iconProps} />;
+    case 'social studies':
+    case 'history':
+    case 'geography':
+      return <Globe {...iconProps} />;
+    case 'language':
+    case 'english':
+    case 'literature':
+      return <BookOpen {...iconProps} />;
+    case 'arts':
+      return <PenTool {...iconProps} />;
+    case 'logic':
+    case 'puzzles':
+      return <Puzzle {...iconProps} />;
+    case 'critical thinking':
+      return <Brain {...iconProps} />;
+    default:
+      return <Book {...iconProps} />;
+  }
+};
+
+// Get color based on progress percentage
+const getProgressColor = (progress: number) => {
+  if (progress >= 80) return 'bg-green-500';
+  if (progress >= 60) return 'bg-emerald-500';
+  if (progress >= 40) return 'bg-yellow-500';
+  if (progress >= 20) return 'bg-orange-500';
+  return 'bg-red-500';
+};
 
 const SubjectProgressChart: React.FC<SubjectProgressChartProps> = ({ subjectProgress, isLoading, language }) => {
   if (isLoading) {
@@ -27,7 +66,7 @@ const SubjectProgressChart: React.FC<SubjectProgressChartProps> = ({ subjectProg
   return (
     <div className="w-full">
       {chartData.length > 0 ? (
-        <div style={{ width: '100%', height: 400 }}>
+        <div style={{ width: '100%', height: 400 }} className="mb-8">
           <ResponsiveContainer>
             <BarChart
               data={chartData}
@@ -60,7 +99,7 @@ const SubjectProgressChart: React.FC<SubjectProgressChartProps> = ({ subjectProg
         </div>
       )}
       
-      {/* List View of Subject Progress */}
+      {/* List View of Subject Progress with Icons */}
       <div className="mt-8 space-y-4">
         <h4 className="font-semibold text-lg">
           {language === 'id' ? 'Detail Kemajuan Mata Pelajaran' : 'Subject Progress Details'}
@@ -69,14 +108,14 @@ const SubjectProgressChart: React.FC<SubjectProgressChartProps> = ({ subjectProg
           {chartData.length > 0 ? (
             chartData.map((item, index) => (
               <div key={index} className="flex items-center justify-between p-3 border rounded-md">
-                <span className="font-medium">{item.subject}</span>
+                <div className="flex items-center">
+                  <SubjectIcon subject={item.subject} />
+                  <span className="font-medium">{item.subject}</span>
+                </div>
                 <div className="flex items-center gap-4">
                   <div className="w-48 h-2 bg-gray-200 rounded-full overflow-hidden">
                     <div
-                      className={`h-full ${
-                        item.progress >= 70 ? 'bg-green-500' : 
-                        item.progress >= 40 ? 'bg-yellow-500' : 'bg-red-500'
-                      }`}
+                      className={`h-full ${getProgressColor(item.progress)}`}
                       style={{ width: `${item.progress}%` }}
                     />
                   </div>
