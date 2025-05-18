@@ -1,450 +1,315 @@
-import React, { useState, useEffect } from 'react';
+
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import AILesson from '@/components/AILesson';
+import AIQuiz from '@/components/AIQuiz';
+import AIGame from '@/components/AIGame';
+import LearningBuddy from '@/components/LearningBuddy';
+import { useAuth } from '@/contexts/AuthContext';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/card';
+import { Student, convertToStudent, convertToStudentProfile } from '@/types/learning';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import LearningBuddy from '@/components/LearningBuddy';
+import LearningContent from '@/components/LearningComponents/LearningContent';
+import { Skeleton } from '@/components/ui/skeleton';
 import StudentProfile from '@/components/StudentProfile';
-import { toast } from 'sonner';
-import LearningHeader from '@/components/LearningComponents/LearningHeader';
-import TopicSelector from '@/components/LearningComponents/TopicSelector';
-import LearningContentWrapper from '@/components/LearningComponents/LearningContentWrapper';
-import useLearningGradeLevel from '@/hooks/useLearningGradeLevel';
-import useStarsManager from '@/hooks/useStarsManager';
-import { useLanguage } from '@/contexts/LanguageContext';
-import { useAuth } from '@/contexts/AuthContext';
 import { LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { Student } from '@/types/learning';
 
 const AILearning = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { stars, addStars } = useStarsManager();
-  const { t, language } = useLanguage();
-  const { user } = useAuth();
+  const { user, isParent, isStudent } = useAuth();
   
-  const initialGradeLevel = (location.state?.gradeLevel as 'k-3' | '4-6' | '7-9') || 'k-3';
-  const { 
-    gradeLevel, 
-    setGradeLevel, 
-    subjectOptions, 
-    getTopicSuggestionsForSubject,
-    updateGradeLevelFromStudent
-  } = useLearningGradeLevel(initialGradeLevel);
-  
-  const [subject, setSubject] = useState<string>(location.state?.subject || 'Math');
-  const [topic, setTopic] = useState<string>(location.state?.topic || '');
-  const [contentReady, setContentReady] = useState(false);
-  const [activeTab, setActiveTab] = useState('lesson');
   const [currentStudent, setCurrentStudent] = useState<Student | null>(null);
-  const [showProfileManager, setShowProfileManager] = useState(false);
-  const [customTopic, setCustomTopic] = useState('');
-  const [aiUsageCount, setAiUsageCount] = useState<number>(0);
+  const [loading, setLoading] = useState(true);
+  const [selectedTab, setSelectedTab] = useState('learn');
+  const [isShowingProfile, setIsShowingProfile] = useState(false);
   const [isLoadingStudents, setIsLoadingStudents] = useState(false);
   
-  // Load AI usage count from localStorage on component mount
-  useEffect(() => {
-    const storedCount = localStorage.getItem('aiUsageCount');
-    if (storedCount) {
-      setAiUsageCount(parseInt(storedCount));
-    }
-  }, []);
-
-  // Update localStorage when aiUsageCount changes
-  useEffect(() => {
-    localStorage.setItem('aiUsageCount', aiUsageCount.toString());
-  }, [aiUsageCount]);
-
-  // Reset AI usage count when user logs in
-  useEffect(() => {
-    if (user && aiUsageCount > 0) {
-      setAiUsageCount(0);
-      localStorage.setItem('aiUsageCount', '0');
-    }
-  }, [user, aiUsageCount]);
-
-  // Load real student data from Supabase when user is logged in
-  useEffect(() => {
-    const fetchStudents = async () => {
-      if (!user) {
-        return;
-      }
-
-      setIsLoadingStudents(true);
-      const { data, error } = await supabase
-        .from('students')
-        .select('*')
-        .eq('parent_id', user.id);
-      
-      if (error) {
-        console.error("Error fetching students:", error);
-        toast.error(language === 'id' 
-          ? "Gagal memuat data siswa" 
-          : "Failed to load student data");
-        setIsLoadingStudents(false);
-        return;
-      }
-
-      // If there's student data and a studentId from location state, set current student
-      if (data && data.length > 0) {
-        if (location.state?.studentId) {
-          const student = data.find(s => s.id === location.state.studentId);
-          if (student) {
-            const formattedStudent = {
-              id: student.id,
-              name: student.name,
-              age: student.age || 7,
-              gradeLevel: student.grade_level as 'k-3' | '4-6' | '7-9',
-              avatar: location.state?.studentAvatar || '👧'
-            };
-            setCurrentStudent(formattedStudent);
-            updateGradeLevelFromStudent(formattedStudent);
-          } else if (data[0]) {
-            // If specified student not found, use the first one
-            const defaultStudent = {
-              id: data[0].id,
-              name: data[0].name,
-              age: data[0].age || 7,
-              gradeLevel: data[0].grade_level as 'k-3' | '4-6' | '7-9',
-              avatar: '👧'
-            };
-            setCurrentStudent(defaultStudent);
-            updateGradeLevelFromStudent(defaultStudent);
-          }
-        } else if (data[0]) {
-          // If no studentId specified, use the first student
-          const defaultStudent = {
-            id: data[0].id,
-            name: data[0].name,
-            age: data[0].age || 7,
-            gradeLevel: data[0].grade_level as 'k-3' | '4-6' | '7-9',
-            avatar: '👧'
-          };
-          setCurrentStudent(defaultStudent);
-          updateGradeLevelFromStudent(defaultStudent);
-        }
-      }
-      
-      setIsLoadingStudents(false);
-    };
-
-    fetchStudents();
-  }, [user, location.state?.studentId, updateGradeLevelFromStudent, language]);
-  // Handle auto-start of content if navigated with specific topic
-  useEffect(() => {
-    if (location.state?.topic && location.state?.autoStart && !contentReady) {
-      setTopic(location.state.topic);
-      
-      const studentId = location.state.studentId;
-      const resumeExisting = location.state.resumeExisting;
-      const recommendationId = location.state.recommendationId;
-      
-      // Try to resume existing content if requested and we have a student ID
-      if (resumeExisting && studentId && user) {
-        checkForExistingActivity(studentId, location.state.subject, location.state.topic);
-      } else {
-        // Otherwise just start new content
-        setContentReady(true);
-        
-        // If user is not logged in, increment AI usage count
-        if (!user) {
-          setAiUsageCount(prev => prev + 1);
-        }
-        
-        // Track recommendation usage if available
-        if (recommendationId && studentId) {
-          trackRecommendationUsage(recommendationId, studentId, location.state.subject, location.state.topic);
-        }
-        
-        toast.success(`${language === 'id' ? 'Memulai' : 'Starting'} ${location.state.topic} ${language === 'id' ? 'di' : 'in'} ${location.state.subject}!`, {
-          position: "bottom-right",
-          duration: 3000,
-        });
-      }
-    }
-  }, [location.state, contentReady, language, user]);
+  // Extract data from location.state
+  const gradeLevel = location.state?.gradeLevel || 'k-3';
+  const subject = location.state?.subject || 'Math';
+  const topic = location.state?.topic || 'General Knowledge';
+  const autoStart = location.state?.autoStart || false;
+  const isNewLesson = location.state?.isNewLesson || false;
   
-  // Check for and resume existing learning activity
-  const checkForExistingActivity = async (studentId: string, subject: string, topic: string) => {
-    try {
-      // Look for an existing learning activity
-      const { data, error } = await supabase
-        .from('learning_activities')
-        .select('*')
-        .eq('student_id', studentId)
-        .eq('subject', subject)
-        .eq('topic', topic)
-        .eq('completed', false) // Only get incomplete activities
-        .order('last_interaction_at', { ascending: false })
-        .limit(1);
-        
-      if (error) throw error;
-      
-      if (data && data.length > 0) {
-        // Found existing learning activity
-        console.log('Resuming existing learning activity:', data[0]);
-        
-        const existingActivity = data[0];
-        
-        // Set the active tab based on the activity type
-        if (existingActivity.activity_type) {
-          setActiveTab(existingActivity.activity_type);
-        }
-        
-        // Update the last interaction time
-        await supabase
-          .from('learning_activities')
-          .update({
-            last_interaction_at: new Date().toISOString()
-          })
-          .eq('id', existingActivity.id);
-        
-        toast.info(language === 'id' 
-          ? 'Melanjutkan aktivitas pembelajaran sebelumnya' 
-          : 'Resuming previous learning activity', {
-          position: "bottom-right",
-          duration: 3000,
-        });
-      } else {
-        // No existing activity found, we'll start fresh
-        console.log('No existing activity found, starting new content');
-        
-        // If this is from a recommendation, track it
-        const recommendationId = location.state?.recommendationId;
-        if (recommendationId && studentId) {
-          trackRecommendationUsage(recommendationId, studentId, subject, topic);
-        }
-      }
-      
-      // Whether resuming or starting new, set content ready
-      setContentReady(true);
-      
-    } catch (error) {
-      console.error('Error checking for existing activities:', error);
-      setContentReady(true); // Continue with new content as fallback
-    }
-  };
-    // Track recommendation usage for analytics
-  const trackRecommendationUsage = async (
-    recommendationId: string, 
-    studentId: string, 
-    subject: string, 
-    topic: string
-  ) => {
-    try {
-      // First mark the recommendation itself as acted upon 
-      await supabase
-        .from('ai_recommendations')
-        .update({
-          acted_on: true,
-          read: true,
-          last_accessed_at: new Date().toISOString()
-        })
-        .eq('id', recommendationId)
-        .eq('student_id', studentId);
-        
-      // We also log this action in learning_activities for better tracking
-      await supabase
-        .from('learning_activities')
-        .insert([{
-          student_id: studentId,
-          activity_type: activeTab as any, // 'lesson' or 'quiz'
-          subject: subject,
-          topic: topic,
-          recommendation_id: recommendationId,
-          started_at: new Date().toISOString(),
-          last_interaction_at: new Date().toISOString(),
-          completed: false,
-          progress: 0
-        }]);
-        
-      console.log('Recommendation usage tracked:', { recommendationId, studentId, subject, topic });
-    } catch (error) {
-      console.error('Error tracking recommendation usage:', error);
-      // Non-critical error, don't show to user
-    }
-  };
-
-  // Update subject when grade level changes
+  // Note: We're using the studentId from location.state, not currentStudent.id
+  const studentId = location.state?.studentId;
+  const studentName = location.state?.studentName || 'Student';
+  
   useEffect(() => {
-    // If current subject is not available in the new grade level, set to first available
-    if (!subjectOptions.includes(subject)) {
-      setSubject(subjectOptions[0]);
-    }
-  }, [gradeLevel, subject, subjectOptions]);
-
-  const handleGoBack = () => {
-    navigate('/lessons', { 
-      state: { 
-        studentId: currentStudent?.id,
-        studentName: currentStudent?.name,
-        gradeLevel
-      } 
-    });
-  };
-
-  const handleTopicSelect = (suggestion: string) => {
-    setTopic(suggestion);
-    setCustomTopic(suggestion);
-  };
-
-  const handleCreateContent = () => {
-    const finalTopic = customTopic.trim() ? customTopic : topic;
-    
-    // Check if non-logged in user has reached AI usage limit
-    if (!user && aiUsageCount >= 2) {
-      toast.error(
-        language === 'id'
-          ? 'Batas penggunaan AI tercapai. Silakan masuk untuk melanjutkan.'
-          : 'AI usage limit reached. Please sign in to continue.',
-        {
-          action: {
-            label: language === 'id' ? 'Masuk' : 'Sign In',
-            onClick: () => navigate('/auth', { state: { action: 'signin' } }),
-          },
-        }
-      );
-      return;
-    }
-    
-    if (finalTopic.trim()) {
-      setTopic(finalTopic);
-      setContentReady(true);
+    const fetchInitialData = async () => {
+      setLoading(true);
       
-      // Increment AI usage count for non-logged in users
+      // If no user is logged in, just set loading to false
       if (!user) {
-        setAiUsageCount(prev => prev + 1);
+        setLoading(false);
+        return;
       }
-    } else {
-      toast.error(language === 'id' ? "Silakan masukkan topik atau pilih salah satu dari saran" : "Please enter a topic or select one from the suggestions");
-    }
-  };
-
-  const handleQuizComplete = (score: number) => {
-    addStars(score);
-    
-    // Here you would also save the progress to the database for logged-in users
-    if (user && currentStudent) {
-      // This is handled by the LessonTracking component now
-    }
-  };
-
-  // Reset to topic selection
-  const handleReset = () => {
-    setContentReady(false);
-    setTopic('');
-    setCustomTopic('');
-    setActiveTab('lesson');
-  };
-
-  const handleStudentChange = (newStudent: Student) => {
-    setCurrentStudent(newStudent);
-    updateGradeLevelFromStudent(newStudent);
-    setShowProfileManager(false);
-  };
-
-  const handleToggleProfileManager = () => {
-    setShowProfileManager(!showProfileManager);
-  };
-
-  return (
-    <div className="flex flex-col min-h-screen">
-      <Header />
       
-      <main className="flex-grow">
-        <LearningHeader 
-          currentStudent={currentStudent}
-          stars={stars}
-          showProfileManager={showProfileManager}
-          onToggleProfileManager={handleToggleProfileManager}
-          onGoBack={handleGoBack}
-        />
-        
-        {showProfileManager && (
-          <section className="py-4">
+      if (isStudent) {
+        // For student users, create their profile for the learning session
+        try {
+          // If we're a student user, we are the current student
+          const { data: profile } = await supabase
+            .from('students')
+            .select('*')
+            .eq('id', user.id)
+            .single();
+          
+          if (profile) {
+            const studentData: Student = {
+              id: profile.id,
+              name: profile.name,
+              age: profile.age || 10,
+              grade_level: profile.grade_level || 'k-3',
+              parent_id: profile.parent_id || '',
+              created_at: profile.created_at || new Date().toISOString(),
+              avatar_url: profile.avatar_url
+            };
+            
+            setCurrentStudent(studentData);
+          } else {
+            // Create a default profile for demo
+            const defaultStudent: Student = {
+              id: user.id,
+              name: user.user_metadata?.full_name || 'Student',
+              age: 10,
+              grade_level: gradeLevel || 'k-3',
+              parent_id: '',
+              created_at: new Date().toISOString()
+            };
+            
+            setCurrentStudent(defaultStudent);
+          }
+        } catch (error) {
+          console.error('Error fetching student profile:', error);
+          // Create a default profile for demo
+          const defaultStudent: Student = {
+            id: user.id,
+            name: user.user_metadata?.full_name || 'Student',
+            age: 10,
+            grade_level: gradeLevel || 'k-3',
+            parent_id: '',
+            created_at: new Date().toISOString()
+          };
+          
+          setCurrentStudent(defaultStudent);
+        }
+      } else if (isParent && studentId) {
+        // For parent users, fetch the selected student profile
+        try {
+          const { data: profile } = await supabase
+            .from('students')
+            .select('*')
+            .eq('id', studentId)
+            .single();
+          
+          if (profile) {
+            const studentData: Student = {
+              id: profile.id,
+              name: profile.name,
+              age: profile.age || 10,
+              grade_level: profile.grade_level || 'k-3',
+              parent_id: profile.parent_id || user.id,
+              created_at: profile.created_at || new Date().toISOString(),
+              avatar_url: profile.avatar_url
+            };
+            
+            setCurrentStudent(studentData);
+          }
+        } catch (error) {
+          console.error('Error fetching student profile:', error);
+        }
+      }
+      
+      setLoading(false);
+    };
+    
+    fetchInitialData();
+  }, [user, isParent, isStudent, studentId, gradeLevel]);
+  
+  const handleStudentChange = (student: Student) => {
+    setCurrentStudent(student);
+  };
+  
+  if (!user) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <div className="flex-grow flex flex-col items-center justify-center p-4">
+          <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6 text-center">
+            <h2 className="text-2xl font-bold mb-4">Sign in to access lessons</h2>
+            <p className="mb-6 text-gray-600">
+              Please sign in or create an account to access our personalized AI learning experience.
+            </p>
+            <Button 
+              onClick={() => navigate('/auth', { state: { returnUrl: location.pathname + location.search }})}
+              className="inline-flex items-center"
+            >
+              <LogIn className="mr-2 h-4 w-4" />
+              Sign In / Register
+            </Button>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+  
+  return (
+    <div className="min-h-screen flex flex-col">
+      <Header />
+      <div className="bg-gradient-to-b from-eduPurple-light/30 to-white">
+        <div className="container mx-auto p-4">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <Badge variant="outline" className="text-xs font-normal">
+                  {gradeLevel === 'k-3' ? 'K-3rd Grade' : 
+                   gradeLevel === '4-6' ? '4-6th Grade' : '7-9th Grade'}
+                </Badge>
+                <Badge variant="outline" className="text-xs font-normal">
+                  {subject}
+                </Badge>
+              </div>
+              <h1 className="text-2xl md:text-3xl font-bold">{topic}</h1>
+            </div>
+            <div className="mt-3 md:mt-0">
+              {currentStudent && (
+                <div 
+                  className="flex items-center gap-2 cursor-pointer"
+                  onClick={() => setIsShowingProfile(!isShowingProfile)}  
+                >
+                  <div className="text-right">
+                    <p className="text-sm font-medium">Learning as</p>
+                    <p className="font-bold">{currentStudent.name}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div className="container mx-auto p-4 flex-grow">
+        {isShowingProfile ? (
+          <div className="bg-white rounded-lg shadow p-4">
             <div className="container px-4 md:px-6">
               <StudentProfile 
                 student={currentStudent || undefined} 
                 currentStudentId={currentStudent?.id}
               />
             </div>
-          </section>
-        )}
-        
-        <section className="py-8">
-          <div className="container px-4 md:px-6">
-            {!contentReady ? (
-              <div className="grid gap-6 md:grid-cols-3">
-                {!currentStudent && !isLoadingStudents && (
-                  <div className="md:col-span-3">
-                    <StudentProfile 
-                      onStudentChange={(student) => handleStudentChange({
-                        ...student,
-                        grade_level: student.grade_level || 'k-3',
-                        parent_id: student.parent_id || '',
-                        created_at: student.created_at || new Date().toISOString()
-                      })}
-                    />
-                  </div>
-                )}
-                
-                {/* AI Usage Limit Warning for non-logged in users */}
-                {!user && (
-                  <div className="md:col-span-3 mb-4">
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-center justify-between">
-                      <div>
-                        <h3 className="font-medium text-yellow-800">
-                          {language === 'id' ? 'Penggunaan Terbatas' : 'Limited Access'}
-                        </h3>
-                        <p className="text-sm text-yellow-700">
-                          {language === 'id'
-                            ? `Anda telah menggunakan ${aiUsageCount}/2 percobaan AI. Masuk untuk akses tak terbatas.`
-                            : `You've used ${aiUsageCount}/2 AI attempts. Sign in for unlimited access.`}
-                        </p>
-                      </div>
-                      <Button
-                        variant="outline"
-                        onClick={() => navigate('/auth', { state: { action: 'signin' } })}
-                        className="flex items-center gap-2"
-                      >
-                        <LogIn className="h-4 w-4" />
-                        {language === 'id' ? 'Masuk' : 'Sign In'}
-                      </Button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="md:col-span-3">
+              {loading ? (
+                <Skeleton className="h-[600px] w-full" />
+              ) : (
+                <>
+                  {!currentStudent && !isLoadingStudents && (
+                    <div className="md:col-span-3">
+                      <StudentProfile 
+                        onStudentChange={(student) => handleStudentChange({
+                          id: student.id,
+                          name: student.name,
+                          grade_level: student.grade_level || 'k-3',
+                          parent_id: student.parent_id || user.id,
+                          created_at: student.created_at || new Date().toISOString(),
+                          age: student.age,
+                          avatar_url: student.avatar_url
+                        })}
+                      />
                     </div>
-                  </div>
-                )}
-                
-                <TopicSelector
+                  )}
+                  
+                  {currentStudent && (
+                    <>
+                      <Tabs 
+                        defaultValue={selectedTab} 
+                        value={selectedTab} 
+                        onValueChange={setSelectedTab}
+                        className="w-full mb-4 bg-white rounded-lg shadow"
+                      >
+                        <TabsList className="border-b p-0 h-auto">
+                          <TabsTrigger 
+                            value="learn" 
+                            className="rounded-none rounded-tl-lg data-[state=active]:shadow-none py-3"
+                          >
+                            Learn
+                          </TabsTrigger>
+                          <TabsTrigger 
+                            value="quiz" 
+                            className="rounded-none data-[state=active]:shadow-none py-3"
+                          >
+                            Quiz
+                          </TabsTrigger>
+                          <TabsTrigger 
+                            value="practice" 
+                            className="rounded-none rounded-tr-lg data-[state=active]:shadow-none py-3"
+                          >
+                            Practice
+                          </TabsTrigger>
+                        </TabsList>
+                        
+                        <TabsContent value="learn" className="p-4">
+                          <LearningContent
+                            gradeLevel={gradeLevel}
+                            subject={subject}
+                            topic={topic}
+                            student={currentStudent}
+                            autoStart={autoStart}
+                          />
+                        </TabsContent>
+                        
+                        <TabsContent value="quiz" className="p-4">
+                          <AIQuiz
+                            gradeLevel={gradeLevel}
+                            subject={subject}
+                            topic={topic}
+                            studentId={currentStudent.id}
+                            autoStart={autoStart && selectedTab === 'quiz'}
+                          />
+                        </TabsContent>
+                        
+                        <TabsContent value="practice" className="p-4">
+                          <AIGame 
+                            gradeLevel={gradeLevel}
+                            subject={subject}
+                            topic={topic}
+                            studentId={currentStudent.id}
+                            studentName={currentStudent.name}
+                            autoStart={autoStart && selectedTab === 'practice'}
+                          />
+                        </TabsContent>
+                      </Tabs>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+            
+            <div className="md:col-span-1">
+              <div className="bg-white rounded-lg shadow p-4 sticky top-4">
+                <h2 className="text-xl font-bold mb-4">Learning Buddy</h2>
+                <Separator className="my-3" />
+                <LearningBuddy 
+                  gradeLevel={gradeLevel}
                   subject={subject}
-                  subjectOptions={subjectOptions}
-                  topicSuggestions={getTopicSuggestionsForSubject(subject)}
-                  customTopic={customTopic}
-                  onSubjectChange={setSubject}
-                  onTopicSelect={handleTopicSelect}
-                  onCustomTopicChange={setCustomTopic}
-                  onCreateContent={handleCreateContent}
+                  topic={topic}
+                  studentName={currentStudent?.name || studentName}
                 />
               </div>
-            ) : (
-              <LearningContentWrapper
-                subject={subject}
-                gradeLevel={gradeLevel}
-                topic={topic}
-                activeTab={activeTab}
-                onTabChange={setActiveTab}
-                onReset={handleReset}
-                onQuizComplete={handleQuizComplete}
-                recommendationId={location.state?.recommendationId}
-              />
-            )}
+            </div>
           </div>
-        </section>
-        
-        {/* Learning Buddy */}
-        <LearningBuddy />
-      </main>
-      
+        )}
+      </div>
       <Footer />
     </div>
   );

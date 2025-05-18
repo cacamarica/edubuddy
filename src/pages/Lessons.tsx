@@ -107,7 +107,7 @@ const Lessons = () => {
           <div className="mb-8">
             <h2 className="text-xl font-medium mb-4">Select Grade Level</h2>
             <GradeSelector 
-              selectedGradeLevel={selectedGradeLevel} 
+              selectedGrade={selectedGradeLevel} 
               onGradeChange={setSelectedGradeLevel}
             />
           </div>
@@ -131,6 +131,9 @@ const Lessons = () => {
           gradeLevel={selectedGradeLevel}
           onSelectTopic={handleTopicSelect}
           onBackClick={handleBackClick}
+          subjectName={selectedSubject}
+          topicList={topics[selectedSubject] || []}
+          currentGrade={selectedGradeLevel}
         />
       )}
     </div>

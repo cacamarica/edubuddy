@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -38,28 +39,19 @@ const StudentProfileFallback = () => {
 };
 
 // Mock student data for development
-const MOCK_STUDENT = {
+const MOCK_STUDENT: Student = {
   id: "mock-student-id",
   name: "Student User",
   age: 10,
-  grade_level: "4-6" as const,
-  auth_id: "auth-user-id",
+  grade_level: "4-6",
+  parent_id: "parent-id",
+  created_at: new Date().toISOString(),
+  avatar_url: undefined
 };
-
-// Update the StudentData interface to match Student interface:
-interface StudentData {
-  id: string;
-  name: string;
-  age?: number;
-  grade_level: string;
-  parent_id: string;
-  created_at: string;
-  auth_id?: string;
-}
 
 const StudentProfilePage = () => {
   const [isLoading, setIsLoading] = useState(true);
-  const [studentData, setStudentData] = useState<StudentData | null>(null);
+  const [studentData, setStudentData] = useState<Student | null>(null);
   const { user, isStudent } = useAuth();
   const { language } = useLanguage();
   const navigate = useNavigate();
@@ -84,7 +76,7 @@ const StudentProfilePage = () => {
         // Use mock data
         const studentRecord = {
           ...MOCK_STUDENT,
-          auth_id: user.id
+          id: user.id
         };
         
         setStudentData(studentRecord);
@@ -134,10 +126,11 @@ const StudentProfilePage = () => {
               {isLoading ? (
                 <div className="flex justify-center py-8">
                   <Spinner size="lg" />
-                </div>              ) : studentData ? (
+                </div>
+              ) : studentData ? (
                 <ErrorBoundary fallback={<StudentProfileFallback />}>
                   <StudentProfile 
-                    student={studentData as Student} 
+                    student={studentData} 
                     readOnly={true} /* Student views their own profile in read-only mode */
                   />
                 </ErrorBoundary>
