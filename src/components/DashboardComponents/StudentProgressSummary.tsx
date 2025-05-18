@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import AIStudentReport from './AIStudentReport';
 import SubjectProgressChart from './SubjectProgressChart';
+import { fixStudentProfilesMappings } from '@/utils/databaseMigration';
 
 interface StudentProgressSummaryProps {
   studentId: string;
@@ -76,6 +77,19 @@ const StudentProgressSummary: React.FC<StudentProgressSummaryProps> = ({ student
     fetchProgress();
   }, [studentId, language]);
   
+  // Run database migrations to fix potential constraint issues
+  useEffect(() => {
+    const runMigration = async () => {
+      try {
+        await fixStudentProfilesMappings();
+      } catch (error) {
+        console.error('Error running database migration:', error);
+      }
+    };
+    
+    runMigration();
+  }, []);
+  
   // Prepare data for pie chart
   const pieChartData = subjectProgress.map(subject => ({
     name: subject.subject,
@@ -118,6 +132,13 @@ const StudentProgressSummary: React.FC<StudentProgressSummaryProps> = ({ student
       setReportErrorMsg(language === 'id' ? 
         'Terjadi kesalahan saat memperbarui laporan. Coba lagi nanti.' : 
         'There was an error refreshing the report. Please try again later.');
+      
+      // Still show a fallback report even on refresh error
+      const fallbackReport = studentProgressService.generateFallbackReport(
+        studentInfo?.name || "Student",
+        studentInfo?.gradeLevel || "k-3"
+      );
+      setAIReport(fallbackReport);
     } finally {
       setIsLoadingReport(false);
     }
@@ -136,21 +157,14 @@ const StudentProgressSummary: React.FC<StudentProgressSummaryProps> = ({ student
         
         console.log("Fetching AI report for student:", studentId, "grade:", gradeLevel, "name:", studentName);
         
-        // If we've already retried 3 times, don't try to fetch the report again
+        // If we've already retried 3 times, use a fallback report
         if (retryCount >= 3) {
           console.log("Maximum retry count reached, using fallback report");
           
-          // Create a simple fallback report
-          const fallbackReport: AISummaryReport = {
-            overallSummary: 'This is a fallback report since we could not connect to the AI service. Basic information is shown instead of a full analysis.',
-            strengths: ['Regular participation in learning activities', 'Shows interest in interactive content'],
-            areasForImprovement: ['Continue engaging with more quizzes', 'Explore diverse subject areas'],
-            activityAnalysis: 'We are unable to provide detailed activity analysis at this time.',
-            knowledgeGrowthChartData: generateFallbackChartData(),
-            generatedAt: new Date().toISOString(),
-            studentName: studentName,
-            gradeLevel: gradeLevel
-          };
+          const fallbackReport = studentProgressService.generateFallbackReport(
+            studentName,
+            gradeLevel
+          );
           
           setAIReport(fallbackReport);
           setReportErrorMsg(language === 'id' ? 
@@ -194,7 +208,16 @@ const StudentProgressSummary: React.FC<StudentProgressSummaryProps> = ({ student
           toast.error(language === 'id' ? 'Gagal memuat laporan AI' : 'Failed to load AI report');
         }
         
-        setAIReport(null);
+        // If this is the last retry, use a fallback report
+        if (retryCount >= 2) {
+          const fallbackReport = studentProgressService.generateFallbackReport(
+            studentInfo?.name || "Student",
+            studentInfo?.gradeLevel || "k-3"
+          );
+          setAIReport(fallbackReport);
+        } else {
+          setAIReport(null);
+        }
       } finally {
         setIsLoadingReport(false);
       }

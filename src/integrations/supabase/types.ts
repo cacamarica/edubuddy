@@ -540,7 +540,7 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      },
+      }
       students: {
         Row: {
           age: number | null
@@ -549,9 +549,6 @@ export type Database = {
           id: string
           name: string
           parent_id: string
-          avatar: string | null
-          email: string | null
-          auth_id: string | null
         }
         Insert: {
           age?: number | null
@@ -560,9 +557,6 @@ export type Database = {
           id?: string
           name: string
           parent_id: string
-          avatar?: string | null
-          email?: string | null
-          auth_id?: string | null
         }
         Update: {
           age?: number | null
@@ -571,9 +565,6 @@ export type Database = {
           id?: string
           name?: string
           parent_id?: string
-          avatar?: string | null
-          email?: string | null
-          auth_id?: string | null
         }
         Relationships: [
           {

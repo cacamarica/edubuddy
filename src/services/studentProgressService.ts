@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { LearningActivityType } from "@/types/learning";
@@ -366,12 +367,22 @@ export const studentProgressService = {
   // Get AI Summary Report from Edge Function
   async getAISummaryReport(studentId: string, gradeLevel: string, studentName: string, forceRefresh = false): Promise<AISummaryReport | null> {
     // Maximum number of retries
-    const MAX_RETRIES = 2;
+    const MAX_RETRIES = 3;
     let retryCount = 0;
     
     while (retryCount <= MAX_RETRIES) {
       try {
         console.log(`Attempt ${retryCount + 1} to fetch AI report for ${studentId}`);
+        
+        // Run migration utility to fix potential constraint issues on first attempt
+        if (retryCount === 0) {
+          const { fixStudentProfilesMappings } = await import("@/utils/databaseMigration");
+          await fixStudentProfilesMappings();
+        }
+
+        // Create request with a timeout to prevent hanging
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
         
         const { data, error } = await supabase.functions.invoke('get-student-ai-summary-report', {
           body: { 
@@ -380,7 +391,10 @@ export const studentProgressService = {
             studentName, 
             forceRefresh 
           },
+          signal: controller.signal,
         });
+        
+        clearTimeout(timeoutId);
 
         if (error) {
           console.error(`Error fetching AI summary report (attempt ${retryCount + 1}):`, error);
@@ -393,8 +407,8 @@ export const studentProgressService = {
           
           // Otherwise retry
           retryCount++;
-          // Wait a little longer between retries
-          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+          // Wait a little longer between retries (exponential backoff)
+          await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retryCount)));
           continue;
         }
 
@@ -411,7 +425,7 @@ export const studentProgressService = {
         
         // Otherwise retry
         retryCount++;
-        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retryCount)));
       }
     }
     
@@ -423,7 +437,7 @@ export const studentProgressService = {
   generateFallbackReport(studentName?: string, gradeLevel?: string): AISummaryReport {
     const now = new Date();
     
-    // Generate sample data points
+    // Generate sample data points for a realistic chart
     const chartData = Array.from({ length: 7 }, (_, i) => {
       const date = new Date();
       date.setDate(now.getDate() - ((6-i) * 15));
@@ -434,6 +448,7 @@ export const studentProgressService = {
       };
     });
     
+    // Create a child-friendly fallback report
     return {
       overallSummary: `This is a basic report for ${studentName || 'the student'}. Due to technical issues, we're showing simplified information.`,
       strengths: [
