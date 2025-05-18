@@ -1,3 +1,4 @@
+
 // Supabase Edge Function: get-student-ai-summary-report
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -251,7 +252,11 @@ async function generateAIReport(
     }
   }
 
+  let averageScore = 0;
   if (hasQuizData) {
+    // Calculate average score
+    averageScore = quizScores.reduce((sum, q) => sum + q.percentage, 0) / quizScores.length;
+    
     // Check for perfect scores
     const perfectScores = quizScores.filter(q => q.percentage === 100);
     if (perfectScores.length > 0) {
@@ -259,7 +264,6 @@ async function generateAIReport(
     }
 
     // Check for high average
-    const averageScore = quizScores.reduce((sum, q) => sum + q.percentage, 0) / quizScores.length;
     if (averageScore >= 80) {
       strengths.push(`Maintains a high quiz average of ${Math.round(averageScore)}%`);
     }
@@ -321,6 +325,11 @@ async function generateAIReport(
       activityAnalysis += ` Achievements include earning ${badges.length} learning badges, demonstrating progress across different skill areas.`;
     }
     
+    // Define the lowProgressSubjects only if hasProgressData is true
+    const lowProgressSubjects = hasProgressData
+      ? subjectProgress.filter(s => s.progress < 50).map(s => s.subject)
+      : [];
+    
     activityAnalysis += ` Based on activity patterns, we recommend ${lowProgressSubjects?.length > 0 ? `additional focus on ${lowProgressSubjects.join(', ')}` : 'continuing to explore diverse topics'} to create a well-rounded learning profile.`;
   } else {
     activityAnalysis = `${studentName || 'The student'} is just beginning their learning journey. As more lessons and quizzes are completed, we'll provide more detailed insights on learning patterns and progress areas.`;
@@ -345,7 +354,7 @@ async function generateAIReport(
   // Create the complete report
   return {
     studentName: studentName || "Student",
-    overallSummary: `${studentName || 'The student'} is showing ${hasActivityData ? 'steady' : 'initial'} progress in their ${levelInfo.levelName} education (${levelInfo.ageRange}). ${hasActivityData ? `Their engagement with interactive lessons has been ${learningActivities.length > 5 ? 'consistent' : 'developing'}, with particular ${hasProgressData && highProgressSubjects.length > 0 ? `strengths in ${highProgressSubjects.join(', ')}` : 'interest in exploring new topics'}.` : 'They are just beginning their learning journey with us.'} ${hasQuizData ? `Based on quiz performance, they are demonstrating ${averageScore >= 80 ? 'excellent' : averageScore >= 70 ? 'good' : 'developing'} understanding of core concepts appropriate for their grade level.` : ''}`,
+    overallSummary: `${studentName || 'The student'} is showing ${hasActivityData ? 'steady' : 'initial'} progress in their ${levelInfo.levelName} education (${levelInfo.ageRange}). ${hasActivityData ? `Their engagement with interactive lessons has been ${learningActivities.length > 5 ? 'consistent' : 'developing'}, with particular ${hasProgressData && highProgressSubjects?.length > 0 ? `strengths in ${highProgressSubjects.join(', ')}` : 'interest in exploring new topics'}.` : 'They are just beginning their learning journey with us.'} ${hasQuizData ? `Based on quiz performance, they are demonstrating ${averageScore >= 80 ? 'excellent' : averageScore >= 70 ? 'good' : 'developing'} understanding of core concepts appropriate for their grade level.` : ''}`,
     strengths,
     areasForImprovement,
     activityAnalysis,
