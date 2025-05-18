@@ -83,7 +83,7 @@ export type Database = {
             foreignKeyName: "ai_student_reports_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
+            referencedRelation: "students"
             referencedColumns: ["id"]
           },
         ]
@@ -544,6 +544,7 @@ export type Database = {
       students: {
         Row: {
           age: number | null
+          avatar_url: string | null
           created_at: string
           grade_level: string
           id: string
@@ -552,6 +553,7 @@ export type Database = {
         }
         Insert: {
           age?: number | null
+          avatar_url?: string | null
           created_at?: string
           grade_level: string
           id?: string
@@ -560,6 +562,7 @@ export type Database = {
         }
         Update: {
           age?: number | null
+          avatar_url?: string | null
           created_at?: string
           grade_level?: string
           id?: string

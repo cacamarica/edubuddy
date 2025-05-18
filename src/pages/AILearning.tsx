@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import AILesson from '@/components/AILesson';
@@ -18,6 +17,7 @@ import StudentProfile from '@/components/StudentProfile';
 import { LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
+import { fixStudentProfilesMappings } from '@/utils/databaseMigration';
 
 // Interface for needed props
 interface LearningContentComponentProps {
@@ -70,6 +70,9 @@ const AILearning = () => {
   useEffect(() => {
     const fetchInitialData = async () => {
       setLoading(true);
+      
+      // Run database migration to fix potential constraint issues
+      await fixStudentProfilesMappings();
       
       // If no user is logged in, just set loading to false
       if (!user) {
