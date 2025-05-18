@@ -91,6 +91,24 @@ const StudentProgressSummary: React.FC<StudentProgressSummaryProps> = ({ student
     runMigration();
   }, []);
   
+  // Add event listener for force refresh requests from AIStudentReport
+  useEffect(() => {
+    const handleForceRefresh = (event: CustomEvent) => {
+      // Handle both specific student IDs and the special 'refresh-all' ID
+      if (event.detail?.studentId === studentId || event.detail?.studentId === 'refresh-all') {
+        handleRefreshReport();
+      }
+    };
+    
+    // Add event listener
+    window.addEventListener('force-refresh-ai-report', handleForceRefresh as EventListener);
+    
+    // Clean up
+    return () => {
+      window.removeEventListener('force-refresh-ai-report', handleForceRefresh as EventListener);
+    };
+  }, [studentId, studentInfo]);
+  
   // Prepare data for pie chart
   const pieChartData = subjectProgress.map(subject => ({
     name: subject.subject,
@@ -102,9 +120,8 @@ const StudentProgressSummary: React.FC<StudentProgressSummaryProps> = ({ student
   
   // Helper function to check if there's enough data for a meaningful report
   const hasEnoughDataForReport = () => {
-    // Check if we have at least some minimum amount of data
-    return subjectProgress.length >= 2 || 
-           (subjectProgress.length > 0 && subjectProgress.some(subject => subject.progress > 30));
+    // We'll always generate a report now, even with minimal data
+    return true;
   };
   
   const handleRefreshReport = async () => {
@@ -127,6 +144,7 @@ const StudentProgressSummary: React.FC<StudentProgressSummaryProps> = ({ student
         studentAge // Pass the student's real age
       );
       
+      // Always set the report, even if it has minimal data
       setAIReport(report);
       toast.success(language === 'id' ? 'Laporan berhasil diperbarui' : 'Report refreshed successfully');
     } catch (error) {
@@ -136,7 +154,7 @@ const StudentProgressSummary: React.FC<StudentProgressSummaryProps> = ({ student
         'Terjadi kesalahan saat memperbarui laporan. Coba lagi nanti.' : 
         'There was an error refreshing the report. Please try again later.');
       
-      // Still show a fallback report even on refresh error
+      // Always show a fallback report on refresh error
       const fallbackReport = studentProgressService.generateFallbackReport(
         studentInfo?.name || "Student",
         studentInfo?.gradeLevel || "k-3",
@@ -191,12 +209,12 @@ const StudentProgressSummary: React.FC<StudentProgressSummaryProps> = ({ student
         
         console.log("AI Report fetched:", report);
         
-        // Set the report only if we have enough data or if a report was generated
-        if (report && (hasEnoughDataForReport() || report.overallSummary)) {
+        // Always set the report if it exists
+        if (report) {
           setAIReport(report);
           setRetryCount(0); // Reset retry counter on success
         } else {
-          console.log("Not enough data for a meaningful AI report");
+          console.log("No report data received");
           setAIReport(null);
         }
       } catch (error) {
@@ -234,8 +252,8 @@ const StudentProgressSummary: React.FC<StudentProgressSummaryProps> = ({ student
     if (studentInfo) {
       fetchAIReport();
     }
-  }, [studentId, language, studentInfo, retryCount]);    // Helper function to generate fallback chart data when the service is unavailable  const generateFallbackChartData = () => {    const data = [];    const now = new Date();        for (let i = 6; i >= 0; i--) {      const date = new Date();      date.setDate(now.getDate() - (i * 15));            data.push({        date: date.toISOString(),        score: Math.min(100, Math.max(0, 60 + (6 - i) * 3 + (Math.floor(Math.random() * 8) - 4)))      });    }        return data;  };    if (isLoading) {    return (      <div className="flex justify-center items-center p-12">        <Spinner size="lg" />      </div>    );  }    return (    <div className="space-y-6">      <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-full">        <TabsList className="mb-4">          <TabsTrigger value="overview">            {language === 'id' ? 'Ikhtisar' : 'Overview'}          </TabsTrigger>          <TabsTrigger value="subjects">            {language === 'id' ? 'Mata Pelajaran' : 'Subjects'}          </TabsTrigger>        </TabsList>                <TabsContent value="overview" className="space-y-5">          {/* AI Report Summary Section */}          <Card>            <CardHeader className="flex flex-row items-center justify-between">              <CardTitle>                <div className="flex items-center gap-2">                  <FileText className="h-5 w-5 text-purple-500" />                   {language === 'id' ? 'Laporan AI' : 'AI Report'}                </div>              </CardTitle>              <Button                 variant="outline"                 size="sm"                 onClick={handleRefreshReport}                 disabled={isLoadingReport}              >                <RefreshCw className={`h-4 w-4 mr-2 ${isLoadingReport ? 'animate-spin' : ''}`} />                {language === 'id' ? 'Perbarui' : 'Refresh'}              </Button>            </CardHeader>            <CardContent>              {reportErrorMsg && (                <div className="mb-4 text-sm text-amber-600 bg-amber-50 py-2 px-3 rounded border border-amber-200">                  {reportErrorMsg}                </div>              )}              <AIStudentReport                 report={aiReport}                 isExpanded={showFullReport}                 toggleExpanded={() => setShowFullReport(!showFullReport)}                isLoading={isLoadingReport}                studentRealAge={studentInfo?.age}              />            </CardContent>          </Card>                    {/* Overall Progress Card */}          <div className="grid gap-4 md:grid-cols-2">            <Card>              <CardHeader>                <CardTitle>{language === 'id' ? 'Kemajuan Keseluruhan' : 'Overall Progress'}</CardTitle>              </CardHeader>              <CardContent>                <div style={{ width: '100%', height: 250 }}>                  {subjectProgress.length > 0 ? (                    <ResponsiveContainer>                      <PieChart>                        <Pie                          data={pieChartData}                          cx="50%"                          cy="50%"                          outerRadius={80}                          fill="#8884d8"                          dataKey="value"                          label={({name, value}) => `${name}: ${value}%`}                        >                          {pieChartData.map((entry, index) => (                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />                          ))}                        </Pie>                        <Tooltip                           formatter={(value) => `${value}%`}                           labelFormatter={(label) => label}                         />                      </PieChart>                    </ResponsiveContainer>                  ) : (                    <div className="flex justify-center items-center h-full">                      <p className="text-muted-foreground">                        {language === 'id' ? 'Belum ada data kemajuan.' : 'No progress data yet.'}                      </p>                    </div>                  )}                </div>              </CardContent>            </Card>                        {/* Recent Achievements Card */}            <Card>              <CardHeader>                <CardTitle>{language === 'id' ? 'Pencapaian Terbaru' : 'Recent Achievements'}</CardTitle>              </CardHeader>              <CardContent className="h-[250px] overflow-auto">                {subjectProgress.length > 0 ? (                  <div className="space-y-3">                    {subjectProgress.slice(0, 5).map((subject, index) => (                      <div key={index} className="flex items-center justify-between p-2 border rounded-md">                        <span className="font-medium">{subject.subject}</span>                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${subject.progress >= 70 ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>                          {subject.progress}%                        </span>                      </div>                    ))}                  </div>                ) : (                  <div className="flex justify-center items-center h-full">                    <p className="text-muted-foreground">                      {language === 'id' ? 'Belum ada pencapaian.' : 'No achievements yet.'}                    </p>                  </div>                )}              </CardContent>            </Card>          </div>        </TabsContent>                <TabsContent value="subjects">          <SubjectProgressChart             subjectProgress={subjectProgress}             isLoading={isLoading}             language={language}           />        </TabsContent>      </Tabs>    </div>  );};export default StudentProgressSummary;
-
+  }, [studentId, language, studentInfo, retryCount]);
+  
   // Helper function to generate fallback chart data when the service is unavailable
   const generateFallbackChartData = () => {
     const data = [];

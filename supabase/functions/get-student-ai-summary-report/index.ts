@@ -1,4 +1,3 @@
-
 // Supabase Edge Function: get-student-ai-summary-report
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -63,6 +62,18 @@ const educationLevels = {
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+// Define interface for the request body
+interface AIReportRequestBody {
+  studentId: string;
+  gradeLevel: string;
+  studentName?: string;
+  studentAge?: number;
+  quizScores?: any[];
+  activities?: any[];
+  subjectProgress?: any[];
+  quizHistory?: any[];
+}
 
 async function getStoredReport(studentId: string): Promise<AISummaryReport | null> {
   try {
@@ -134,8 +145,15 @@ async function generateAIReport(
   studentId: string,
   gradeLevel: string,
   studentName: string,
+  prefetchedData?: {
+    quizScores?: any[];
+    activities?: any[];
+    subjectProgress?: any[];
+    quizHistory?: any[];
+  }
 ): Promise<AISummaryReport> {
   console.log(`Generating report for student: ${studentId}, grade: ${gradeLevel}, name: ${studentName}`);
+  console.log("Prefetched data available:", !!prefetchedData);
 
   // Get actual student data
   let quizScores: any[] = [];
@@ -144,63 +162,97 @@ async function generateAIReport(
   let badges: any[] = [];
   let highProgressSubjects: string[] = [];
   let averageScore = 0;
+  let chartData: Array<{date: string, score: number}> = [];
   
   try {
-    // Get real quiz scores
-    const { data: scores, error: scoresError } = await supabase
-      .from('quiz_scores')
-      .select('*')
-      .eq('student_id', studentId)
-      .order('completed_at', { ascending: false })
-      .limit(10);
-      
-    if (!scoresError && scores) {
-      quizScores = scores;
+    // Use prefetched quiz scores or query if not provided
+    if (prefetchedData?.quizScores && prefetchedData.quizScores.length > 0) {
+      console.log("Using prefetched quiz scores:", prefetchedData.quizScores.length);
+      quizScores = prefetchedData.quizScores;
+    } else {
+      // Get real quiz scores
+      const { data: scores, error: scoresError } = await supabase
+        .from('quiz_scores')
+        .select('*')
+        .eq('student_id', studentId)
+        .order('completed_at', { ascending: false })
+        .limit(10);
+        
+      if (!scoresError && scores) {
+        quizScores = scores;
+      }
     }
 
-    // Get quiz historical data
-    const { data: quizHistory, error: historyError } = await supabase
-      .from('student_quiz_attempts')
-      .select('*')
-      .eq('student_id', studentId)
-      .order('attempted_at', { ascending: true });
+    // Use prefetched quiz history or query if not provided
+    if (prefetchedData?.quizHistory && prefetchedData.quizHistory.length > 0) {
+      console.log("Using prefetched quiz history:", prefetchedData.quizHistory.length);
+      const processedData = processQuizHistoryForChart(prefetchedData.quizHistory);
+      if (processedData.length > 0) {
+        chartData = processedData;
+        console.log(`Generated chart data with ${chartData.length} points from prefetched data`);
+      }
+    } else {
+      // Get quiz historical data
+      const { data: quizHistory, error: historyError } = await supabase
+        .from('student_quiz_attempts')
+        .select('*')
+        .eq('student_id', studentId)
+        .order('attempted_at', { ascending: true });
 
-    if (!historyError && quizHistory && quizHistory.length > 0) {
-      // Process for chart data
-      const chartData = processQuizHistoryForChart(quizHistory);
-      if (chartData.length > 0) {
-        console.log(`Generated chart data with ${chartData.length} points`);
+      if (!historyError && quizHistory && quizHistory.length > 0) {
+        // Process for chart data
+        chartData = processQuizHistoryForChart(quizHistory);
+        if (chartData.length > 0) {
+          console.log(`Generated chart data with ${chartData.length} points`);
+        }
       }
     }
     
-    // Get real learning activities
-    const { data: activities, error: activitiesError } = await supabase
-      .from('learning_activities')
-      .select('*')
-      .eq('student_id', studentId)
-      .order('last_interaction_at', { ascending: false })
-      .limit(20);
-      
-    if (!activitiesError && activities) {
-      learningActivities = activities;
+    // Use prefetched activities or query if not provided
+    if (prefetchedData?.activities && prefetchedData.activities.length > 0) {
+      console.log("Using prefetched activities:", prefetchedData.activities.length);
+      learningActivities = prefetchedData.activities;
+    } else {
+      // Get real learning activities
+      const { data: activities, error: activitiesError } = await supabase
+        .from('learning_activities')
+        .select('*')
+        .eq('student_id', studentId)
+        .order('last_interaction_at', { ascending: false })
+        .limit(20);
+        
+      if (!activitiesError && activities) {
+        learningActivities = activities;
+      }
     }
 
-    // Get subject progress
-    const { data: progress, error: progressError } = await supabase
-      .from('subject_progress')
-      .select('*')
-      .eq('student_id', studentId);
-
-    if (!progressError && progress) {
-      subjectProgress = progress;
+    // Use prefetched subject progress or query if not provided
+    if (prefetchedData?.subjectProgress && prefetchedData.subjectProgress.length > 0) {
+      console.log("Using prefetched subject progress:", prefetchedData.subjectProgress.length);
+      subjectProgress = prefetchedData.subjectProgress;
       
       // Find subjects with high progress
-      highProgressSubjects = progress
+      highProgressSubjects = subjectProgress
         .filter(s => s.progress >= 70)
         .map(s => s.subject);
+    } else {
+      // Get subject progress
+      const { data: progress, error: progressError } = await supabase
+        .from('subject_progress')
+        .select('*')
+        .eq('student_id', studentId);
+
+      if (!progressError && progress) {
+        subjectProgress = progress;
+        
+        // Find subjects with high progress
+        highProgressSubjects = progress
+          .filter(s => s.progress >= 70)
+          .map(s => s.subject);
+      }
     }
 
-    // Get earned badges
+    // Get earned badges (always query from database as they're not prefetched)
     const { data: studentBadges, error: badgesError } = await supabase
       .from('student_badges')
       .select(`
@@ -453,90 +505,71 @@ function generateSampleChartData(): Array<{date: string, score: number}> {
   return data;
 }
 
-serve(async (req) => {
-  // Handle OPTIONS request for CORS preflight
+serve(async (req: Request) => {
+  // Handle CORS preflight request
   if (req.method === 'OPTIONS') {
-    console.log('Handling OPTIONS request for get-student-ai-summary-report');
-    return new Response(null, { 
-      status: 204, 
-      headers: corsHeaders 
-    });
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    const { studentId, gradeLevel, studentName, forceRefresh } = await req.json() as {
-      studentId: string;
-      gradeLevel: string;
-      studentName: string;
-      forceRefresh?: boolean;
-    };
+    const { studentId, gradeLevel, studentName, studentAge, quizScores, activities, subjectProgress, quizHistory } = await req.json() as AIReportRequestBody;
     
-    console.log(`Processing request for student: ${studentId}, grade: ${gradeLevel}, name: ${studentName}, forceRefresh: ${forceRefresh}`);
-    
+    // Validate required parameters
     if (!studentId || !gradeLevel) {
       return new Response(
-        JSON.stringify({ error: "studentId and gradeLevel are required" }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        JSON.stringify({ error: 'Missing parameters - studentId and gradeLevel are required.' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
 
-    // Try to get an existing report first if not forcing refresh
-    if (!forceRefresh) {
-      const existingReport = await getStoredReport(studentId);
-      if (existingReport) {
-        console.log('Returning existing report from database');
-        return new Response(
-          JSON.stringify(existingReport),
-          { 
-            status: 200, 
-            headers: { 
-              "Content-Type": "application/json", 
-              "Cache-Control": "no-cache", 
-              ...corsHeaders 
-            } 
-          }
-        );
-      }
-    }
+    // Create a prefetched data object if any data was provided
+    const prefetchedData = {
+      quizScores: quizScores || undefined,
+      activities: activities || undefined,
+      subjectProgress: subjectProgress || undefined,
+      quizHistory: quizHistory || undefined
+    };
 
-    // Generate a new report
-    console.log(`Generating new report for student ${studentId}, grade ${gradeLevel}`);
-    const newReport = await generateAIReport(studentId, gradeLevel, studentName);
-    
-    // Store the new report in the database
-    const reportId = await storeReport(studentId, newReport);
-    if (reportId) {
-      newReport.reportId = reportId;
-    }
-    
-    return new Response(
-      JSON.stringify(newReport),
-      { 
-        status: 200,
-        headers: { 
-          "Content-Type": "application/json", 
-          "Cache-Control": "no-cache", 
-          ...corsHeaders 
-        } 
-      }
+    // Check if we have any prefetched data
+    const hasPrefetchedData = !!(
+      prefetchedData.quizScores || 
+      prefetchedData.activities || 
+      prefetchedData.subjectProgress || 
+      prefetchedData.quizHistory
     );
 
-  } catch (error) {
-    console.error("Error in get-student-ai-summary-report function:", error);
+    console.log(`Generating AI report for student ${studentId}, grade ${gradeLevel}`);
+    console.log(`Prefetched data available: ${hasPrefetchedData}`);
+    
+    // Generate AI summary report
+    const report = await generateAIReport(
+      studentId,
+      gradeLevel,
+      studentName || 'Student',
+      hasPrefetchedData ? prefetchedData : undefined
+    );
+    
+    // Add student age to the report if provided
+    if (studentAge) {
+      Object.assign(report, { studentAge });
+    }
+    
+    // Store the report in the database
+    const reportId = await storeReport(studentId, report);
+    if (reportId) {
+      Object.assign(report, { reportId });
+    }
+    
     return new Response(
-      JSON.stringify({ 
-        error: "Internal server error", 
-        details: error.message,
-        fallbackReport: {
-          overallSummary: "We're experiencing technical difficulties generating your report. Here's a simple summary based on available data.",
-          strengths: ["Regular engagement with learning materials", "Interest in interactive educational content"],
-          areasForImprovement: ["Continue exploring different subjects", "Complete more quizzes for personalized feedback"],
-          activityAnalysis: "We're currently unable to provide detailed activity analysis due to technical issues.",
-          knowledgeGrowthChartData: generateSampleChartData(),
-          generatedAt: new Date().toISOString()
-        }
-      }),
-      { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      JSON.stringify(report),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    console.error('Error generating student AI summary report:', error);
+    
+    return new Response(
+      JSON.stringify({ error: 'An error occurred while generating the report.' }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
 });

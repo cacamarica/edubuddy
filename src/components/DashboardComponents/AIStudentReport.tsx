@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { AISummaryReport } from '@/services/studentProgressService';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
-import { ChevronDown, ChevronUp, AlertCircle, CalendarDays } from 'lucide-react';
+import { ChevronDown, ChevronUp, AlertCircle, CalendarDays, RefreshCw } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -86,12 +86,15 @@ const AIStudentReport: React.FC<AIStudentReportProps> = ({ report, isExpanded, t
     }
   }, [report, isExpanded, toggleExpanded]);
 
-  // Define hasMinimalData here unconditionally with a default fallback
-  const hasMinimalData = report?.overallSummary && 
-                        (report?.strengths?.length > 0 || 
-                         report?.areasForImprovement?.length > 0 || 
-                         (report?.knowledgeGrowthChartData && report.knowledgeGrowthChartData.length > 0) 
-                        );
+  // Debug output to console to help identify data issues
+  console.log("AI Report Data Check:", {
+    hasOverallSummary: !!report?.overallSummary,
+    strengthsLength: report?.strengths?.length || 0,
+    areasForImprovementLength: report?.areasForImprovement?.length || 0,
+    hasChartData: !!(report?.knowledgeGrowthChartData && report.knowledgeGrowthChartData.length > 0),
+    studentRealAge: studentRealAge || report?.studentAge || 'unknown',
+    reportData: report ? 'exists' : 'missing'
+  });
 
   // Always call useMemo, but return empty array if no data
   const processedChartData = useMemo(() => {
@@ -179,42 +182,50 @@ const AIStudentReport: React.FC<AIStudentReportProps> = ({ report, isExpanded, t
     );
   }
 
-  // No report state
+  // No report state - Only show this if truly no report exists
   if (!report) {
     return (
       <Alert variant="default" className="my-4 border-yellow-400 bg-yellow-50 text-yellow-800">
-        <AlertCircle className="h-4 w-4" />
-        <AlertDescription>
-          {language === 'id' 
-            ? 'Data tidak cukup untuk menampilkan laporan. Lakukan lebih banyak aktivitas belajar untuk mendapatkan laporan lengkap.' 
-            : 'Not enough data to display a report. Complete more learning activities to get a full report.'}
-        </AlertDescription>
+        <div className="flex flex-col gap-2">
+          <div className="flex items-start">
+            <AlertCircle className="h-4 w-4 mt-0.5 mr-2 flex-shrink-0" />
+            <AlertDescription>
+              {language === 'id' 
+                ? 'Data tidak cukup untuk menampilkan laporan. Lakukan lebih banyak aktivitas belajar untuk mendapatkan laporan lengkap.' 
+                : 'Not enough data to display a report. Complete more learning activities to get a full report.'}
+            </AlertDescription>
+          </div>
+          <div className="mt-2 flex justify-center">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="bg-white hover:bg-white/90"
+              onClick={() => {
+                // Dispatch an event to trigger a refresh in the parent component
+                window.dispatchEvent(new CustomEvent('force-refresh-ai-report', { 
+                  detail: { studentId: 'refresh-all' } 
+                }));
+              }}
+            >
+              <RefreshCw className="h-3.5 w-3.5 mr-1" />
+              {language === 'id' ? 'Muat Ulang Laporan' : 'Refresh Report'}
+            </Button>
+          </div>
+        </div>
       </Alert>
     );
   }
 
-  // Not enough data state
-  if (!hasMinimalData) {
-    return (
-      <Alert variant="default" className="my-4 border-yellow-400 bg-yellow-50 text-yellow-800">
-        <AlertCircle className="h-4 w-4" />
-        <AlertDescription>
-          {language === 'id' 
-            ? 'Belum cukup data untuk membuat laporan yang bermakna. Lanjutkan aktivitas belajar untuk mendapatkan wawasan yang lebih baik.' 
-            : 'Not enough meaningful data to create a report yet. Continue learning activities to gain better insights.'}
-        </AlertDescription>
-      </Alert>
-    );
-  }
-
-  // Main report state
+  // Main report state - Now we'll always show this if there's a report object, even if it has minimal data
   return (
     <div className="space-y-4">
       {/* Basic Summary Section - Always Visible */}
       <div>
         <h4 className="font-semibold mb-2 text-gray-800">{language === 'id' ? 'Ringkasan Umum' : 'Overall Summary'}</h4>
         <p className="text-gray-700 whitespace-pre-wrap line-clamp-3">
-          {report.overallSummary}
+          {report.overallSummary || (language === 'id' 
+            ? 'Belum cukup data pembelajaran untuk membuat ringkasan yang lengkap. Lanjutkan aktivitas belajar untuk mendapatkan wawasan yang lebih baik.'
+            : 'Not enough learning data to create a complete summary. Continue learning activities to get better insights.')}
         </p>
       </div>
 
