@@ -135,7 +135,7 @@ const StudentProfilePage = () => {
                 </div>              ) : studentData ? (
                 <ErrorBoundary fallback={<StudentProfileFallback />}>
                   <StudentProfile 
-                    currentStudentId={studentData.id}
+                    student={studentData} 
                     readOnly={true} /* Student views their own profile in read-only mode */
                   />
                 </ErrorBoundary>

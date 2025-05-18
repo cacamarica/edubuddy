@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -66,11 +65,15 @@ const Dashboard = () => {
 
   const handleStudentChange = (studentId: string) => {
     if (studentId) {
-      setSelectedProfile({ 
-        id: studentId, 
-        name: selectedProfile?.name || 'Selected Student',
-        gradeLevel: selectedProfile?.gradeLevel
-      });
+      if (selectedProfile) {
+        setSelectedProfile({ 
+          id: studentId, 
+          name: selectedProfile.name || 'Selected Student',
+          gradeLevel: selectedProfile.gradeLevel || 'k-3',
+          parentId: selectedProfile.parentId || '',
+          createdAt: selectedProfile.createdAt || new Date().toISOString()
+        });
+      }
     } else {
       setSelectedProfile(null);
     }
@@ -116,11 +119,7 @@ const Dashboard = () => {
                 </Card>
               ) : (
                 <StudentProfile 
-                  onStudentChange={(student) => {
-                    if (student) {
-                      setSelectedProfile(student);
-                    }
-                  }} 
+                  student={selectedProfile ? convertToStudent(selectedProfile) : undefined} 
                   currentStudentId={currentStudentId}
                 />
               )}

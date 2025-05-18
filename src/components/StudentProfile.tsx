@@ -1,13 +1,16 @@
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Student } from '@/contexts/StudentProfileContext';
+import { Student } from '@/types/learning';
 import { Badge } from "@/components/ui/badge";
 import { BookOpen, CalendarDays } from "lucide-react";
 
 interface StudentProfileProps {
-  student: Student;
+  student?: Student;
+  currentStudentId?: string;
+  readOnly?: boolean;
+  onStudentChange?: (student: Student) => void;
   currentClass?: string;
   ageGroup?: string;
 }
@@ -38,6 +41,9 @@ const translateGradeLevel = (gradeLevel: string): string => {
 
 const StudentProfile: React.FC<StudentProfileProps> = ({ 
   student, 
+  currentStudentId,
+  readOnly,
+  onStudentChange,
   currentClass = 'Not Set',
   ageGroup = 'Not Set'
 }) => {

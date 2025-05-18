@@ -1,156 +1,101 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Slider } from "@/components/ui/slider"
-import { Circle, Star } from 'lucide-react';
-import { useLanguage } from '@/contexts/LanguageContext';
+import React, { useEffect } from 'react';
+import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/contexts/AuthContext';
-import { toast } from 'sonner';
-import { studentProgressService } from '@/services/studentProgressService';
+import { supabase } from '@/integrations/supabase/client';
 import { useStudentProfile } from '@/contexts/StudentProfileContext';
 
-interface LessonState {
-  subject: string;
-  topic: string;
-  gradeLevel: string;
-  studentId?: string;
+interface LessonTrackingProps {
+  lessonSubject: string;
+  lessonTopic: string;
+  lessonGradeLevel: 'k-3' | '4-6' | '7-9';
+  isComplete: boolean;
+  progress: number;
 }
 
-const LessonTracking = () => {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const { language } = useLanguage();
+const LessonTracking: React.FC<LessonTrackingProps> = ({
+  lessonSubject,
+  lessonTopic,
+  lessonGradeLevel,
+  isComplete,
+  progress
+}) => {
   const { user } = useAuth();
   const { selectedProfile } = useStudentProfile();
   
-  const [starsEarned, setStarsEarned] = useState(0);
-  const [lessonProgress, setLessonProgress] = useState(0);
-  const [isCompleted, setIsCompleted] = useState(false);
-  
-  const lessonState = location.state as LessonState;
-  const { subject, topic, gradeLevel } = lessonState || { subject: '', topic: '', gradeLevel: '' };
-  const studentId = selectedProfile?.id;
-  
+  // Track lesson progress in the database
   useEffect(() => {
-    if (!lessonState) {
-      // Redirect to home if lesson state is not available
-      navigate('/');
-    }
-  }, [lessonState, navigate]);
-  
-  const handleProgressChange = (value: number[]) => {
-    setLessonProgress(value[0]);
-  };
-  
-  const handleStarsChange = (value: number[]) => {
-    setStarsEarned(value[0]);
-  };
-  
-  const handleLessonCompleted = useCallback(() => {
-    if (!studentId || !subject || !topic) return;
-    
-    const activityData = {
-      student_id: studentId,
-      activity_type: 'lesson',
-      subject,
-      topic,
-      completed: true,
-      progress: 100,
-      stars_earned: starsEarned
+    const trackProgress = async () => {
+      // Only track progress for logged-in users with a selected student profile
+      if (!user || !selectedProfile?.id) return;
+      
+      try {
+        // Check if we already have a record for this lesson
+        const { data: existingData, error: fetchError } = await supabase
+          .from('learning_activities')
+          .select('id, progress')
+          .eq('student_id', selectedProfile.id)
+          .eq('subject', lessonSubject)
+          .eq('topic', lessonTopic)
+          .eq('completed', false)
+          .order('created_at', { ascending: false })
+          .limit(1);
+          
+        if (fetchError) throw fetchError;
+        
+        const now = new Date().toISOString();
+        
+        if (existingData && existingData.length > 0) {
+          // Update existing record if progress has increased
+          const existingRecord = existingData[0];
+          if (progress > existingRecord.progress || isComplete) {
+            await supabase
+              .from('learning_activities')
+              .update({
+                progress: progress,
+                completed: isComplete,
+                last_interaction_at: now,
+                completed_at: isComplete ? now : null
+              })
+              .eq('id', existingRecord.id);
+          }
+        } else {
+          // Create new record
+          await supabase
+            .from('learning_activities')
+            .insert([{
+              student_id: selectedProfile.id,
+              subject: lessonSubject,
+              topic: lessonTopic,
+              grade_level: lessonGradeLevel,
+              activity_type: 'lesson',
+              progress: progress,
+              completed: isComplete,
+              started_at: now,
+              last_interaction_at: now,
+              completed_at: isComplete ? now : null
+            }]);
+        }
+      } catch (error) {
+        console.error('Error tracking lesson progress:', error);
+      }
     };
     
-    studentProgressService.recordActivity(activityData)
-      .then((result) => {
-        if (result) {
-          console.log("Lesson completion recorded successfully");
-          toast.success(language === 'id' ? 'Pelajaran selesai!' : 'Lesson completed!');
-        } else {
-          console.error("Failed to record lesson completion");
-        }
-      })
-      .catch((error) => {
-        console.error("Error recording lesson completion:", error);
-      });
-  }, [studentId, subject, topic, starsEarned, language]);
-  
-  const handleFinishLesson = () => {
-    handleLessonCompleted();
-    navigate('/dashboard');
-  };
+    trackProgress();
+  }, [user, selectedProfile?.id, lessonSubject, lessonTopic, lessonGradeLevel, progress, isComplete]);
   
   return (
-    <div className="container mx-auto py-8">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-2xl font-bold">
-            {language === 'id' ? 'Lacak Pelajaran' : 'Track Lesson'}
-          </CardTitle>
-          <CardDescription>
-            {language === 'id' ? 'Lacak progres dan bintang yang diperoleh dalam pelajaran ini' : 'Track progress and stars earned in this lesson'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4">
-          <div className="space-y-2">
-            <h3 className="text-lg font-semibold">
-              {language === 'id' ? 'Subjek' : 'Subject'}: {subject}
-            </h3>
-            <h3 className="text-lg font-semibold">
-              {language === 'id' ? 'Topik' : 'Topic'}: {topic}
-            </h3>
-            <h3 className="text-lg font-semibold">
-              {language === 'id' ? 'Tingkat Kelas' : 'Grade Level'}: {gradeLevel}
-            </h3>
-          </div>
-          
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label htmlFor="lesson-progress" className="text-sm font-medium">
-                  {language === 'id' ? 'Progres Pelajaran' : 'Lesson Progress'} ({lessonProgress}%)
-                </label>
-                <Circle className="h-4 w-4 text-gray-500" />
-              </div>
-              <Slider
-                id="lesson-progress"
-                defaultValue={[0]}
-                max={100}
-                step={1}
-                aria-label="Lesson progress"
-                value={[lessonProgress]}
-                onValueChange={handleProgressChange}
-                className="[&_[role=slider]]:h-4 [&_[role=slider]]:w-4"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label htmlFor="stars-earned" className="text-sm font-medium">
-                  {language === 'id' ? 'Bintang yang Diperoleh' : 'Stars Earned'} ({starsEarned})
-                </label>
-                <Star className="h-4 w-4 text-yellow-500" />
-              </div>
-              <Slider
-                id="stars-earned"
-                defaultValue={[0]}
-                max={5}
-                step={1}
-                aria-label="Stars earned"
-                value={[starsEarned]}
-                onValueChange={handleStarsChange}
-                className="[&_[role=slider]]:h-4 [&_[role=slider]]:w-4"
-              />
-            </div>
-          </div>
-          
-          <Button className="w-full bg-eduPurple hover:bg-eduPurple-dark" onClick={handleFinishLesson}>
-            {language === 'id' ? 'Selesaikan Pelajaran' : 'Finish Lesson'}
-          </Button>
-        </CardContent>
-      </Card>
+    <div className="w-full mb-6">
+      <div className="flex justify-between items-center mb-2">
+        <div className="text-sm font-medium">
+          {isComplete ? 'Lesson Complete!' : 'Lesson Progress'}
+        </div>
+        <div className="text-sm text-muted-foreground">
+          {progress}%
+        </div>
+      </div>
+      <Progress value={progress} className="h-2" />
     </div>
   );
 };
 
 export default LessonTracking;
-

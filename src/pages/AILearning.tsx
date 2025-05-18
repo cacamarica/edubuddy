@@ -345,9 +345,9 @@ const AILearning = () => {
     setActiveTab('lesson');
   };
 
-  const handleStudentChange = (student: Student) => {
-    setCurrentStudent(student);
-    updateGradeLevelFromStudent(student);
+  const handleStudentChange = (newStudent: Student) => {
+    setCurrentStudent(newStudent);
+    updateGradeLevelFromStudent(newStudent);
     setShowProfileManager(false);
   };
 
@@ -372,8 +372,9 @@ const AILearning = () => {
           <section className="py-4">
             <div className="container px-4 md:px-6">
               <StudentProfile 
-                onStudentChange={handleStudentChange} 
-                currentStudentId={currentStudent?.id} 
+                student={currentStudent || undefined} 
+                onStudentChange={handleStudentChange}
+                currentStudentId={currentStudent?.id}
               />
             </div>
           </section>
@@ -385,7 +386,9 @@ const AILearning = () => {
               <div className="grid gap-6 md:grid-cols-3">
                 {!currentStudent && !isLoadingStudents && (
                   <div className="md:col-span-3">
-                    <StudentProfile onStudentChange={handleStudentChange} />
+                    <StudentProfile 
+                      onStudentChange={handleStudentChange}
+                    />
                   </div>
                 )}
                 
@@ -426,7 +429,8 @@ const AILearning = () => {
                   onCreateContent={handleCreateContent}
                 />
               </div>
-            ) : (              <LearningContentWrapper
+            ) : (
+              <LearningContentWrapper
                 subject={subject}
                 gradeLevel={gradeLevel}
                 topic={topic}

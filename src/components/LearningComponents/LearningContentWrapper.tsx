@@ -56,9 +56,9 @@ const LearningContentWrapper = ({
   return (
     <>
       <LessonTracking 
-        subject={subject}
-        topic={topic}
-        gradeLevel={gradeLevel}
+        lessonSubject={subject}
+        lessonTopic={topic}
+        lessonGradeLevel={gradeLevel}
         isComplete={isComplete}
         progress={progress}
       />

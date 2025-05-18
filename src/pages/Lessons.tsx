@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import GradeSelector from '@/components/GradeSelector';
 import SubjectCard from '@/components/SubjectCard';
 import TopicCarousel from '@/components/TopicCarousel';
-import { Student, StudentProfile } from '@/types/learning';
+import { Student, StudentProfile, convertToStudent } from '@/types/learning';
 import { useStudentProfile } from '@/contexts/StudentProfileContext';
 
 // Mock data for subjects
@@ -75,23 +75,12 @@ const Lessons = () => {
   const handleTopicSelect = (topic: string) => {
     if (!selectedSubject) return;
     
-    // Adapt student profile to Student interface if necessary
-    const student: Student = selectedProfile ? {
-      id: selectedProfile.id,
-      name: selectedProfile.name,
-      grade_level: selectedProfile.grade_level,
-      parent_id: selectedProfile.parent_id,
-      created_at: selectedProfile.created_at,
-      avatar_url: selectedProfile.avatar_url,
-      age: 0 // Provide a default value
-    } : {
-      id: '',
-      name: '',
-      grade_level: '',
-      parent_id: '',
-      created_at: '',
-      age: 0
-    };
+    // Convert selectedProfile to Student interface if available
+    let student: Student | undefined;
+    
+    if (selectedProfile) {
+      student = convertToStudent(selectedProfile);
+    }
     
     navigate('/ai-learning', {
       state: {
@@ -118,8 +107,8 @@ const Lessons = () => {
           <div className="mb-8">
             <h2 className="text-xl font-medium mb-4">Select Grade Level</h2>
             <GradeSelector 
-              selectedGradeLevel={selectedGradeLevel} 
-              onGradeLevelChange={setSelectedGradeLevel}
+              selectedGrade={selectedGradeLevel} 
+              onGradeChange={setSelectedGradeLevel}
             />
           </div>
           
@@ -138,10 +127,11 @@ const Lessons = () => {
         </>
       ) : (
         <TopicCarousel
-          subject={selectedSubject}
-          topics={topics[selectedSubject as keyof typeof topics] || []}
-          onTopicSelect={handleTopicSelect}
-          onBackClick={handleBackClick}
+          subjectName={selectedSubject}
+          topicList={topics[selectedSubject as keyof typeof topics] || []}
+          onSelectTopic={handleTopicSelect}
+          onBack={handleBackClick}
+          currentGrade={selectedGradeLevel}
         />
       )}
     </div>
