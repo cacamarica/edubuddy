@@ -1,9 +1,4 @@
 
-// @deno-types="https://deno.land/x/servest@v1.3.1/types/react/index.d.ts" 
-// The above is a common workaround for Deno type errors in some editors, but might not be strictly necessary
-// or correct for this specific use case. The primary issue is environment setup for Deno.
-
-// filepath: g:\\eduBuddy\\edubuddy\\supabase\\functions\\get-student-ai-summary-report\\index.ts
 // Supabase Edge Function: get-student-ai-summary-report
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -130,7 +125,7 @@ serve(async (req) => {
       // 1. Check for an existing, up-to-date report
       const { data: existingReportData, error: existingReportError } = await supabase
         .from("ai_student_reports")
-        .select("id, report_data, last_activity_timestamp, generated_at, grade_level")
+        .select("id, report_data, last_activity_timestamp_at_generation, generated_at, grade_level")
         .eq("student_id", studentId)
         .eq("grade_level", gradeLevel) // Ensure grade level matches
         .order("generated_at", { ascending: false })
@@ -162,17 +157,16 @@ serve(async (req) => {
         let isStaleByActivity = false;
         if (activityError && activityError.code !== 'PGRST116') {
             console.warn("Could not fetch latest activity to check staleness:", activityError.message);
-        } else if (latestActivity && existingReportData.last_activity_timestamp) {
-            if (new Date(latestActivity.attempted_at) > new Date(existingReportData.last_activity_timestamp)) {
+        } else if (latestActivity && existingReportData.last_activity_timestamp_at_generation) {
+            if (new Date(latestActivity.attempted_at) > new Date(existingReportData.last_activity_timestamp_at_generation)) {
                 isStaleByActivity = true;
                 console.log(`Report for student ${studentId} is stale due to new activity.`);
             }
-        } else if (latestActivity && !existingReportData.last_activity_timestamp) {
+        } else if (latestActivity && !existingReportData.last_activity_timestamp_at_generation) {
             // Report exists but no last_activity_timestamp, consider it stale if there's any activity
             isStaleByActivity = true;
-             console.log(`Report for student ${studentId} is stale (no previous activity timestamp, but new activity found).`);
+            console.log(`Report for student ${studentId} is stale (no previous activity timestamp, but new activity found).`);
         }
-
 
         if (reportAgeHours < reportStalenessThresholdHours && !isStaleByActivity) {
           console.log(`Returning existing report for student ${studentId}, generated at ${reportGeneratedAt.toISOString()}`);
@@ -216,7 +210,7 @@ serve(async (req) => {
         .upsert({
           student_id: studentId,
           report_data: newReport,
-          last_activity_timestamp: currentLastActivityTimestamp, 
+          last_activity_timestamp_at_generation: currentLastActivityTimestamp, 
           generated_at: newReport.generatedAt,
           grade_level: gradeLevel,
         }, { 

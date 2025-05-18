@@ -39,3 +39,6 @@ verify_jwt = true
 
 [functions.get-student-ai-summary-report]
 verify_jwt = true
+
+[functions.get-student-quiz-history-by-topic]
+verify_jwt = true
