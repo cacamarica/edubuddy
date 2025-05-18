@@ -4,24 +4,58 @@ import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { AISummaryReport } from '@/services/studentProgressService';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface AIStudentReportProps {
   report: AISummaryReport | null;
   isExpanded: boolean;
   toggleExpanded: () => void;
+  isLoading: boolean;
 }
 
-const AIStudentReport: React.FC<AIStudentReportProps> = ({ report, isExpanded, toggleExpanded }) => {
+const AIStudentReport: React.FC<AIStudentReportProps> = ({ report, isExpanded, toggleExpanded, isLoading }) => {
   const { language } = useLanguage();
 
-  if (!report) {
+  if (isLoading) {
     return (
       <div className="text-center py-4 text-muted-foreground">
         {language === 'id' 
-          ? 'Laporan AI tidak tersedia saat ini.' 
-          : 'AI report not available at this time.'}
+          ? 'Memuat laporan AI...' 
+          : 'Loading AI report...'}
       </div>
+    );
+  }
+
+  if (!report) {
+    return (
+      <Alert variant="warning" className="my-4">
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>
+          {language === 'id' 
+            ? 'Data tidak cukup untuk menampilkan laporan. Lakukan lebih banyak aktivitas belajar untuk mendapatkan laporan lengkap.' 
+            : 'Not enough data to display a report. Complete more learning activities to get a full report.'}
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  // Check if there's enough meaningful data in the report
+  const hasMinimalData = report.overallSummary && 
+                        (report.strengths?.length > 0 || 
+                         report.areasForImprovement?.length > 0 || 
+                         report.knowledgeGrowthChartData?.length > 1);
+
+  if (!hasMinimalData) {
+    return (
+      <Alert variant="warning" className="my-4">
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>
+          {language === 'id' 
+            ? 'Belum cukup data untuk membuat laporan yang bermakna. Lanjutkan aktivitas belajar untuk mendapatkan wawasan yang lebih baik.' 
+            : 'Not enough meaningful data to create a report yet. Continue learning activities to gain better insights.'}
+        </AlertDescription>
+      </Alert>
     );
   }
 
@@ -77,27 +111,33 @@ const AIStudentReport: React.FC<AIStudentReportProps> = ({ report, isExpanded, t
       {/* Expanded Content - Only Visible when Expanded */}
       {isExpanded && (
         <div className="pt-2 space-y-4 border-t">
-          <div>
-            <h4 className="font-semibold mb-1 text-gray-800">{language === 'id' ? 'Kekuatan Utama' : 'Key Strengths'}</h4>
-            <ul className="list-disc list-inside text-gray-700 space-y-0.5">
-              {report.strengths?.map((strength, i) => <li key={i}>{strength}</li>)}
-            </ul>
-          </div>
+          {report.strengths && report.strengths.length > 0 ? (
+            <div>
+              <h4 className="font-semibold mb-1 text-gray-800">{language === 'id' ? 'Kekuatan Utama' : 'Key Strengths'}</h4>
+              <ul className="list-disc list-inside text-gray-700 space-y-0.5">
+                {report.strengths?.map((strength, i) => <li key={i}>{strength}</li>)}
+              </ul>
+            </div>
+          ) : null}
 
-          <div>
-            <h4 className="font-semibold mb-1 text-gray-800">{language === 'id' ? 'Area Peningkatan' : 'Areas for Improvement'}</h4>
-            <ul className="list-disc list-inside text-gray-700 space-y-0.5">
-              {report.areasForImprovement?.map((area, i) => <li key={i}>{area}</li>)}
-            </ul>
-          </div>
+          {report.areasForImprovement && report.areasForImprovement.length > 0 ? (
+            <div>
+              <h4 className="font-semibold mb-1 text-gray-800">{language === 'id' ? 'Area Peningkatan' : 'Areas for Improvement'}</h4>
+              <ul className="list-disc list-inside text-gray-700 space-y-0.5">
+                {report.areasForImprovement?.map((area, i) => <li key={i}>{area}</li>)}
+              </ul>
+            </div>
+          ) : null}
 
-          <div>
-            <h4 className="font-semibold mb-1 text-gray-800">{language === 'id' ? 'Analisis Aktivitas' : 'Activity Analysis'}</h4>
-            <p className="text-gray-700 whitespace-pre-wrap">{report.activityAnalysis}</p>
-          </div>
+          {report.activityAnalysis ? (
+            <div>
+              <h4 className="font-semibold mb-1 text-gray-800">{language === 'id' ? 'Analisis Aktivitas' : 'Activity Analysis'}</h4>
+              <p className="text-gray-700 whitespace-pre-wrap">{report.activityAnalysis}</p>
+            </div>
+          ) : null}
 
           {/* Knowledge Growth Chart */}
-          {report.knowledgeGrowthChartData && report.knowledgeGrowthChartData.length > 0 && (
+          {report.knowledgeGrowthChartData && report.knowledgeGrowthChartData.length > 1 ? (
             <div className="mt-4">
               <h4 className="font-semibold mb-2 text-gray-800">
                 {language === 'id' ? 'Grafik Pertumbuhan Pengetahuan' : 'Knowledge Growth Chart'}
@@ -124,7 +164,7 @@ const AIStudentReport: React.FC<AIStudentReportProps> = ({ report, isExpanded, t
                 </ResponsiveContainer>
               </div>
             </div>
-          )}
+          ) : null}
         </div>
       )}
 

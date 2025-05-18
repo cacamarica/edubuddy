@@ -283,7 +283,7 @@ export const badgeService = {
     }
   },
   
-  // Get badge image URL from badge type (placeholder function)
+  // Get badge image URL from badge type
   getBadgeImageUrl(badgeType: BadgeType): string | undefined {
     // Map badge types to image paths
     switch (badgeType) {

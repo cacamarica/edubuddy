@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,6 +8,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { Spinner } from '@/components/ui/spinner';
 import { BarChart3, FileText, Check, X, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 import AIStudentReport from './AIStudentReport';
 import SubjectProgressChart from './SubjectProgressChart';
 
@@ -24,6 +24,35 @@ const StudentProgressSummary: React.FC<StudentProgressSummaryProps> = ({ student
   const [activeTab, setActiveTab] = useState('overview');
   const { language } = useLanguage();
   const [showFullReport, setShowFullReport] = useState(false);
+  const [studentInfo, setStudentInfo] = useState<{ name: string, gradeLevel: string } | null>(null);
+  
+  // Fetch student information
+  useEffect(() => {
+    const fetchStudentInfo = async () => {
+      if (!studentId) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('students')
+          .select('name, grade_level')
+          .eq('id', studentId)
+          .single();
+          
+        if (error) {
+          console.error('Error fetching student info:', error);
+        } else if (data) {
+          setStudentInfo({
+            name: data.name,
+            gradeLevel: data.grade_level
+          });
+        }
+      } catch (error) {
+        console.error('Error in student info fetch:', error);
+      }
+    };
+    
+    fetchStudentInfo();
+  }, [studentId]);
   
   // Fetch subject progress
   useEffect(() => {
@@ -54,19 +83,27 @@ const StudentProgressSummary: React.FC<StudentProgressSummaryProps> = ({ student
   // Colors for pie chart segments
   const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#0088fe', '#ff8042'];
   
+  // Helper function to check if there's enough data for a meaningful report
+  const hasEnoughDataForReport = () => {
+    // Check if we have at least some minimum amount of data
+    return subjectProgress.length >= 2 || 
+           (subjectProgress.length > 0 && subjectProgress.some(subject => subject.progress > 30));
+  };
+  
   const handleRefreshReport = async () => {
     if (!studentId) return;
     
     setIsLoadingReport(true);
     try {
-      // Get the grade level - in a real app, this would come from the student's data
-      const gradeLevel = 'k-3'; // This should be dynamic based on the student
+      // Get the actual student information
+      const gradeLevel = studentInfo?.gradeLevel || 'k-3';
+      const studentName = studentInfo?.name || "Student";
       
       // Force refresh the AI summary report
       const report = await studentProgressService.getAISummaryReport(
         studentId, 
         gradeLevel,
-        "Student", // This should be the actual student name
+        studentName,
         true // Force refresh
       );
       
@@ -86,19 +123,28 @@ const StudentProgressSummary: React.FC<StudentProgressSummaryProps> = ({ student
       
       setIsLoadingReport(true);
       try {
-        // Get the grade level - in a real app, this would come from the student's data
-        const gradeLevel = 'k-3'; // This should be dynamic based on the student
-        console.log("Fetching AI report for student:", studentId, "grade:", gradeLevel);
+        // Use the actual student information
+        const gradeLevel = studentInfo?.gradeLevel || 'k-3';
+        const studentName = studentInfo?.name || "Student";
+        
+        console.log("Fetching AI report for student:", studentId, "grade:", gradeLevel, "name:", studentName);
         
         const report = await studentProgressService.getAISummaryReport(
           studentId, 
           gradeLevel,
-          "Student", // This should be the actual student name
+          studentName,
           false
         );
         
         console.log("AI Report fetched:", report);
-        setAIReport(report);
+        
+        // Set the report only if we have enough data or if a report was generated
+        if (report && (hasEnoughDataForReport() || report.overallSummary)) {
+          setAIReport(report);
+        } else {
+          console.log("Not enough data for a meaningful AI report");
+          setAIReport(null);
+        }
       } catch (error) {
         console.error('Error fetching AI report:', error);
         toast.error(language === 'id' ? 'Gagal memuat laporan AI' : 'Failed to load AI report');
@@ -108,8 +154,10 @@ const StudentProgressSummary: React.FC<StudentProgressSummaryProps> = ({ student
       }
     };
     
-    fetchAIReport();
-  }, [studentId, language]);
+    if (studentInfo) {
+      fetchAIReport();
+    }
+  }, [studentId, language, studentInfo]);
   
   if (isLoading) {
     return (
@@ -152,20 +200,12 @@ const StudentProgressSummary: React.FC<StudentProgressSummaryProps> = ({ student
               </Button>
             </CardHeader>
             <CardContent>
-              {isLoadingReport ? (
-                <div className="flex justify-center items-center h-32">
-                  <Spinner size="md" />
-                  <span className="ml-3 text-muted-foreground">
-                    {language === 'id' ? 'Memuat laporan AI...' : 'Loading AI report...'}
-                  </span>
-                </div>
-              ) : (
-                <AIStudentReport 
-                  report={aiReport} 
-                  isExpanded={showFullReport} 
-                  toggleExpanded={() => setShowFullReport(!showFullReport)}
-                />
-              )}
+              <AIStudentReport 
+                report={aiReport} 
+                isExpanded={showFullReport} 
+                toggleExpanded={() => setShowFullReport(!showFullReport)}
+                isLoading={isLoadingReport}
+              />
             </CardContent>
           </Card>
           
