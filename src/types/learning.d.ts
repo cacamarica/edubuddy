@@ -17,20 +17,10 @@ export interface StudentProfile {
   parentId: string;
   createdAt: string;
   avatarUrl?: string;
+  age?: number; // Added age to match Student interface
 }
 
 // Helper function to convert between formats
-export function convertToStudentProfile(student: Student): StudentProfile {
-  return {
-    id: student.id,
-    name: student.name,
-    gradeLevel: student.grade_level,
-    parentId: student.parent_id,
-    createdAt: student.created_at,
-    avatarUrl: student.avatar_url
-  };
-}
-
 export function convertToStudent(profile: StudentProfile): Student {
   return {
     id: profile.id,
@@ -38,6 +28,29 @@ export function convertToStudent(profile: StudentProfile): Student {
     grade_level: profile.gradeLevel,
     parent_id: profile.parentId,
     created_at: profile.createdAt,
-    avatar_url: profile.avatarUrl
+    avatar_url: profile.avatarUrl,
+    age: profile.age
   };
+}
+
+export function convertToStudentProfile(student: Student): StudentProfile {
+  return {
+    id: student.id,
+    name: student.name,
+    gradeLevel: student.grade_level,
+    parentId: student.parent_id,
+    createdAt: student.created_at,
+    avatarUrl: student.avatar_url,
+    age: student.age
+  };
+}
+
+// Define Subject interface
+export interface Subject {
+  id: string;
+  name: string;
+  description: string;
+  color: string;
+  textColor: string;
+  icon: string;
 }

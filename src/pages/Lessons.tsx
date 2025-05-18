@@ -4,11 +4,11 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import GradeSelector from '@/components/GradeSelector';
 import SubjectCard from '@/components/SubjectCard';
 import TopicCarousel from '@/components/TopicCarousel';
-import { Student, StudentProfile, convertToStudent } from '@/types/learning';
+import { Student, StudentProfile, convertToStudent, Subject } from '@/types/learning';
 import { useStudentProfile } from '@/contexts/StudentProfileContext';
 
 // Mock data for subjects
-const subjects = [
+const subjects: Subject[] = [
   {
     id: 'math',
     name: 'Math',
@@ -44,7 +44,7 @@ const subjects = [
 ];
 
 // Mock data for topics
-const topics = {
+const topics: Record<string, string[]> = {
   math: ['Addition & Subtraction', 'Multiplication', 'Division', 'Fractions', 'Geometry'],
   science: ['Animals', 'Plants', 'Weather', 'Human Body', 'Simple Machines'],
   english: ['Phonics', 'Reading Comprehension', 'Grammar', 'Vocabulary', 'Writing'],
@@ -107,7 +107,7 @@ const Lessons = () => {
           <div className="mb-8">
             <h2 className="text-xl font-medium mb-4">Select Grade Level</h2>
             <GradeSelector 
-              selectedGrade={selectedGradeLevel} 
+              selectedGradeLevel={selectedGradeLevel} 
               onGradeChange={setSelectedGradeLevel}
             />
           </div>
@@ -118,7 +118,8 @@ const Lessons = () => {
               {subjects.map((subject) => (
                 <SubjectCard 
                   key={subject.id}
-                  subject={subject}
+                  subject={subject.id}
+                  gradeLevel={selectedGradeLevel}
                   onClick={() => handleSubjectSelect(subject.id)}
                 />
               ))}
@@ -127,11 +128,9 @@ const Lessons = () => {
         </>
       ) : (
         <TopicCarousel
-          subjectName={selectedSubject}
-          topicList={topics[selectedSubject as keyof typeof topics] || []}
+          gradeLevel={selectedGradeLevel}
           onSelectTopic={handleTopicSelect}
-          onBack={handleBackClick}
-          currentGrade={selectedGradeLevel}
+          onBackClick={handleBackClick}
         />
       )}
     </div>

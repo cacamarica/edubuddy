@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,6 +10,11 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+
+interface GradeSelectorProps {
+  selectedGradeLevel?: 'k-3' | '4-6' | '7-9';
+  onGradeChange?: (grade: 'k-3' | '4-6' | '7-9') => void;
+}
 
 interface GradeGroup {
   name: string;
@@ -64,14 +68,22 @@ const gradeGroups: GradeGroup[] = [
   }
 ];
 
-const GradeSelector = () => {
-  const [selectedGrade, setSelectedGrade] = useState<string | null>(null);
+const GradeSelector = ({ selectedGradeLevel, onGradeChange }: GradeSelectorProps) => {
+  const [selectedGrade, setSelectedGrade] = useState<string | null>(selectedGradeLevel || null);
   const navigate = useNavigate();
   const { user } = useAuth();
   const { t, language } = useLanguage();
   
-  const handleGradeSelect = (gradeLevel: string) => {
+  const handleGradeSelect = (gradeLevel: 'k1' | 'k2' | 'k-3' | '4-6' | '7-9') => {
     setSelectedGrade(gradeLevel);
+    
+    // If this component is being used with the onGradeChange prop, call it
+    if (onGradeChange && (gradeLevel === 'k-3' || gradeLevel === '4-6' || gradeLevel === '7-9')) {
+      onGradeChange(gradeLevel);
+      return;
+    }
+    
+    // Otherwise use the navigation behavior
     setTimeout(() => {
       if (user) {
         // If already logged in, go directly to lessons
@@ -122,7 +134,7 @@ const GradeSelector = () => {
           <Card 
             key={group.name}
             className={`overflow-hidden transition-all duration-300 hover:shadow-lg ${
-              selectedGrade === group.gradeLevel ? "ring-4 ring-eduPurple" : ""
+              (selectedGrade === group.gradeLevel || selectedGradeLevel === group.gradeLevel) ? "ring-4 ring-eduPurple" : ""
             }`}
           >
             <div className={`h-16 ${group.bgColor}`} />

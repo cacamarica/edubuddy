@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -5,6 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import { BookOpen, Calculator, FlaskConical, Atom, Globe, Code, Languages, Music, Palette, GraduationCap, Calendar, BookOpenCheck, PencilRuler } from "lucide-react";
+
+interface TopicCarouselProps {
+  gradeLevel?: 'k-3' | '4-6' | '7-9';
+  onSelectTopic?: (topic: string) => void;
+  onBackClick?: () => void;
+  subjectName?: string;
+  topicList?: string[];
+  currentGrade?: string;
+  onBack?: () => void;
+}
 
 const topics = [
   {
@@ -117,13 +128,31 @@ const topics = [
   }
 ];
 
-const TopicCarousel = ({ gradeLevel = 'k-3' }: { gradeLevel?: 'k-3' | '4-6' | '7-9' }) => {
+const TopicCarousel = ({ 
+  gradeLevel = 'k-3', 
+  onSelectTopic, 
+  onBackClick,
+  subjectName,
+  topicList,
+  currentGrade,
+  onBack
+}: TopicCarouselProps) => {
   const navigate = useNavigate();
   
   const handleStartLearning = (topic: string, lesson: string) => {
+    if (onSelectTopic) {
+      onSelectTopic(lesson);
+      return;
+    }
+
+    if (onBack && !subjectName) {
+      onBack();
+      return;
+    }
+    
     navigate('/ai-learning', { 
       state: { 
-        gradeLevel,
+        gradeLevel: currentGrade || gradeLevel,
         subject: topic,
         topic: lesson,
         autoStart: true,
@@ -132,6 +161,52 @@ const TopicCarousel = ({ gradeLevel = 'k-3' }: { gradeLevel?: 'k-3' | '4-6' | '7
     });
   };
 
+  const handleBackButton = () => {
+    if (onBackClick) {
+      onBackClick();
+    } else if (onBack) {
+      onBack();
+    }
+  };
+
+  // If we have specific topics to display
+  if (subjectName && topicList && topicList.length > 0) {
+    return (
+      <div className="w-full py-6">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold">{subjectName} Topics</h2>
+          <Button variant="ghost" onClick={handleBackButton}>
+            Back to Subjects
+          </Button>
+        </div>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          {topicList.map((topic, index) => (
+            <Card key={index} className="overflow-hidden transition-all duration-300 hover:shadow-lg">
+              <CardHeader className="pb-2">
+                <CardTitle>{topic}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  Explore {topic} with interactive lessons and quizzes.
+                </p>
+              </CardContent>
+              <CardFooter>
+                <Button 
+                  className="w-full bg-eduPurple hover:bg-eduPurple-dark"
+                  onClick={() => onSelectTopic && onSelectTopic(topic)}
+                >
+                  Start Learning
+                </Button>
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Default carousel view
   return (
     <div className="w-full py-6">
       <Carousel

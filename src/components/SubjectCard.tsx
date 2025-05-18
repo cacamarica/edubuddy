@@ -12,14 +12,16 @@ import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { studentProgressService } from '@/services/studentProgressService';
+import { Subject } from '@/types/learning';
 
 type Subject = 'math' | 'english' | 'science' | 'history' | 'computer' | 'art' | 'music' | 'geography' | 'social';
 
 interface SubjectCardProps {
-  subject: Subject;
+  subject: string | Subject;
   gradeLevel?: 'k-3' | '4-6' | '7-9';
   hasProgress?: boolean;
   studentId?: string;
+  onClick?: () => void;
 }
 
 const subjectConfig = {
@@ -205,10 +207,32 @@ const subjectConfig = {
   },
 };
 
-const SubjectCard = ({ subject, gradeLevel = 'k-3', hasProgress = true, studentId }: SubjectCardProps) => {
+const SubjectCard = ({ subject, gradeLevel = 'k-3', hasProgress = true, studentId, onClick }: SubjectCardProps) => {
   const navigate = useNavigate();
-  const config = subjectConfig[subject];
-  const Icon = config.icon;
+  
+  // Handle both string and Subject interface as input
+  const subjectId = typeof subject === 'string' ? subject : subject.id;
+  const config = subjectConfig[subjectId as keyof typeof subjectConfig] || {
+    title: typeof subject !== 'string' ? subject.name : 'Unknown',
+    description: {
+      'k-3': typeof subject !== 'string' ? subject.description : '',
+      '4-6': typeof subject !== 'string' ? subject.description : '',
+      '7-9': typeof subject !== 'string' ? subject.description : '',
+    },
+    color: typeof subject !== 'string' ? subject.color : 'bg-gray-500',
+    icon: Calculator, // Default icon
+    progress: {
+      'k-3': 0,
+      '4-6': 0,
+      '7-9': 0,
+    },
+    lessons: {
+      'k-3': ['Sample Lesson 1', 'Sample Lesson 2', 'Sample Lesson 3'],
+      '4-6': ['Sample Lesson 1', 'Sample Lesson 2', 'Sample Lesson 3'],
+      '7-9': ['Sample Lesson 1', 'Sample Lesson 2', 'Sample Lesson 3'],
+    },
+  };
+  
   const [progress, setProgress] = useState(config.progress[gradeLevel]);
   const [isLoading, setIsLoading] = useState(false);
   
@@ -235,8 +259,14 @@ const SubjectCard = ({ subject, gradeLevel = 'k-3', hasProgress = true, studentI
     };
     
     fetchSubjectProgress();
-  }, [studentId, subject, config.title]);
-    const handleContinueLearning = () => {
+  }, [studentId, subjectId, config.title]);
+  
+  const handleContinueLearning = () => {
+    if (onClick) {
+      onClick();
+      return;
+    }
+    
     // Default to first lesson if no progress, otherwise continue from most recent
     const topicIndex = hasProgress ? Math.floor(progress / 100 * config.lessons[gradeLevel].length) : 0;
     const selectedTopic = config.lessons[gradeLevel][topicIndex] || config.lessons[gradeLevel][0];
@@ -254,6 +284,8 @@ const SubjectCard = ({ subject, gradeLevel = 'k-3', hasProgress = true, studentI
     });
   };
 
+  const Icon = config.icon;
+
   return (
     <Card className="overflow-hidden transition-all duration-300 hover:shadow-lg">
       <div className={`h-16 ${config.color}`} />
@@ -262,7 +294,8 @@ const SubjectCard = ({ subject, gradeLevel = 'k-3', hasProgress = true, studentI
           <CardTitle className="flex items-center gap-2">
             <Icon className="h-5 w-5" />
             {config.title}
-          </CardTitle>          {isLoading ? (
+          </CardTitle>
+          {isLoading ? (
             <Badge variant="outline" className="text-xs">
               Loading...
             </Badge>
