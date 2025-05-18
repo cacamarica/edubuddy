@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 /**
@@ -46,11 +45,11 @@ export const fixStudentProfilesMappings = async (): Promise<void> => {
         console.log(`Creating missing profile for student ${student.id} (${student.name})`);
         const { error: insertError } = await supabase
           .from('profiles')
-          .insert({
+          .upsert({
             id: student.id,
             full_name: student.name,
             is_teacher: false
-          });
+          }, { onConflict: 'id' });
 
         if (insertError) {
           console.error(`Error creating profile for student ${student.id}:`, insertError);

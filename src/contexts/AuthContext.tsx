@@ -1,67 +1,68 @@
-
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Session, User } from '@supabase/supabase-js';
+import { Session } from '@supabase/supabase-js';
 import { toast } from 'sonner';
 import { useLanguage } from './LanguageContext';
-
-interface ExtendedUser extends User {
-  accountType: 'student' | 'parent' | 'teacher';
-}
-
-interface AuthContextProps {
-  user: ExtendedUser | null;
-  session: Session | null;
-  signIn: (email: string, password: string) => Promise<{error: any | null}>;
-  signUp: (email: string, password: string, fullName: string) => Promise<{error: any | null}>;
-  signOut: () => Promise<void>;
-  loading: boolean;
-  isAuthReady: boolean;
-  userRole: 'parent' | 'student' | 'admin' | null;
-  isParent: boolean;
-  isStudent: boolean;
-}
+import { AuthContextProps, AuthState, ExtendedUser } from '@/types/auth';
+import { handleAuthError } from '@/utils/errorHandling';
 
 // Create context with default undefined value
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Initialize state with explicit null values to avoid undefined issues
-  const [user, setUser] = useState<ExtendedUser | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [isAuthReady, setIsAuthReady] = useState(false);
-  const [userRole, setUserRole] = useState<'parent' | 'student' | 'admin' | null>(null);
+  // Initialize state with a single state object
+  const [state, setState] = useState<AuthState>({
+    user: null,
+    session: null,
+    loading: true,
+    isAuthReady: false,
+    userRole: null
+  });
   
   // Ensure the LanguageContext is available
   const languageContext = useLanguage();
-  const language = languageContext?.language || 'en'; // Provide fallback
-  const t = languageContext?.t || ((key: string) => key); // Provide fallback translation function
+  const language = languageContext?.language || 'en';
+
+  // Helper function to update state
+  const updateState = useCallback((updates: Partial<AuthState>) => {
+    setState(prev => ({ ...prev, ...updates }));
+  }, []);
 
   useEffect(() => {
     // Helper function to handle auth state updates
     const handleAuthStateChange = (currentSession: Session | null) => {
-      setSession(currentSession);
-      setUser(currentSession?.user ? { ...currentSession.user, accountType: 'student' } : null);
-      setLoading(false);
-      setIsAuthReady(true);
+      const user = currentSession?.user 
+        ? { 
+            ...currentSession.user, 
+            accountType: currentSession.user.user_metadata?.role || 'student'
+          } as ExtendedUser 
+        : null;
+
+      const userRole = user?.user_metadata?.role || null;
+
+      updateState({
+        session: currentSession,
+        user,
+        userRole,
+        loading: false,
+        isAuthReady: true
+      });
     };
 
-    // Set up the auth state listener first to avoid race conditions
+    // Set up the auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
       console.log("Auth state changed:", event);
       handleAuthStateChange(currentSession);
     });
 
-    // Then check for existing session
+    // Check for existing session
     const initAuth = async () => {
       try {
         const { data: { session: currentSession } } = await supabase.auth.getSession();
         handleAuthStateChange(currentSession);
       } catch (error) {
         console.error("Error initializing auth:", error);
-        setLoading(false);
-        setIsAuthReady(true);
+        updateState({ loading: false, isAuthReady: true });
       }
     };
 
@@ -70,89 +71,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [updateState]);
 
   const signIn = async (email: string, password: string) => {
-    setLoading(true);
+    updateState({ loading: true });
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
+      
       if (error) {
-        // If it's the "Email not confirmed" error, try to sign in anyway by using admin functions
-        if (error.message.includes("Email not confirmed")) {
-          // Since we want to bypass email verification, we'll sign in the user directly
-          // Note: In production, you should not bypass email verification
-          const { error: signInError } = await supabase.auth.signInWithPassword({ 
-            email, 
-            password,
-          });
-
-          if (signInError) {
-            toast.error(language === 'id' ? 'Gagal masuk: ' + signInError.message : 'Failed to sign in: ' + signInError.message);
-            setLoading(false);
-            return { error: signInError };
-          }
-          
-          toast.success(language === 'id' ? 'Berhasil masuk!' : 'Successfully signed in!');
-          setLoading(false);
-          return { error: null };
-        }
-        
-        toast.error(language === 'id' ? 'Gagal masuk: ' + error.message : 'Failed to sign in: ' + error.message);
-        setLoading(false);
+        const errorMessage = handleAuthError(error, language);
+        toast.error(errorMessage);
         return { error };
       }
       
       toast.success(language === 'id' ? 'Berhasil masuk!' : 'Successfully signed in!');
-      setLoading(false);
       return { error: null };
     } catch (error: any) {
-      toast.error(language === 'id' ? 'Terjadi kesalahan' : 'An error occurred');
-      console.error('Sign in error:', error);
-      setLoading(false);
+      const errorMessage = handleAuthError(error, language);
+      toast.error(errorMessage);
       return { error };
+    } finally {
+      updateState({ loading: false });
     }
   };
 
-  const signUp = async (email: string, password: string, fullName: string) => {
-    setLoading(true);
+  const signUp = async (email: string, password: string, fullName: string, role: 'student' | 'parent') => {
+    updateState({ loading: true });
     try {
       const { error, data } = await supabase.auth.signUp({ 
         email, 
         password,
         options: {
           data: {
-            full_name: fullName
-          },
-          // Note: email confirmation should be disabled in Supabase dashboard
-          // This setting doesn't bypass it in the client
+            full_name: fullName,
+            role: role
+          }
         }
       });
       
       if (error) {
-        toast.error(language === 'id' ? 'Gagal mendaftar: ' + error.message : 'Failed to sign up: ' + error.message);
-        setLoading(false);
+        const errorMessage = handleAuthError(error, language);
+        toast.error(errorMessage);
         return { error };
       }
       
-      // If signup was successful but email confirmation is still required
-      if (data?.user && data?.session === null) {
-        // In a real app with API access, we might call an endpoint to confirm the email
-        // For now just inform the user
+      if (data?.user && !data?.session) {
         toast.success(
           language === 'id'
-            ? 'Berhasil mendaftar! Silakan masuk langsung dengan akun yang baru dibuat.'
-            : 'Successfully registered! Please sign in directly with your new account.'
+            ? 'Berhasil mendaftar! Silakan periksa email Anda untuk konfirmasi.'
+            : 'Successfully registered! Please check your email for confirmation.'
         );
-        
-        // Try to sign in immediately after signup
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email,
-          password
-        });
-        
-        if (!signInError) {
-          toast.success(language === 'id' ? 'Berhasil masuk!' : 'Successfully signed in!');
-        }
       } else {
         toast.success(
           language === 'id'
@@ -161,59 +129,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         );
       }
       
-      setLoading(false);
       return { error: null };
     } catch (error: any) {
-      toast.error(language === 'id' ? 'Terjadi kesalahan' : 'An error occurred');
-      console.error('Sign up error:', error);
-      setLoading(false);
+      const errorMessage = handleAuthError(error, language);
+      toast.error(errorMessage);
       return { error };
+    } finally {
+      updateState({ loading: false });
     }
   };
 
   const signOut = async () => {
-    setLoading(true);
+    updateState({ loading: true });
     try {
       await supabase.auth.signOut();
       toast.success(language === 'id' ? 'Berhasil keluar!' : 'Successfully signed out!');
     } catch (error) {
-      console.error('Sign out error:', error);
-      toast.error(language === 'id' ? 'Gagal keluar' : 'Failed to sign out');
+      const errorMessage = handleAuthError(error, language);
+      toast.error(errorMessage);
     } finally {
-      setLoading(false);
+      updateState({ loading: false });
     }
   };
 
   // Determine if user is a parent or student
-  const isParent = !!user && (!user.user_metadata?.role || user.user_metadata?.role === 'parent');
-  const isStudent = !!user && user.user_metadata?.role === 'student';
-
-  // Set user role based on metadata
-  useEffect(() => {
-    if (user) {
-      if (user.user_metadata?.role === 'student') {
-        setUserRole('student');
-      } else if (user.user_metadata?.role === 'admin') {
-        setUserRole('admin');
-      } else {
-        // Default role is parent
-        setUserRole('parent');
-      }
-    } else {
-      setUserRole(null);
-    }
-  }, [user]);
+  const isParent = !!state.user && state.userRole === 'parent';
+  const isStudent = !!state.user && state.userRole === 'student';
 
   return (
     <AuthContext.Provider value={{ 
-      user, 
-      session, 
+      ...state,
       signIn, 
       signUp, 
-      signOut, 
-      loading, 
-      isAuthReady,
-      userRole,
+      signOut,
       isParent,
       isStudent
     }}>
