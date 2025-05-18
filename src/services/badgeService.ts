@@ -1,6 +1,23 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { Badge, StudentBadge } from './studentProgressService';
+
+// Define Badge and StudentBadge interfaces
+export interface Badge {
+  id: string;
+  name: string;
+  description: string;
+  image_url: string;
+  category: string;
+  created_at: string;
+}
+
+export interface StudentBadge {
+  id: string;
+  student_id: string;
+  badge_id: string;
+  awarded_at: string;
+  badge?: Badge;
+}
 
 // Fetch all badges for a student
 export const fetchStudentBadges = async (studentId: string): Promise<StudentBadge[]> => {
@@ -28,8 +45,33 @@ export const fetchStudentBadges = async (studentId: string): Promise<StudentBadg
   }
 };
 
-// Export the badgeService object for components that need it
-export const badgeService = {
-  fetchStudentBadges
+// Award a badge to a student
+export const awardBadge = async (studentId: string, badgeId: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('student_badges')
+      .insert([
+        {
+          student_id: studentId,
+          badge_id: badgeId,
+          awarded_at: new Date().toISOString()
+        }
+      ]);
+      
+    if (error) {
+      console.error("Error awarding badge:", error);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Error in awardBadge:", error);
+    return false;
+  }
 };
 
+// Export the badgeService object for components that need it
+export const badgeService = {
+  fetchStudentBadges,
+  awardBadge
+};

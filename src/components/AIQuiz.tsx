@@ -10,6 +10,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { studentProgressService } from "@/services/studentProgressService";
 import { toast } from "sonner";
 import { fetchQuizQuestions, saveQuizProgress, getQuizProgress } from "@/services/quizService";
+import { useNavigate } from "react-router-dom";
 
 export interface AIQuizProps {
   subject: string;
@@ -457,18 +458,25 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete, limitProgress = false,
   }
 
   if (quizComplete) {
-    return (
-      <QuizResults
-        score={score}
-        totalQuestions={questions.length}
-        subject={subject}
-        topic={topic}
-        questions={questions}
-        answers={answers}
-        onRestartQuiz={handleRestartQuiz}
-        onNewQuiz={handleNewQuiz}
-      />
-    );
+    const navigate = useNavigate();
+    
+    // Calculate final score
+    const finalScore = calculateFinalScore();
+    
+    // Navigate to QuizResults with the necessary state
+    navigate('/quiz/results', {
+      state: {
+        studentId,
+        subject,
+        topic,
+        correctAnswers: finalScore,
+        totalQuestions: questions.length
+      },
+      replace: true
+    });
+    
+    // Return loading state during navigation
+    return <LoadingQuiz />;
   }
 
   // Show the current question

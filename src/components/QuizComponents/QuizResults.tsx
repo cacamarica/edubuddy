@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Star, ArrowLeftCircle, CheckCircle2, Confetti } from 'lucide-react';
+import { Star, ArrowLeftCircle, CheckCircle2, PartyPopper } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { studentProgressService } from '@/services/studentProgressService';
@@ -17,6 +18,17 @@ interface LocationState {
   topic: string;
   correctAnswers: number;
   totalQuestions: number;
+}
+
+interface QuizResultsProps {
+  score: number;
+  totalQuestions: number;
+  subject: string;
+  topic: string;
+  questions: any[];
+  answers: (number | null)[];
+  onRestartQuiz: () => void;
+  onNewQuiz: () => void;
 }
 
 const QuizResults: React.FC = () => {
@@ -144,21 +156,9 @@ const QuizResults: React.FC = () => {
         
         <CardContent className="flex flex-col items-center space-y-4">
           {isPerfectScore && (
-            <Confetti
-              active={isPerfectScore}
-              config={{
-                angle: 90,
-                spread: 45,
-                startVelocity: 45,
-                elementCount: 200,
-                dragFriction: 0.1,
-                duration: 3000,
-                stagger: 0,
-                width: "10px",
-                height: "10px",
-                colors: ["#a864a8", "#29cdff", "#78ff44", "#ff718d", "#fdff6a"]
-              }}
-            />
+            <div className="w-full flex justify-center">
+              <PartyPopper className="h-12 w-12 text-yellow-500 animate-bounce" />
+            </div>
           )}
           
           <div className="text-4xl font-bold">
