@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { LearningActivityType } from "@/types/learning";
@@ -62,6 +61,10 @@ export interface AIRecommendation {
   created_at?: string;
   read?: boolean;
   acted_on?: boolean;
+  subject?: string;  // Optional fields for enhanced recommendations
+  topic?: string;
+  reasoning?: string;
+  expectedImpact?: string;
 }
 
 export interface AISummaryReport {
@@ -303,6 +306,10 @@ export const studentProgressService = {
     recommendation: string;
     read?: boolean;
     acted_on?: boolean;
+    subject?: string;
+    topic?: string;
+    reasoning?: string;
+    expectedImpact?: string;
   }): Promise<AIRecommendation | null> {
     try {
       const { data, error } = await supabase
@@ -354,24 +361,58 @@ export const studentProgressService = {
 
   // Get AI Summary Report from Edge Function
   async getAISummaryReport(studentId: string, gradeLevel: string, studentName: string, forceRefresh = false): Promise<AISummaryReport | null> {
-    try {
-      const { data, error } = await supabase.functions.invoke('get-student-ai-summary-report', {
-        body: { studentId, gradeLevel, studentName, forceRefresh },
-      });
+    // Maximum number of retries
+    const MAX_RETRIES = 2;
+    let retryCount = 0;
+    
+    while (retryCount <= MAX_RETRIES) {
+      try {
+        console.log(`Attempt ${retryCount + 1} to fetch AI report for ${studentId}`);
+        
+        const { data, error } = await supabase.functions.invoke('get-student-ai-summary-report', {
+          body: { 
+            studentId, 
+            gradeLevel, 
+            studentName, 
+            forceRefresh 
+          },
+        });
 
-      if (error) {
-        console.error('Error fetching AI summary report from function:', error);
-        // Generate a fallback report
-        return this.generateFallbackReport(studentName, gradeLevel);
+        if (error) {
+          console.error(`Error fetching AI summary report (attempt ${retryCount + 1}):`, error);
+          
+          // If we've reached max retries, generate a fallback report
+          if (retryCount === MAX_RETRIES) {
+            console.log("Max retries reached, generating fallback report");
+            return this.generateFallbackReport(studentName, gradeLevel);
+          }
+          
+          // Otherwise retry
+          retryCount++;
+          // Wait a little longer between retries
+          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+          continue;
+        }
+
+        return data as AISummaryReport;
+      } catch (error) {
+        console.error(`Exception fetching AI summary report (attempt ${retryCount + 1}):`, error);
+        
+        // If we've reached max retries, generate a fallback report
+        if (retryCount === MAX_RETRIES) {
+          console.log("Max retries reached after exception, generating fallback report");
+          toast.error('Could not connect to AI service. Using a simplified report.');
+          return this.generateFallbackReport(studentName, gradeLevel);
+        }
+        
+        // Otherwise retry
+        retryCount++;
+        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
       }
-
-      return data as AISummaryReport;
-    } catch (error) {
-      console.error('Error fetching AI summary report from function:', error);
-      toast.error('Failed to load AI summary report');
-      // Generate a fallback report on error
-      return this.generateFallbackReport(studentName, gradeLevel);
     }
+    
+    // This should not be reached but added as a fallback
+    return this.generateFallbackReport(studentName, gradeLevel);
   },
 
   // Generate a fallback report when the API fails

@@ -1,44 +1,96 @@
 
+# A string used to distinguish different Supabase projects on the same host. Defaults to the working
+# directory name when running `supabase init`.
 project_id = "dnmapxxmswjaxiurqogj"
 
 [api]
-enabled = true
+# Port to use for the API URL.
 port = 54321
-schemas = ["public", "storage", "graphql_public"]
+# Schemas to expose in your API. Tables, views and stored procedures in this schema will get API
+# endpoints. public and storage are always included.
+schemas = ["public", "storage"]
+# Extra schemas to include in the GraphQL API.
+extra_schemas = ["public", "storage"]
 
 [db]
+# Port to use for the local database URL.
 port = 54322
+# The database major version to use. This has to be the same as your remote database's. Run `SHOW
+# server_version;` on the remote database to check.
+major_version = 15
 
 [studio]
-enabled = true
+# Port to use for Supabase Studio.
 port = 54323
-api_url = "http://localhost"
 
+# Email testing server. Emails sent with the local dev setup are not actually sent - rather, they
+# are monitored, and you can view the emails that would have been sent from the web interface.
 [inbucket]
-enabled = true
+# Port to use for the email testing server web interface.
 port = 54324
-
-[auth]
-enabled = true
-port = 9999
+smtp_port = 54325
+pop3_port = 54326
 
 [storage]
-enabled = true
+# The maximum file size allowed (e.g. "5MB", "500KB").
+file_size_limit = "50MiB"
 
-[realtime]
-enabled = true
+[auth]
+# The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
+# in emails.
+site_url = "http://localhost:3000"
+# A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
+additional_redirect_urls = ["https://localhost:3000"]
+# How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
+jwt_expiry = 3600
+# Allow/disallow new user signups to your project.
+enable_signup = true
 
-[functions.ai-lesson-generator]
-verify_jwt = true
+[auth.email]
+# Allow/disallow new user signups via email to your project.
+enable_signup = true
+# If enabled, a user will be required to confirm any email change on both the old, and new email
+# addresses. If disabled, only the new email is required to confirm.
+double_confirm_changes = true
+# If enabled, users need to confirm their email address before signing in.
+enable_confirmations = false
 
-[functions.ai-edu-content]
-verify_jwt = true
+# Configure one of the supported SMS providers: twilio.
+[auth.sms]
+enable_signup = true
+enable_confirmations = false
 
-[functions.ai-quiz-generator]
-verify_jwt = true
+# Use a custom function for influencing the user management workflow, such as conforming to a
+# specific authorization policy, or adding/removing additional roles and attributes on the user.
+# Ref: https://supabase.com/docs/guides/auth/auth-hooks#custom-access-token-and-id-token-claims
+[auth.hooks]
+custom_access_token_claims = "_supabase.custom_access_token_claims"
 
+# Specify a function to run when auth events like user creation, login, and password reset occur.
+# Ref: https://supabase.com/docs/guides/auth/auth-hooks#auth-event-hooks
+auth_event = ""
+
+# Configure Supabase Functions.
+[functions]
+# Function to run when a Function is invoked. Deprecated, use individual functions in the functions
+# section below.
+function_handler = ""
+
+# Configure individual Supabase Functions.
 [functions.get-student-ai-summary-report]
-verify_jwt = false
+verify_jwt = true
 
 [functions.get-student-quiz-history-by-topic]
-verify_jwt = false
+verify_jwt = true
+
+# Configure Supabase Edge Functions.
+[edge_functions]
+port = 54321
+
+# Set up storage file retention (in days). Defaults to never delete.
+[storage.file_retention]
+
+# Set up a default database password for the `postgres` user.
+[postgres]
+port = 54322
+password = ""
