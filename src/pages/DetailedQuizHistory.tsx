@@ -1,120 +1,125 @@
-import React, { useState, useEffect } from 'react'; // Added useState, useEffect
-import { useParams, useLocation, useNavigate } from 'react-router-dom';
-import { useLanguage } from '@/contexts/LanguageContext';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'; // Added CardDescription
+import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, AlertTriangle } from 'lucide-react'; // Added AlertTriangle
-import { studentProgressService, TopicQuizHistory, DetailedQuizAttempt } from '@/services/studentProgressService'; // Import service and types
-import { Spinner } from '@/components/ui/spinner'; // Import Spinner
-import { toast } from 'sonner'; // For error feedback
+import { BookOpen } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { studentProgressService } from '@/services/studentProgressService';
+import { Spinner } from '@/components/ui/spinner';
+import { toast } from 'sonner';
 
-const DetailedQuizHistoryPage: React.FC = () => {
-  const { studentId, topicId } = useParams<{ studentId: string; topicId: string }>();
-  const location = useLocation(); // Keep for potential state passing if needed for topicName initially
-  const { language } = useLanguage();
-  const navigate = useNavigate();
+interface QuizHistoryProps {
+  studentId?: string;
+  gradeLevel?: string;
+  subject?: string;
+}
 
-  const [quizHistory, setQuizHistory] = useState<TopicQuizHistory | null>(null);
+const DetailedQuizHistory: React.FC<QuizHistoryProps> = () => {
+  const location = useLocation();
+  const { studentId, gradeLevel, subject } = location.state || {};
+  const [quizHistory, setQuizHistory] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // If topicName is passed via state, use it, otherwise it will be fetched.
-  const initialTopicName = location.state?.topicName || (language === 'id' ? 'Memuat Detail Kuis...' : 'Loading Quiz Details...');
+  const { language } = useLanguage();
 
   useEffect(() => {
-    const fetchHistory = async () => {
-      if (!studentId || !topicId) {
-        setError(language === 'id' ? 'ID Siswa atau ID Topik tidak ditemukan.' : 'Student ID or Topic ID missing.');
-        setIsLoading(false);
-        return;
-      }
-      setIsLoading(true);
-      setError(null);
-      try {
-        const historyData = await studentProgressService.getDetailedQuizHistoryByTopic(studentId, topicId);
-        if (historyData) {
-          setQuizHistory(historyData);
-        } else {
-          // If historyData is null but no error thrown by service, it means function might have returned null (e.g. on its own error handling)
-          // The service itself toasts errors, but we can set a local error state too.
-          setError(language === 'id' ? 'Tidak dapat memuat riwayat kuis.' : 'Could not load quiz history.');
+    const fetchQuizHistory = async () => {
+      if (studentId && gradeLevel) {
+        setIsLoading(true);
+        try {
+          // Pass the required parameters to the function
+          const data = await studentProgressService.getDetailedQuizHistoryByTopic(
+            studentId,
+            gradeLevel,
+            subject
+          );
+          setQuizHistory(data);
+        } catch (error) {
+          console.error('Error fetching quiz history:', error);
+          toast.error('Failed to load quiz history');
+        } finally {
+          setIsLoading(false);
         }
-      } catch (err: any) {
-        console.error("Error fetching detailed quiz history:", err);
-        setError(err.message || (language === 'id' ? 'Terjadi kesalahan saat mengambil data.' : 'An error occurred while fetching data.'));
-        toast.error(language === 'id' ? 'Gagal memuat riwayat kuis.' : 'Failed to load quiz history.');
-      } finally {
-        setIsLoading(false);
       }
     };
 
-    fetchHistory();
-  }, [studentId, topicId, language]);
-
-  const handleBack = () => {
-    navigate(-1); // Go back to the previous page
-  };
+    fetchQuizHistory();
+  }, [studentId, gradeLevel, subject]);
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex flex-col"><Header />
-        <div className="container mx-auto px-4 py-6 flex-grow flex items-center justify-center"><Spinner size="lg" /></div>
-      <Footer /></div>
+      <div className="flex justify-center items-center h-48">
+        <Spinner />
+      </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Header />
-      <div className="container mx-auto px-4 py-6 flex-grow">
-        <Button variant="outline" size="sm" onClick={handleBack} className="mb-4"><ArrowLeft className="mr-2 h-4 w-4" />{language === 'id' ? 'Kembali' : 'Back'}</Button>
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              {language === 'id' ? 'Riwayat Kuis Lengkap untuk Topik:' : 'Detailed Quiz History for Topic:'} {quizHistory?.topicName || initialTopicName}
-            </CardTitle>
-            {quizHistory?.attempts && quizHistory.attempts.length > 0 && quizHistory.attempts[0].quiz_title && (
-                <CardDescription>
-                    {language === 'id' ? 'Kuis: ' : 'Quiz: '} {quizHistory.attempts[0].quiz_title}
-                </CardDescription>
-            )}
-          </CardHeader>
-          <CardContent>
-            {error && (
-              <div className="text-red-600 bg-red-50 p-4 rounded-md flex items-center"><AlertTriangle className="mr-2 h-5 w-5" />{error}</div>
-            )}
-            {!error && quizHistory && quizHistory.attempts.length > 0 ? (
-              <ul className="space-y-4">
-                {quizHistory.attempts.map((attempt: DetailedQuizAttempt, index: number) => (
-                  <li key={index} className="p-4 border rounded-md bg-gray-50/50
-                    hover:shadow-md transition-shadow
-                  ">
-                    <p className="font-semibold text-gray-800">{attempt.question_text}</p>
-                    <p className={`my-1 ${attempt.is_correct ? 'text-green-700' : 'text-red-700'}`}>
-                      {language === 'id' ? 'Jawaban Anda: ' : 'Your Answer: '} <span className="font-medium">{attempt.student_answer}</span>
-                    </p>
-                    {!attempt.is_correct && (
-                      <p className="text-blue-700">
-                        {language === 'id' ? 'Jawaban Benar: ' : 'Correct Answer: '} <span className="font-medium">{attempt.correct_answer}</span>
-                      </p>
-                    )}
-                    <p className="text-xs text-gray-500 mt-2">
-                      {language === 'id' ? 'Dijawab pada: ' : 'Answered on: '} {new Date(attempt.attempted_at).toLocaleString(language === 'id' ? 'id-ID' : 'en-US')}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            ) : !error ? (
-              <p>{language === 'id' ? 'Tidak ada riwayat kuis untuk topik ini.' : 'No quiz history available for this topic.'}</p>
-            ) : null}
-          </CardContent>
-        </Card>
-      </div>
-      <Footer />
+    <div className="container mx-auto py-8">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold">
+            {language === 'id' ? 'Riwayat Kuis' : 'Quiz History'}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {quizHistory.length === 0 ? (
+            <div className="text-center py-6">
+              {language === 'id' ? 'Tidak ada riwayat kuis yang tersedia' : 'No quiz history available'}
+            </div>
+          ) : (
+            <>
+              {quizHistory.map((topic) => (
+                <div key={topic.topic} className="mb-6">
+                  <h3 className="text-lg font-semibold mb-2 flex items-center">
+                    <BookOpen className="mr-2 h-5 w-5 text-eduPurple" />
+                    {language === 'id' ? 'Topik' : 'Topic'}: {topic.topicName || topic.topic}
+                  </h3>
+                  <div className="space-y-3">
+                    {topic.attempts.map((attempt) => (
+                      <div key={attempt.id} className="border rounded-lg p-3">
+                        <div className="flex justify-between items-start mb-2">
+                          <h4 className="font-medium">{attempt.quiz_title || 'Quiz'}</h4>
+                          <Badge className={attempt.is_correct ? 'bg-green-500' : 'bg-red-500'}>
+                            {attempt.is_correct 
+                              ? (language === 'id' ? 'Benar' : 'Correct') 
+                              : (language === 'id' ? 'Salah' : 'Incorrect')}
+                          </Badge>
+                        </div>
+                        
+                        <p className="text-sm mb-1">{attempt.question_text}</p>
+                        <div className="text-xs text-muted-foreground mt-2">
+                          <div className="flex gap-x-4">
+                            <span>
+                              <strong>{language === 'id' ? 'Jawaban Anda' : 'Your answer'}:</strong>{' '}
+                              <span className={attempt.is_correct ? 'text-green-600' : 'text-red-600'}>
+                                {attempt.student_answer}
+                              </span>
+                            </span>
+                            {!attempt.is_correct && (
+                              <span>
+                                <strong>{language === 'id' ? 'Jawaban yang benar' : 'Correct answer'}:</strong>{' '}
+                                <span className="text-green-600">{attempt.correct_answer}</span>
+                              </span>
+                            )}
+                          </div>
+                          <div className="mt-1 text-gray-500">
+                            {new Date(attempt.attempted_at).toLocaleDateString()}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <Separator className="my-4" />
+                </div>
+              ))}
+            </>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };
 
-export default DetailedQuizHistoryPage;
+export default DetailedQuizHistory;

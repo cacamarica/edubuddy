@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { studentProgressService } from '@/services/studentProgressService';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Spinner } from '@/components/ui/spinner';
 import PaginatedBadges from './PaginatedBadges';

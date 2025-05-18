@@ -18,10 +18,26 @@ interface GradeGroup {
   grades: string;
   description: string;
   bgColor: string;
-  gradeLevel: 'k-3' | '4-6' | '7-9';
+  gradeLevel: 'k1' | 'k2' | 'k-3' | '4-6' | '7-9';
 }
 
 const gradeGroups: GradeGroup[] = [
+  {
+    name: "Playgroup",
+    ageRange: "3-4 years old",
+    grades: "K1",
+    description: "First steps in learning with colorful and fun activities!",
+    bgColor: "bg-eduPastel-pink",
+    gradeLevel: 'k1'
+  },
+  {
+    name: "Kindergarten",
+    ageRange: "4-5 years old",
+    grades: "K2",
+    description: "Discovery and basic skills through creative play!",
+    bgColor: "bg-eduPastel-orange",
+    gradeLevel: 'k2'
+  },
   {
     name: "Early Learners",
     ageRange: "5-7 years old",
@@ -70,6 +86,8 @@ const GradeSelector = () => {
   const getLocalizedName = (name: string): string => {
     if (language === 'id') {
       switch(name) {
+        case 'Playgroup': return 'Kelompok Bermain';
+        case 'Kindergarten': return 'Taman Kanak-kanak';
         case 'Early Learners': return 'Pemula';
         case 'Intermediate': return 'Menengah';
         case 'Advanced': return 'Lanjutan';
@@ -79,9 +97,11 @@ const GradeSelector = () => {
     return name;
   };
   
-  const getLocalizedDescription = (gradeLevel: 'k-3' | '4-6' | '7-9'): string => {
+  const getLocalizedDescription = (gradeLevel: 'k1' | 'k2' | 'k-3' | '4-6' | '7-9'): string => {
     if (language === 'id') {
       switch(gradeLevel) {
+        case 'k1': return 'Langkah pertama belajar dengan aktivitas yang berwarna dan menyenangkan!';
+        case 'k2': return 'Penemuan dan keterampilan dasar melalui permainan kreatif!';
         case 'k-3': return 'Permainan menyenangkan dan pelajaran berwarna untuk pelajar termuda!';
         case '4-6': return 'Membangun keterampilan dengan tantangan interaktif!';
         case '7-9': return 'Konsep lebih mendalam dan petualangan belajar tingkat lanjut!';
