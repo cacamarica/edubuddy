@@ -130,7 +130,7 @@ serve(async (req) => {
       // 1. Check for an existing, up-to-date report
       const { data: existingReportData, error: existingReportError } = await supabase
         .from("ai_student_reports")
-        .select("id, report_data, last_activity_timestamp, generated_at")
+        .select("id, report_data, last_activity_timestamp, generated_at, grade_level")
         .eq("student_id", studentId)
         .eq("grade_level", gradeLevel) // Ensure grade level matches
         .order("generated_at", { ascending: false })
@@ -220,9 +220,7 @@ serve(async (req) => {
           generated_at: newReport.generatedAt,
           grade_level: gradeLevel,
         }, { 
-            onConflict: 'student_id, grade_level', // Assumes a unique constraint on (student_id, grade_level)
-                                                // If you want multiple reports per student/grade, adjust this or use insert.
-                                                // For this use case, one latest report per student/grade seems appropriate.
+            onConflict: 'student_id, grade_level', // Uses the unique constraint we created
         })
         .select("id") // Return the ID of the upserted row
         .single();
@@ -256,41 +254,3 @@ serve(async (req) => {
     );
   }
 });
-
-/*
-Table: ai_student_reports
-Columns:
-  id: uuid (Primary Key, default: uuid_generate_v4())
-  student_id: uuid (Foreign Key to your students table, if applicable, or just an identifier)
-  grade_level: text (e.g., 'k-3', '4-6', '7-9')
-  report_data: jsonb (Stores the AISummaryReport object)
-  last_activity_timestamp: timestamptz (Timestamp of the latest student activity used for this report)
-  generated_at: timestamptz (default: now())
-  created_at: timestamptz (default: now())
-  updated_at: timestamptz (default: now())
-
-Indexes:
-  CREATE INDEX idx_ai_student_reports_student_id_grade_level ON ai_student_reports(student_id, grade_level);
-  -- Consider a unique constraint if you only want one report per student per grade level.
-  -- ALTER TABLE ai_student_reports ADD CONSTRAINT unique_student_grade_report UNIQUE (student_id, grade_level);
-  -- If using upsert with onConflict: 'student_id, grade_level', this unique constraint is required.
-
-Example Supabase CLI command to create the table (run in SQL editor or as migration):
-CREATE TABLE public.ai_student_reports (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  student_id uuid NOT NULL,
-  grade_level text NOT NULL,
-  report_data jsonb NOT NULL,
-  last_activity_timestamp timestamptz NULL,
-  generated_at timestamptz NOT NULL DEFAULT now(),
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT ai_student_reports_pkey PRIMARY KEY (id),
-  CONSTRAINT unique_student_grade_report UNIQUE (student_id, grade_level) -- Added for upsert
-);
-
-ALTER TABLE public.ai_student_reports ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Enable read access for authenticated users" ON public.ai_student_reports FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "Enable insert access for authenticated users" ON public.ai_student_reports FOR INSERT WITH CHECK (auth.role() = 'authenticated');
-CREATE POLICY "Enable update access for authenticated users" ON public.ai_student_reports FOR UPDATE USING (auth.role() = 'authenticated');
-*/

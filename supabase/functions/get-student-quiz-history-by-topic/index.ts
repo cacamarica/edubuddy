@@ -1,3 +1,4 @@
+
 // Supabase Edge Function: get-student-quiz-history-by-topic
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -28,27 +29,27 @@ serve(async (req) => {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
 
-  const { studentId, topicId } = await req.json();
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
-
-  if (!studentId || !topicId) {
-    return new Response(
-      JSON.stringify({ error: "studentId and topicId are required" }),
-      { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
-    );
-  }
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    return new Response(
-      JSON.stringify({ error: "Supabase environment variables not set" }),
-      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
-    );
-  }
-
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
   try {
+    const { studentId, topicId } = await req.json();
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+
+    if (!studentId || !topicId) {
+      return new Response(
+        JSON.stringify({ error: "studentId and topicId are required" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return new Response(
+        JSON.stringify({ error: "Supabase environment variables not set" }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
     // 1. Fetch quiz attempts from student_quiz_attempts table
     //    for the given studentId and topicId.
     //    You might need to join with a 'quizzes' or 'questions' table to get more details.
@@ -113,49 +114,3 @@ serve(async (req) => {
     );
   }
 });
-
-/*
-Assumed table: student_quiz_attempts
-Columns:
-  id: uuid (Primary Key)
-  student_id: uuid (FK to students)
-  quiz_id: uuid (FK to quizzes table)
-  topic_id: uuid (FK to topics table)
-  question_id: uuid (FK to questions table, if attempts are per question)
-  question_text: text (Denormalized or joined from questions table)
-  student_answer: text
-  correct_answer: text (Denormalized or joined)
-  is_correct: boolean
-  attempted_at: timestamptz (default: now())
-  ...
-
-Assumed table: quizzes
-Columns:
-  id: uuid (PK)
-  quiz_title: text
-  topic_id: uuid (FK to topics)
-  ...
-
-Assumed table: topics
-Columns:
-  id: uuid (PK)
-  topic_name: text
-  ...
-
-RLS Policies for 'student_quiz_attempts', 'quizzes', 'topics' tables need to allow access 
-for the key used by createClient (anon key by default in this function).
-If using service_role key, RLS is bypassed.
-
-Example RLS (adjust as needed):
-ALTER TABLE public.student_quiz_attempts ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow anon read access to quiz attempts" ON public.student_quiz_attempts
-  FOR SELECT USING (true); -- Or more restrictive, e.g., (auth.role() = 'anon')
-
-ALTER TABLE public.quizzes ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow anon read access to quizzes" ON public.quizzes
-  FOR SELECT USING (true);
-
-ALTER TABLE public.topics ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow anon read access to topics" ON public.topics
-  FOR SELECT USING (true);
-*/
