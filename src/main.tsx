@@ -5,12 +5,29 @@ import App from './App.tsx';
 import './index.css';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { AuthProvider } from './contexts/AuthContext';
-import { Toaster } from 'sonner'; // Make sure we're using sonner directly
+import { Toaster } from 'sonner';
 import ErrorBoundary from './components/ErrorBoundary';
+import { fixStudentProfilesMappings } from './utils/databaseMigration';
+
+// Run database migrations early
+try {
+  // We'll run this asynchronously without blocking rendering
+  fixStudentProfilesMappings().catch(error => {
+    console.error("Failed to run database migrations:", error);
+  });
+} catch (error) {
+  console.error("Error initializing database migrations:", error);
+}
 
 // Use a try-catch block to handle potential errors during initialization
 try {
-  ReactDOM.createRoot(document.getElementById('root')!).render(
+  const rootElement = document.getElementById('root');
+  
+  if (!rootElement) {
+    throw new Error('Root element not found');
+  }
+  
+  ReactDOM.createRoot(rootElement).render(
     <React.StrictMode>
       <ErrorBoundary fallback={
         <div className="flex h-screen flex-col items-center justify-center p-4 text-center">
@@ -24,12 +41,12 @@ try {
           </button>
         </div>
       }>
-        <AuthProvider>
-          <LanguageProvider>
+        <LanguageProvider>
+          <AuthProvider>
             <App />
             <Toaster position="bottom-right" richColors />
-          </LanguageProvider>
-        </AuthProvider>
+          </AuthProvider>
+        </LanguageProvider>
       </ErrorBoundary>
     </React.StrictMode>,
   );

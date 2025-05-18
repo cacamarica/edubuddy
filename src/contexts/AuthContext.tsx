@@ -22,35 +22,44 @@ interface AuthContextProps {
   isStudent: boolean;
 }
 
+// Create context with default undefined value
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
 
-export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Initialize state with explicit null values to avoid undefined issues
   const [user, setUser] = useState<ExtendedUser | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isAuthReady, setIsAuthReady] = useState(false); // Track when auth is initialized
+  const [isAuthReady, setIsAuthReady] = useState(false);
   const [userRole, setUserRole] = useState<'parent' | 'student' | 'admin' | null>(null);
-  const { t, language } = useLanguage();
+  
+  // Ensure the LanguageContext is available
+  const languageContext = useLanguage();
+  const language = languageContext?.language || 'en'; // Provide fallback
+  const t = languageContext?.t || ((key: string) => key); // Provide fallback translation function
 
   useEffect(() => {
-    // Set up the auth state listener first to avoid race conditions
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
-      console.log("Auth state changed:", event);
+    // Helper function to handle auth state updates
+    const handleAuthStateChange = (currentSession: Session | null) => {
       setSession(currentSession);
       setUser(currentSession?.user ? { ...currentSession.user, accountType: 'student' } : null);
       setLoading(false);
       setIsAuthReady(true);
+    };
+
+    // Set up the auth state listener first to avoid race conditions
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
+      console.log("Auth state changed:", event);
+      handleAuthStateChange(currentSession);
     });
 
     // Then check for existing session
     const initAuth = async () => {
       try {
         const { data: { session: currentSession } } = await supabase.auth.getSession();
-        setSession(currentSession);
-        setUser(currentSession?.user ? { ...currentSession.user, accountType: 'student' } : null);
+        handleAuthStateChange(currentSession);
       } catch (error) {
         console.error("Error initializing auth:", error);
-      } finally {
         setLoading(false);
         setIsAuthReady(true);
       }
@@ -174,6 +183,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setLoading(false);
     }
   };
+
   // Determine if user is a parent or student
   const isParent = !!user && (!user.user_metadata?.role || user.user_metadata?.role === 'parent');
   const isStudent = !!user && user.user_metadata?.role === 'student';

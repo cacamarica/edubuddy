@@ -29,6 +29,7 @@ export const fixStudentProfilesMappings = async (): Promise<void> => {
 
     // For each student ID, ensure it exists in profiles
     for (const student of students) {
+      // Check if profile exists
       const { data: existingProfile, error: checkError } = await supabase
         .from('profiles')
         .select('id')
@@ -53,7 +54,11 @@ export const fixStudentProfilesMappings = async (): Promise<void> => {
 
         if (insertError) {
           console.error(`Error creating profile for student ${student.id}:`, insertError);
+        } else {
+          console.log(`Successfully created profile for student ${student.id}`);
         }
+      } else {
+        console.log(`Profile already exists for student ${student.id}`);
       }
     }
     
