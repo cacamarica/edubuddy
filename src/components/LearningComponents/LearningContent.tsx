@@ -13,7 +13,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 
-interface LearningContentProps {
+export interface LearningContentProps {
   subject: string;
   gradeLevel: 'k-3' | '4-6' | '7-9';
   topic: string;
@@ -22,6 +22,7 @@ interface LearningContentProps {
   onReset: () => void;
   onQuizComplete: (score: number) => void;
   recommendationId?: string; // Add recommendationId to track source
+  student?: any; // Allow passing student object
 }
 
 interface StudentInfo {
@@ -40,6 +41,7 @@ const LearningContent: React.FC<LearningContentProps> = ({
   onReset,
   onQuizComplete,
   recommendationId,
+  student
 }) => {
   const { language, t } = useLanguage();
   const { user } = useAuth();
@@ -93,7 +95,7 @@ const LearningContent: React.FC<LearningContentProps> = ({
 
   // Use student's grade level if available
   const effectiveGradeLevel = studentInfo?.gradeLevel || gradeLevel;
-  const studentId = studentInfo?.id || '';
+  const studentId = studentInfo?.id || (student ? student.id : '');
   
   return (
     <div className="max-w-4xl mx-auto">
@@ -147,7 +149,8 @@ const LearningContent: React.FC<LearningContentProps> = ({
             <span className="hidden sm:inline">{t('game')}</span>
           </TabsTrigger>
         </TabsList>
-        <div className="mt-6">          <TabsContent value="lesson">
+        <div className="mt-6">
+          <TabsContent value="lesson">
             <AILesson 
               subject={subject} 
               gradeLevel={effectiveGradeLevel} 

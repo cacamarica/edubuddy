@@ -6,8 +6,8 @@ import AIQuiz from '@/components/AIQuiz';
 import AIGame from '@/components/AIGame';
 import LearningBuddy from '@/components/LearningBuddy';
 import { useAuth } from '@/contexts/AuthContext';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/card';
-import { Student, convertToStudent, convertToStudentProfile } from '@/types/learning';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Student, convertToStudent } from '@/types/learning';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import Header from '@/components/Header';
@@ -18,6 +18,32 @@ import StudentProfile from '@/components/StudentProfile';
 import { LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
+
+// Interface for needed props
+interface LearningContentComponentProps {
+  gradeLevel: 'k-3' | '4-6' | '7-9';
+  subject: string;
+  topic: string;
+  student?: Student;
+  autoStart?: boolean;
+}
+
+interface AIQuizProps {
+  gradeLevel: 'k-3' | '4-6' | '7-9';
+  subject: string;
+  topic: string;
+  studentId?: string;
+  autoStart?: boolean;
+}
+
+interface AIGameProps {
+  gradeLevel: 'k-3' | '4-6' | '7-9';
+  subject: string;
+  topic: string;
+  studentId?: string;
+  studentName?: string;
+  autoStart?: boolean;
+}
 
 const AILearning = () => {
   const location = useLocation();
@@ -81,7 +107,8 @@ const AILearning = () => {
               age: 10,
               grade_level: gradeLevel || 'k-3',
               parent_id: '',
-              created_at: new Date().toISOString()
+              created_at: new Date().toISOString(),
+              avatar_url: undefined
             };
             
             setCurrentStudent(defaultStudent);
@@ -95,7 +122,8 @@ const AILearning = () => {
             age: 10,
             grade_level: gradeLevel || 'k-3',
             parent_id: '',
-            created_at: new Date().toISOString()
+            created_at: new Date().toISOString(),
+            avatar_url: undefined
           };
           
           setCurrentStudent(defaultStudent);
@@ -263,8 +291,10 @@ const AILearning = () => {
                             gradeLevel={gradeLevel}
                             subject={subject}
                             topic={topic}
-                            student={currentStudent}
-                            autoStart={autoStart}
+                            activeTab="lesson"
+                            onTabChange={() => {}}
+                            onReset={() => {}}
+                            onQuizComplete={() => {}}
                           />
                         </TabsContent>
                         
@@ -274,7 +304,7 @@ const AILearning = () => {
                             subject={subject}
                             topic={topic}
                             studentId={currentStudent.id}
-                            autoStart={autoStart && selectedTab === 'quiz'}
+                            limitProgress={false}
                           />
                         </TabsContent>
                         
@@ -284,8 +314,7 @@ const AILearning = () => {
                             subject={subject}
                             topic={topic}
                             studentId={currentStudent.id}
-                            studentName={currentStudent.name}
-                            autoStart={autoStart && selectedTab === 'practice'}
+                            limitProgress={false}
                           />
                         </TabsContent>
                       </Tabs>
@@ -300,10 +329,8 @@ const AILearning = () => {
                 <h2 className="text-xl font-bold mb-4">Learning Buddy</h2>
                 <Separator className="my-3" />
                 <LearningBuddy 
-                  gradeLevel={gradeLevel}
                   subject={subject}
                   topic={topic}
-                  studentName={currentStudent?.name || studentName}
                 />
               </div>
             </div>

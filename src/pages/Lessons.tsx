@@ -107,7 +107,7 @@ const Lessons = () => {
           <div className="mb-8">
             <h2 className="text-xl font-medium mb-4">Select Grade Level</h2>
             <GradeSelector 
-              selectedGrade={selectedGradeLevel} 
+              selectedGradeLevel={selectedGradeLevel} 
               onGradeChange={setSelectedGradeLevel}
             />
           </div>
