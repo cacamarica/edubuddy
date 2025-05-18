@@ -1,3 +1,4 @@
+
 // @deno-types="https://deno.land/x/servest@v1.3.1/types/react/index.d.ts" 
 // The above is a common workaround for Deno type errors in some editors, but might not be strictly necessary
 // or correct for this specific use case. The primary issue is environment setup for Deno.
@@ -94,30 +95,34 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') {
     console.log('Handling OPTIONS request for get-student-ai-summary-report'); // Added for debugging
     // Using 204 No Content is a common practice for preflight responses
-    return new Response(null, { status: 204, headers: corsHeaders });
+    return new Response(null, { 
+      status: 204, 
+      headers: corsHeaders 
+    });
   }
 
-  const { studentId, gradeLevel, studentName, forceRefresh } = await req.json();
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
-
-  if (!studentId || !gradeLevel) {
-    return new Response(
-      JSON.stringify({ error: "studentId and gradeLevel are required" }),
-      { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
-    );
-  }
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    return new Response(
-      JSON.stringify({ error: "Supabase environment variables not set" }),
-      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
-    );
-  }
-
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
+  // For any other request type, apply CORS headers to all responses
   try {
+    const { studentId, gradeLevel, studentName, forceRefresh } = await req.json();
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+
+    if (!studentId || !gradeLevel) {
+      return new Response(
+        JSON.stringify({ error: "studentId and gradeLevel are required" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return new Response(
+        JSON.stringify({ error: "Supabase environment variables not set" }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
     let reportToReturn: AISummaryReport | null = null;
     const reportStalenessThresholdHours = 24; // Regenerate if older than 24 hours or new activity
 
