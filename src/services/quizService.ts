@@ -1,14 +1,8 @@
 
 import { supabase } from "@/integrations/supabase/client";
+import { QuizQuestion } from "@/components/QuizComponents/QuizQuestionCard";
 
-export interface QuizQuestion {
-  question: string;
-  options: string[];
-  correctAnswer: number;
-  explanation?: string;
-}
-
-export interface QuizProgress {
+interface QuizProgress {
   student_id: string;
   subject: string;
   topic: string;
@@ -19,127 +13,54 @@ export interface QuizProgress {
   is_completed: boolean;
 }
 
-interface FetchQuizQuestionsOptions {
+interface QuizOptions {
   subject: string;
   gradeLevel: string;
   topic: string;
-  language: 'en' | 'id';
-  questionCount: number;
+  language?: 'en' | 'id';
+  questionCount?: number;
 }
 
-export async function fetchQuizQuestions(options: FetchQuizQuestionsOptions): Promise<QuizQuestion[]> {
+// This helper function ensures options arrays are properly cast to string[]
+const ensureStringArray = (options: any[]): string[] => {
+  return options.map(option => String(option));
+};
+
+export const fetchQuizQuestions = async (options: QuizOptions): Promise<QuizQuestion[]> => {
   try {
-    // Try to get cached questions first
-    const { data: cachedQuestions } = await supabase
-      .from('quiz_questions')
-      .select('question, options, correct_answer, explanation')
-      .eq('subject', options.subject)
-      .eq('grade_level', options.gradeLevel)
-      .eq('topic', options.topic)
-      .limit(options.questionCount);
-      
-    if (cachedQuestions && cachedQuestions.length >= options.questionCount) {
-      // We have enough cached questions, transform them to match QuizQuestion interface
-      return cachedQuestions.map(q => ({
-        question: q.question,
-        options: Array.isArray(q.options) 
-          ? q.options 
-          : (q.options && typeof q.options === 'object' 
-            ? Object.values(q.options).map(opt => String(opt)) 
-            : []),
-        correctAnswer: q.correct_answer,
-        explanation: q.explanation
-      }));
-    }
+    const { subject, gradeLevel, topic, language = 'en', questionCount = 10 } = options;
     
-    // If not enough cached questions, generate new ones using the edge function
+    // Call the edge function or API to get quiz questions
     const { data, error } = await supabase.functions.invoke('ai-quiz-generator', {
-      body: {
-        subject: options.subject,
-        grade_level: options.gradeLevel,
-        topic: options.topic,
-        language: options.language,
-        question_count: options.questionCount
+      body: { 
+        subject, 
+        gradeLevel, 
+        topic,
+        language,
+        questionCount
       }
     });
     
     if (error) {
-      console.error("Error generating quiz questions:", error);
-      throw new Error(`Failed to generate quiz questions: ${error.message}`);
+      console.error('Error fetching quiz questions:', error);
+      return [];
     }
-    
-    return data as QuizQuestion[];
-  } catch (error) {
-    console.error("Error in fetchQuizQuestions:", error);
-    
-    // Return placeholder questions in case of failure
-    const placeholders: QuizQuestion[] = Array(options.questionCount).fill(0).map((_, i) => ({
-      question: options.language === 'id' 
-        ? `Pertanyaan contoh ${i + 1} tentang ${options.topic}` 
-        : `Sample question ${i + 1} about ${options.topic}`,
-      options: options.language === 'id'
-        ? ['Pilihan A', 'Pilihan B', 'Pilihan C', 'Pilihan D'] 
-        : ['Option A', 'Option B', 'Option C', 'Option D'],
-      correctAnswer: 0,
-      explanation: options.language === 'id'
-        ? 'Penjelasan tidak tersedia'
-        : 'Explanation not available'
+
+    // Transform the data to match the QuizQuestion interface and ensure options are strings
+    return data.map((q: any) => ({
+      question: q.question,
+      options: ensureStringArray(q.options),
+      correctAnswer: q.correctAnswer,
+      explanation: q.explanation || ''
     }));
     
-    return placeholders;
-  }
-}
-
-export async function saveQuizProgress(studentId: string, progress: QuizProgress): Promise<void> {
-  try {
-    // Check if progress already exists
-    const { data: existingProgress } = await supabase
-      .from('quiz_progress')
-      .select('id')
-      .eq('student_id', studentId)
-      .eq('subject', progress.subject)
-      .eq('topic', progress.topic)
-      .eq('grade_level', progress.grade_level)
-      .maybeSingle();
-      
-    if (existingProgress) {
-      // Update existing progress
-      await supabase
-        .from('quiz_progress')
-        .update({
-          current_question: progress.current_question,
-          questions_answered: progress.questions_answered,
-          correct_answers: progress.correct_answers,
-          is_completed: progress.is_completed,
-          last_attempt_at: new Date().toISOString()
-        })
-        .eq('id', existingProgress.id);
-    } else {
-      // Create new progress
-      await supabase
-        .from('quiz_progress')
-        .insert([{
-          student_id: progress.student_id,
-          subject: progress.subject,
-          topic: progress.topic,
-          grade_level: progress.grade_level,
-          current_question: progress.current_question,
-          questions_answered: progress.questions_answered,
-          correct_answers: progress.correct_answers,
-          is_completed: progress.is_completed
-        }]);
-    }
   } catch (error) {
-    console.error("Error saving quiz progress:", error);
+    console.error('Error in fetchQuizQuestions:', error);
+    return [];
   }
-}
+};
 
-export async function getQuizProgress(
-  studentId: string, 
-  subject: string, 
-  topic: string, 
-  gradeLevel: string
-): Promise<QuizProgress | null> {
+export const getQuizProgress = async (studentId: string, subject: string, topic: string, gradeLevel: string): Promise<QuizProgress | null> => {
   try {
     const { data, error } = await supabase
       .from('quiz_progress')
@@ -151,13 +72,56 @@ export async function getQuizProgress(
       .maybeSingle();
       
     if (error) {
-      console.error("Error fetching quiz progress:", error);
+      console.error('Error fetching quiz progress:', error);
       return null;
     }
     
     return data as QuizProgress;
   } catch (error) {
-    console.error("Error in getQuizProgress:", error);
+    console.error('Error in getQuizProgress:', error);
     return null;
   }
-}
+};
+
+export const saveQuizProgress = async (studentId: string, progress: QuizProgress): Promise<boolean> => {
+  try {
+    // Check if progress entry already exists
+    const existing = await getQuizProgress(
+      studentId,
+      progress.subject,
+      progress.topic,
+      progress.grade_level
+    );
+    
+    if (existing) {
+      // Update existing progress
+      const { error } = await supabase
+        .from('quiz_progress')
+        .update(progress)
+        .eq('student_id', studentId)
+        .eq('subject', progress.subject)
+        .eq('topic', progress.topic)
+        .eq('grade_level', progress.grade_level);
+        
+      if (error) {
+        console.error('Error updating quiz progress:', error);
+        return false;
+      }
+    } else {
+      // Insert new progress
+      const { error } = await supabase
+        .from('quiz_progress')
+        .insert([progress]);
+        
+      if (error) {
+        console.error('Error inserting quiz progress:', error);
+        return false;
+      }
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error in saveQuizProgress:', error);
+    return false;
+  }
+};

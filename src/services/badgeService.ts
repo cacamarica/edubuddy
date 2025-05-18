@@ -1,7 +1,32 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Badge, StudentBadge } from "./studentProgressService";
+
+// Define proper interfaces for badges
+export interface Badge {
+  id: string;
+  name: string;
+  description: string;
+  image_url?: string;
+  created_at: string;
+}
+
+export interface StudentBadge {
+  id: string;
+  student_id: string;
+  badge_id: string;
+  earned_at: string;
+  badge?: Badge;
+}
+
+// Interface for badge checking parameters
+export interface BadgeCheckOptions {
+  studentId: string;
+  badgeType: string;
+  subject?: string;
+  score?: number;
+  totalQuestions?: number;
+}
 
 /**
  * Fetches all available badges in the system
@@ -90,8 +115,64 @@ export const awardBadgeToStudent = async (studentId: string, badgeId: string): P
   }
 };
 
+/**
+ * Check and award badges based on specific criteria
+ */
+export const checkAndAwardBadges = async (options: BadgeCheckOptions): Promise<boolean> => {
+  try {
+    const { studentId, badgeType, subject, score, totalQuestions } = options;
+    
+    // Get all available badges
+    const badges = await fetchAllBadges();
+    
+    // Find the appropriate badge based on type
+    let badgeToAward: Badge | undefined;
+    
+    switch (badgeType) {
+      case "quiz_completion_first":
+        badgeToAward = badges.find(b => b.name === "First Quiz");
+        break;
+      case "quiz_completion_5":
+        if (subject) {
+          badgeToAward = badges.find(b => b.name === `${subject} Expert`);
+        }
+        break;
+      case "quiz_perfect_score":
+        if (score && totalQuestions && score === totalQuestions) {
+          badgeToAward = badges.find(b => b.name === "Perfect Score");
+        }
+        break;
+      default:
+        console.log(`No badge type match for: ${badgeType}`);
+        return false;
+    }
+    
+    if (!badgeToAward) {
+      console.log(`No badge found for type: ${badgeType}`);
+      return false;
+    }
+    
+    // Award the badge
+    return await awardBadgeToStudent(studentId, badgeToAward.id);
+    
+  } catch (error) {
+    console.error('Error in checkAndAwardBadges:', error);
+    return false;
+  }
+};
+
+// Export as a named export for use in components that import it as such
+export const badgeService = {
+  fetchAllBadges,
+  fetchStudentBadges,
+  awardBadgeToStudent,
+  checkAndAwardBadges
+};
+
+// Also export as default for backward compatibility
 export default {
   fetchAllBadges,
   fetchStudentBadges,
-  awardBadgeToStudent
+  awardBadgeToStudent,
+  checkAndAwardBadges
 };

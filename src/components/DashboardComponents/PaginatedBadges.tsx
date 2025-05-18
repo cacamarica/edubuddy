@@ -1,6 +1,5 @@
 
 import React, { useState } from 'react';
-import { StudentBadge } from '@/services/studentProgressService';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { format } from 'date-fns';
 import { Award } from 'lucide-react';
@@ -14,6 +13,7 @@ import {
   PaginationNext, 
   PaginationPrevious 
 } from '@/components/ui/pagination';
+import { StudentBadge } from '@/services/badgeService';
 
 interface PaginatedBadgesProps {
   badges: StudentBadge[];

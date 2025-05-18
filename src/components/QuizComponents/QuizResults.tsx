@@ -76,7 +76,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
           completed: true,
           progress: 100,
           stars_earned: validatedScore, // Use validated score
-          completed_at: new Date().toISOString()
+          last_interaction_at: new Date().toISOString()
         });
           console.log('Quiz results saved to database');
         

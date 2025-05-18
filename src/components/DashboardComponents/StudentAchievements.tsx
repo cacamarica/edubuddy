@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { studentProgressService, StudentBadge } from '@/services/studentProgressService';
+import { studentProgressService } from '@/services/studentProgressService';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Spinner } from '@/components/ui/spinner';
 import PaginatedBadges from './PaginatedBadges';
+import { fetchStudentBadges, StudentBadge } from '@/services/badgeService';
 
 interface StudentAchievementsProps {
   studentId: string;
@@ -16,12 +17,12 @@ const StudentAchievements: React.FC<StudentAchievementsProps> = ({ studentId }) 
   const { language } = useLanguage();
   
   useEffect(() => {
-    const fetchBadges = async () => {
+    const loadBadges = async () => {
       if (!studentId) return;
       
       setIsLoadingBadges(true);
       try {
-        const data = await studentProgressService.getStudentBadges(studentId);
+        const data = await fetchStudentBadges(studentId);
         setBadges(data);
       } catch (error) {
         console.error("Error fetching badges:", error);
@@ -30,7 +31,7 @@ const StudentAchievements: React.FC<StudentAchievementsProps> = ({ studentId }) 
       }
     };
     
-    fetchBadges();
+    loadBadges();
   }, [studentId]);
   
   return (
