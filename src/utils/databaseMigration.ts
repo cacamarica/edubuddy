@@ -1,8 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 
 /**
- * Utility function to ensure the students table is properly mapped to profiles
- * This resolves the foreign key constraint issues with ai_student_reports
+ * Utility function to ensure the students table is properly mapped for AI reports
+ * This bypasses the profiles foreign key constraint issues
  */
 export const fixStudentProfilesMappings = async (): Promise<void> => {
   try {
@@ -26,38 +26,55 @@ export const fixStudentProfilesMappings = async (): Promise<void> => {
 
     console.log(`Found ${students.length} students to verify`);
 
-    // For each student ID, ensure it exists in profiles
+    // Direct approach: Create AI student reports directly without using profiles
     for (const student of students) {
-      // Check if profile exists
-      const { data: existingProfile, error: checkError } = await supabase
-        .from('profiles')
+      // First check if a report already exists - use limit(1) instead of maybeSingle to handle multiple rows
+      const { data: existingReportData, error: checkError } = await supabase
+        .from('ai_student_reports')
         .select('id')
-        .eq('id', student.id)
-        .maybeSingle();
-
+        .eq('student_id', student.id)
+        .limit(1);
+        
       if (checkError) {
-        console.error(`Error checking profile for student ${student.id}:`, checkError);
+        console.error(`Error checking for existing AI report for student ${student.id}:`, checkError);
         continue;
       }
-
-      // If profile doesn't exist, create one
-      if (!existingProfile) {
-        console.log(`Creating missing profile for student ${student.id} (${student.name})`);
-        const { error: insertError } = await supabase
-          .from('profiles')
-          .upsert({
-            id: student.id,
-            full_name: student.name,
-            is_teacher: false
-          }, { onConflict: 'id' });
-
-        if (insertError) {
-          console.error(`Error creating profile for student ${student.id}:`, insertError);
-        } else {
-          console.log(`Successfully created profile for student ${student.id}`);
-        }
+      
+      // Get the first report if multiple exist
+      const existingReport = existingReportData && existingReportData.length > 0 ? existingReportData[0] : null;
+      
+      const reportData = {
+        student_id: student.id,
+        report_data: {
+          studentName: student.name,
+          gradeLevel: student.grade_level || '4-6',
+          overallSummary: 'No activity data yet. Complete more learning activities to generate a full report.',
+          strengths: [],
+          areasForImprovement: [],
+          generatedAt: new Date().toISOString()
+        },
+        last_activity_timestamp_at_generation: new Date().toISOString()
+      };
+      
+      let operation;
+      if (existingReport) {
+        // Update existing report
+        operation = supabase
+          .from('ai_student_reports')
+          .update(reportData)
+          .eq('id', existingReport.id);
       } else {
-        console.log(`Profile already exists for student ${student.id}`);
+        // Insert new report
+        operation = supabase
+          .from('ai_student_reports')
+          .insert(reportData);
+      }
+      
+      const { error: opError } = await operation;
+      if (opError) {
+        console.error(`Error ${existingReport ? 'updating' : 'creating'} AI report for student ${student.id}:`, opError);
+      } else {
+        console.log(`Successfully ${existingReport ? 'updated' : 'created'} AI report for student ${student.id}`);
       }
     }
     

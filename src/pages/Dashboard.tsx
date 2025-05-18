@@ -15,6 +15,7 @@ import ErrorBoundary from '@/components/ErrorBoundary';
 import { Spinner } from '@/components/ui/spinner';
 import { useStudentProfile } from '@/contexts/StudentProfileContext';
 import { Student, StudentProfile as StudentProfileType, convertToStudent } from '@/types/learning';
+import { useNavigate } from 'react-router-dom';
 
 // Import our new enhanced components
 import EnhancedRecentActivities from '@/components/DashboardComponents/EnhancedRecentActivities';
@@ -52,6 +53,7 @@ const Dashboard = () => {
   const { language } = useLanguage();
   const { user } = useAuth();
   const { selectedProfile, setSelectedProfile } = useStudentProfile();
+  const navigate = useNavigate();
 
   // Derive currentStudentId from the context's selectedProfile
   const currentStudentId = selectedProfile?.id;
@@ -80,11 +82,8 @@ const Dashboard = () => {
     }
   };
   
-  const handleShowStudentProfile = () => {
-    setIsLoading(true);
-    setShowStudentProfile(true);
-    // Simulate small load time to show transition
-    setTimeout(() => setIsLoading(false), 800);
+  const handleNavigateToStudentProfiles = () => {
+    navigate('/manage-student-profiles');
   };
   
   const handleBackToDashboard = () => {
@@ -134,11 +133,11 @@ const Dashboard = () => {
               </h1>
               <div className="flex flex-wrap gap-3">
                 <Button 
-                  onClick={handleShowStudentProfile}
+                  onClick={handleNavigateToStudentProfiles}
                   className="flex items-center gap-2"
                 >
                   <Users className="h-4 w-4" />
-                  {language === 'id' ? 'Kelola Profil Siswa' : 'Manage Student Profiles'}
+                  {language === 'id' ? 'Profil Siswa' : 'Student Profiles'}
                 </Button>
                 
                 <Button 

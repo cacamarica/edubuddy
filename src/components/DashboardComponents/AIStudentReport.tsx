@@ -1,5 +1,4 @@
-
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { AISummaryReport } from '@/services/studentProgressService';
@@ -16,6 +15,7 @@ interface AIStudentReportProps {
   isExpanded: boolean;
   toggleExpanded: () => void;
   isLoading: boolean;
+  studentRealAge?: number;
 }
 
 type ChartDataPoint = { date: string; score: number };
@@ -37,107 +37,96 @@ const getYear = (date: Date): string => {
   return String(date.getFullYear()); // YYYY
 };
 
-const AIStudentReport: React.FC<AIStudentReportProps> = ({ report, isExpanded, toggleExpanded, isLoading }) => {
+// Helper to format date for chart based on granularity
+const formatDateForChart = (dateString?: string, granularity: Granularity = 'daily') => {
+  if (!dateString) return '';
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return dateString; // Invalid date
+
+    switch (granularity) {
+      case 'daily':
+        return format(date, 'MMM d');
+      case 'weekly':
+        // For weekly, dateString might be 'YYYY-WW'. We need to parse or display as is.
+        // If it's a full date string, format to week.
+        if (dateString.includes('-W')) return dateString; // Already formatted as YYYY-WW
+        return `Week of ${format(date, 'MMM d')}`;
+      case 'monthly':
+        return format(date, 'MMM yyyy');
+      case 'yearly':
+        return format(date, 'yyyy');
+      default:
+        return format(date, 'MMM d');
+    }
+  } catch (e) {
+    return dateString; // fallback to original if parsing fails
+  }
+};
+
+const AIStudentReport: React.FC<AIStudentReportProps> = ({ report, isExpanded, toggleExpanded, isLoading, studentRealAge }) => {
   const { language } = useLanguage();
-  const [granularity, setGranularity] = useState<Granularity>('monthly');
+  // Default to 'daily' granularity
+  const [granularity, setGranularity] = useState<Granularity>('daily');
+  // Clear date range by default to show all available data
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
     from: undefined,
     to: undefined,
   });
 
-  if (isLoading) {
-    return (
-      <div className="text-center py-4 text-muted-foreground">
-        {language === 'id' 
-          ? 'Memuat laporan AI...' 
-          : 'Loading AI report...'}
-      </div>
-    );
-  }
+  // Auto-expand the report if there's real chart data available
+  useEffect(() => {
+    if (
+      !isExpanded && 
+      report?.knowledgeGrowthChartData && 
+      Array.isArray(report.knowledgeGrowthChartData) && 
+      report.knowledgeGrowthChartData.length > 3
+    ) {
+      toggleExpanded();
+    }
+  }, [report, isExpanded, toggleExpanded]);
 
-  if (!report) {
-    return (
-      <Alert variant="default" className="my-4 border-yellow-400 bg-yellow-50 text-yellow-800">
-        <AlertCircle className="h-4 w-4" />
-        <AlertDescription>
-          {language === 'id' 
-            ? 'Data tidak cukup untuk menampilkan laporan. Lakukan lebih banyak aktivitas belajar untuk mendapatkan laporan lengkap.' 
-            : 'Not enough data to display a report. Complete more learning activities to get a full report.'}
-        </AlertDescription>
-      </Alert>
-    );
-  }
-
-  // Check if there's enough meaningful data in the report
+  // Define hasMinimalData here unconditionally with a default fallback
   const hasMinimalData = report?.overallSummary && 
-                        (report.strengths?.length > 0 || 
-                         report.areasForImprovement?.length > 0 || 
-                         (report.knowledgeGrowthChartData && report.knowledgeGrowthChartData.length > 0) 
+                        (report?.strengths?.length > 0 || 
+                         report?.areasForImprovement?.length > 0 || 
+                         (report?.knowledgeGrowthChartData && report.knowledgeGrowthChartData.length > 0) 
                         );
 
-  if (!hasMinimalData) {
-    return (
-      <Alert variant="default" className="my-4 border-yellow-400 bg-yellow-50 text-yellow-800">
-        <AlertCircle className="h-4 w-4" />
-        <AlertDescription>
-          {language === 'id' 
-            ? 'Belum cukup data untuk membuat laporan yang bermakna. Lanjutkan aktivitas belajar untuk mendapatkan wawasan yang lebih baik.' 
-            : 'Not enough meaningful data to create a report yet. Continue learning activities to gain better insights.'}
-        </AlertDescription>
-      </Alert>
-    );
-  }
-
-  // Helper to format date for chart based on granularity
-  const formatDateForChart = (dateString?: string, currentGranularity: Granularity = granularity) => {
-    if (!dateString) return '';
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return dateString; // Invalid date
-
-      switch (currentGranularity) {
-        case 'daily':
-          return format(date, 'MMM d');
-        case 'weekly':
-          // For weekly, dateString might be 'YYYY-WW'. We need to parse or display as is.
-          // If it's a full date string, format to week.
-          if (dateString.includes('-W')) return dateString; // Already formatted as YYYY-WW
-          return `Week of ${format(date, 'MMM d')}`;
-        case 'monthly':
-          return format(date, 'MMM yyyy');
-        case 'yearly':
-          return format(date, 'yyyy');
-        default:
-          return format(date, 'MMM d');
-      }
-    } catch (e) {
-      return dateString; // fallback to original if parsing fails
-    }
-  };
-
+  // Always call useMemo, but return empty array if no data
   const processedChartData = useMemo(() => {
     if (!report?.knowledgeGrowthChartData || !Array.isArray(report.knowledgeGrowthChartData)) return [];
 
+    // Ensure we have valid data with dates and scores
+    const validData = report.knowledgeGrowthChartData.filter(
+      (item: ChartDataPoint) => item.date && !isNaN(new Date(item.date).getTime()) && typeof item.score === 'number'
+    );
+
+    if (validData.length === 0) return [];
+
     // Filter data based on date range
-    const filteredData = report.knowledgeGrowthChartData.filter((item: ChartDataPoint) => {
-      if (!item.date) return false;
-      
+    const filteredData = validData.filter((item: ChartDataPoint) => {
       const itemDate = new Date(item.date);
-      if (isNaN(itemDate.getTime())) return false;
       if (dateRange.from && itemDate < dateRange.from) return false;
       if (dateRange.to && itemDate > new Date(dateRange.to.getTime() + 86399999)) return false; // Include the whole 'to' day
       return true;
     });
 
+    // If we don't have enough data points, avoid aggregation
+    if (filteredData.length <= 5 && granularity === 'daily') {
+      return filteredData
+        .map(item => ({
+          date: new Date(item.date).toISOString(),
+          score: item.score
+        }))
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    }
+
     // Process data based on granularity
     const aggregatedData: Record<string, { sum: number; count: number; date: Date }> = {};
 
     filteredData.forEach((item: ChartDataPoint) => {
-      if (!item.date) return;
-      
       const date = new Date(item.date);
-      if (isNaN(date.getTime())) return;
-
       let key = '';
       let groupDate = date;
 
@@ -179,6 +168,46 @@ const AIStudentReport: React.FC<AIStudentReportProps> = ({ report, isExpanded, t
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [report?.knowledgeGrowthChartData, granularity, dateRange]);
 
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="text-center py-4 text-muted-foreground">
+        {language === 'id' 
+          ? 'Memuat laporan AI...' 
+          : 'Loading AI report...'}
+      </div>
+    );
+  }
+
+  // No report state
+  if (!report) {
+    return (
+      <Alert variant="default" className="my-4 border-yellow-400 bg-yellow-50 text-yellow-800">
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>
+          {language === 'id' 
+            ? 'Data tidak cukup untuk menampilkan laporan. Lakukan lebih banyak aktivitas belajar untuk mendapatkan laporan lengkap.' 
+            : 'Not enough data to display a report. Complete more learning activities to get a full report.'}
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  // Not enough data state
+  if (!hasMinimalData) {
+    return (
+      <Alert variant="default" className="my-4 border-yellow-400 bg-yellow-50 text-yellow-800">
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>
+          {language === 'id' 
+            ? 'Belum cukup data untuk membuat laporan yang bermakna. Lanjutkan aktivitas belajar untuk mendapatkan wawasan yang lebih baik.' 
+            : 'Not enough meaningful data to create a report yet. Continue learning activities to gain better insights.'}
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  // Main report state
   return (
     <div className="space-y-4">
       {/* Basic Summary Section - Always Visible */}
@@ -191,10 +220,14 @@ const AIStudentReport: React.FC<AIStudentReportProps> = ({ report, isExpanded, t
 
       {/* Student Info - Basic Details */}
       {report.studentName && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-3">
           <div>
             <h4 className="font-semibold text-gray-800">{language === 'id' ? 'Siswa' : 'Student'}</h4>
             <p className="text-gray-700">{report.studentName}</p>
+          </div>
+          <div>
+            <h4 className="font-semibold text-gray-800">{language === 'id' ? 'Usia' : 'Age'}</h4>
+            <p className="text-gray-700">{studentRealAge || report.studentAge || '-'}</p>
           </div>
           <div>
             <h4 className="font-semibold text-gray-800">{language === 'id' ? 'Tingkat Kelas' : 'Grade Level'}</h4>
@@ -283,7 +316,7 @@ const AIStudentReport: React.FC<AIStudentReportProps> = ({ report, isExpanded, t
                           format(dateRange.from, "LLL dd, y")
                         )
                       ) : (
-                        <span>{language === 'id' ? 'Pilih rentang tanggal' : 'Pick a date range'}</span>
+                        <span>{language === 'id' ? 'Semua data' : 'All data'}</span>
                       )}
                     </Button>
                   </PopoverTrigger>
@@ -297,36 +330,66 @@ const AIStudentReport: React.FC<AIStudentReportProps> = ({ report, isExpanded, t
                     />
                   </PopoverContent>
                 </Popover>
-                <Button variant="outline" size="sm" onClick={() => setDateRange({ from: undefined, to: undefined })} disabled={!dateRange.from && !dateRange.to}>
-                  {language === 'id' ? 'Reset Tanggal' : 'Reset Dates'}
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setDateRange({ from: undefined, to: undefined })} 
+                  disabled={!dateRange.from && !dateRange.to}
+                >
+                  {language === 'id' ? 'Tampilkan Semua' : 'Show All Data'}
                 </Button>
               </div>
               
-              {processedChartData && processedChartData.length > 1 ? (
-                <div style={{ width: '100%', height: 250 }} className="bg-white p-2 rounded shadow">
+              {processedChartData && processedChartData.length > 0 ? (
+                <div style={{ width: '100%', height: 300 }} className="bg-white p-4 rounded-lg shadow transition-all duration-300 hover:shadow-md">
                   <ResponsiveContainer>
-                    <LineChart data={processedChartData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" tickFormatter={(tick) => formatDateForChart(tick, granularity)} />
-                      <YAxis domain={[0, 100]} />
+                    <LineChart data={processedChartData} margin={{ top: 10, right: 20, left: 0, bottom: 10 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                      <XAxis 
+                        dataKey="date" 
+                        tickFormatter={(tick) => formatDateForChart(tick, granularity)} 
+                        stroke="#888"
+                        fontSize={12}
+                      />
+                      <YAxis 
+                        domain={[0, 100]} 
+                        stroke="#888" 
+                        fontSize={12}
+                        tickFormatter={(value) => `${value}%`}
+                      />
                       <Tooltip 
                         formatter={(value: number) => [`${value}%`, language === 'id' ? 'Skor' : 'Score']}
                         labelFormatter={(label: string) => formatDateForChart(label, granularity)}
+                        contentStyle={{ border: '1px solid #e2e8f0', borderRadius: '6px', padding: '8px' }}
                       />
                       <Line 
                         type="monotone" 
                         dataKey="score" 
                         stroke="#8884d8" 
-                        activeDot={{ r: 8 }} 
+                        strokeWidth={2}
+                        activeDot={{ r: 8, fill: '#8884d8', stroke: 'white', strokeWidth: 2 }} 
                         name={language === 'id' ? 'Skor Rata-rata' : 'Average Score'} 
                         unit="%" 
+                        dot={{ r: 4, strokeWidth: 2, fill: 'white' }}
                       />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
               ) : (
-                <div className="text-center py-4 text-muted-foreground">
-                  {language === 'id' ? 'Tidak cukup data untuk granularitas atau rentang tanggal yang dipilih.' : 'Not enough data for selected granularity or date range.'}
+                <div className="text-center py-6 border rounded-lg bg-gray-50">
+                  <p className="text-muted-foreground mb-2">
+                    {language === 'id' ? 'Tidak cukup data untuk granularitas atau rentang tanggal yang dipilih.' : 'Not enough data for selected granularity or date range.'}
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setGranularity('daily');
+                      setDateRange({ from: undefined, to: undefined });
+                    }}
+                  >
+                    {language === 'id' ? 'Reset ke Tampilan Default' : 'Reset to Default View'}
+                  </Button>
                 </div>
               )}
             </div>

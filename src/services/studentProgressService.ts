@@ -102,6 +102,7 @@ export interface TopicQuizHistory {
 export interface AISummaryReport {
   studentId: string;
   studentName: string;
+  studentAge?: number;
   gradeLevel: string;
   strengths: string[];
   areasForImprovement: string[];
@@ -153,7 +154,7 @@ export const studentProgressService = {
   },
   
   // Get AI summary report for a student
-  async getAISummaryReport(studentId: string, gradeLevel: string, studentName: string, forceRefresh = false): Promise<AISummaryReport | null> {
+  async getAISummaryReport(studentId: string, gradeLevel: string, studentName: string, forceRefresh = false, studentAge?: number): Promise<AISummaryReport | null> {
     try {
       // Check for existing report if not forcing refresh
       if (!forceRefresh) {
@@ -175,6 +176,7 @@ export const studentProgressService = {
           const formattedReport: AISummaryReport = {
             studentId: studentId,
             studentName,
+            studentAge: studentAge || parsedData?.studentAge || undefined,
             gradeLevel,
             strengths: Array.isArray(parsedData?.strengths) ? parsedData.strengths : [],
             areasForImprovement: Array.isArray(parsedData?.areasForImprovement) ? parsedData.areasForImprovement : [],
@@ -198,27 +200,53 @@ export const studentProgressService = {
       // Generate a new report using edge function
       try {
         const { data: aiData, error: aiError } = await supabase.functions.invoke('get-student-ai-summary-report', {
-          body: { studentId, gradeLevel, studentName }
+          body: { studentId, gradeLevel, studentName, studentAge }
         });
         
         if (aiError) {
           console.error('Error generating AI report:', aiError);
-          return this.generateFallbackReport(studentName, gradeLevel);
+          return this.generateFallbackReport(studentName, gradeLevel, studentAge);
         }
         
-        // Save the generated report
-        await supabase
+        // Check if there's an existing report for this student to avoid duplicates
+        const { data: existingData, error: existingError } = await supabase
           .from('ai_student_reports')
-          .insert({
-            student_id: studentId,
-            report_data: aiData,
-            version: 1
-          });
+          .select('id')
+          .eq('student_id', studentId)
+          .limit(1);
+        
+        let operation;
+        if (!existingError && existingData && existingData.length > 0) {
+          // Update existing report
+          operation = supabase
+            .from('ai_student_reports')
+            .update({
+              report_data: aiData,
+              version: 1
+            })
+            .eq('id', existingData[0].id);
+        } else {
+          // Insert new report
+          operation = supabase
+            .from('ai_student_reports')
+            .insert({
+              student_id: studentId,
+              report_data: aiData,
+              version: 1
+            });
+        }
+        
+        // Execute the operation
+        const { error: saveError } = await operation;
+        if (saveError) {
+          console.error('Error saving AI report:', saveError);
+        }
           
         // Format the response as AISummaryReport
         const formattedReport: AISummaryReport = {
           studentId,
           studentName,
+          studentAge: studentAge || aiData?.studentAge || undefined,
           gradeLevel,
           strengths: Array.isArray(aiData?.strengths) ? aiData.strengths : [],
           areasForImprovement: Array.isArray(aiData?.areasForImprovement) ? aiData.areasForImprovement : [],
@@ -238,19 +266,20 @@ export const studentProgressService = {
         return formattedReport;
       } catch (innerError) {
         console.error('Error in AI report generation:', innerError);
-        return this.generateFallbackReport(studentName, gradeLevel);
+        return this.generateFallbackReport(studentName, gradeLevel, studentAge);
       }
     } catch (error) {
       console.error('Error in getAISummaryReport:', error);
-      return this.generateFallbackReport(studentName, gradeLevel);
+      return this.generateFallbackReport(studentName, gradeLevel, studentAge);
     }
   },
   
   // Generate a fallback report when AI fails
-  generateFallbackReport(studentName: string, gradeLevel: string): AISummaryReport {
+  generateFallbackReport(studentName: string, gradeLevel: string, studentAge?: number): AISummaryReport {
     return {
       studentId: 'fallback',
       studentName,
+      studentAge: studentAge || 10, // Use provided age or default to 10
       gradeLevel,
       strengths: ['Reading comprehension', 'Problem solving'],
       areasForImprovement: ['Mathematical concepts', 'Science terminology'],

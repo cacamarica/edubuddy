@@ -14,6 +14,7 @@ import Auth from "./pages/Auth";
 import FAQ from "./pages/FAQ";
 import AccountSettings from "./pages/AccountSettings";
 import StudentProfilePage from "./pages/StudentProfilePage";
+import ManageStudentProfilesPage from "./pages/ManageStudentProfilesPage";
 import Subjects from "./pages/Subjects";
 import { StudentProfileProvider } from '@/contexts/StudentProfileContext';
 import DetailedQuizHistoryPage from "./pages/DetailedQuizHistory";
@@ -200,6 +201,11 @@ const App = () => (
               <Route path="/student/:studentId/quiz-history/:topicId" element={
                 <ProtectedRoute>
                   <DetailedQuizHistoryPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/manage-student-profiles" element={
+                <ProtectedRoute>
+                  <ManageStudentProfilesPage />
                 </ProtectedRoute>
               } />
               <Route path="*" element={<NotFound />} />
