@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,6 +15,7 @@ interface AIGameProps {
   onComplete?: () => void;
   limitProgress?: boolean;
   studentId?: string; // Added studentId prop to the interface
+  recommendationId?: string; // Added recommendationId prop to track recommendation source
 }
 
 interface GameContent {
@@ -29,7 +29,7 @@ interface GameContent {
   };
 }
 
-const AIGame = ({ subject, gradeLevel, topic, onComplete, limitProgress = false }: AIGameProps) => {
+const AIGame = ({ subject, gradeLevel, topic, onComplete, limitProgress = false, studentId, recommendationId }: AIGameProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [gameContent, setGameContent] = useState<GameContent | null>(null);
   const [gameStarted, setGameStarted] = useState(false);
@@ -60,39 +60,91 @@ const AIGame = ({ subject, gradeLevel, topic, onComplete, limitProgress = false 
     }
   };
 
-  const handleStartGame = () => {
-    // Check if user can start the game (if limiting progress for non-logged in users)
-    if (limitProgress && !user) {
-      toast.info(
-        language === 'id'
-          ? 'Masuk untuk mengakses semua fitur permainan'
-          : 'Sign in to access all game features',
-        {
-          duration: 5000,
-          action: {
-            label: language === 'id' ? 'Masuk' : 'Sign In',
-            onClick: () => navigate('/auth', { state: { action: 'signin' } }),
-          },
-        }
-      );
-      return;
+  const handleStartGame = async () => {
+    setGameStarted(true);
+    
+    // Track that the game was started, particularly if it's from a recommendation
+    if (user && studentId && recommendationId) {
+      try {
+        // Import supabase
+        const { supabase } = await import('@/integrations/supabase/client');
+        
+        // Record that the game was started from a recommendation
+        await supabase.from('learning_activities').insert([{
+          student_id: studentId,
+          activity_type: 'game',
+          subject,
+          topic,
+          started_at: new Date().toISOString(),
+          last_interaction_at: new Date().toISOString(),
+          completed: false,
+          progress: 0,
+          recommendation_id: recommendationId
+        }]);
+        
+        // Mark the recommendation as acted upon
+        await supabase
+          .from('ai_recommendations')
+          .update({
+            acted_on: true,
+            read: true,
+            last_accessed_at: new Date().toISOString()
+          })
+          .eq('id', recommendationId)
+          .eq('student_id', studentId);
+      } catch (error) {
+        console.error('Error tracking game start:', error);
+        // Non-critical error, don't show to user
+      }
     }
     
-    setGameStarted(true);
-    toast.success(language === 'id' ? 
-      "Permainan dimulai! Selamat bersenang-senang sambil belajar!" : 
-      "Game started! Have fun learning!", {
-      icon: <Gamepad className="h-5 w-5" />,
-    });
+    toast.success(
+      language === 'id' ? 'Permainan dimulai!' : 'Game started!',
+      { position: "bottom-right", duration: 3000 }
+    );
   };
 
-  const handleCompleteGame = () => {
-    toast.success(language === 'id' ? 
-      "Kamu telah menyelesaikan permainan! Kerja bagus!" : 
-      "You completed the game! Great job!", {
-      icon: <Award className="h-5 w-5" />,
-    });
-    if (onComplete) onComplete();
+  const handleCompleteGame = async () => {
+    if (onComplete) {
+      onComplete();
+    }
+    
+    // Mark the game as completed if the user is logged in
+    if (user && studentId) {
+      try {
+        // Import supabase
+        const { supabase } = await import('@/integrations/supabase/client');
+        
+        // Create a summary of the game completion
+        const summary = `Completed educational game about ${topic} in ${subject}. Game objective: ${gameContent?.objective}`;
+        
+        // Record the game completion
+        await supabase.from('learning_activities').insert([{
+          student_id: studentId,
+          activity_type: 'game',
+          subject,
+          topic,
+          completed: true,
+          progress: 100,
+          stars_earned: 3, // Standard reward for games
+          completed_at: new Date().toISOString(),
+          last_interaction_at: new Date().toISOString(),
+          recommendation_id: recommendationId,
+          summary: summary // Store game summary
+        }]);
+        
+        toast.success(
+          language === 'id' ? 'Permainan selesai! Anda mendapatkan 3 bintang!' : 'Game completed! You earned 3 stars!',
+          { position: "bottom-right", duration: 3000 }
+        );
+      } catch (error) {
+        console.error('Error recording game completion:', error);
+      }
+    }
+    
+    // Reset for a new game
+    setGameContent(null);
+    setGameStarted(false);
   };
 
   if (isLoading) {

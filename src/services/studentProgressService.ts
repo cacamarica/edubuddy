@@ -34,6 +34,10 @@ export interface LearningActivity {
   started_at?: string;
   completed_at?: string | null;
   last_interaction_at?: string;
+  recommendation_id?: string; // Add support for tracking recommendation source
+  lesson_id?: string; // Add support for linking to specific lessons
+  quiz_id?: string; // Add support for linking to specific quizzes
+  summary?: string; // Add support for storing activity summaries
 }
 
 export interface Badge {

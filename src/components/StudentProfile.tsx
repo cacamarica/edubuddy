@@ -16,7 +16,7 @@ interface Student {
   id: string;
   name: string;
   age: number;
-  gradeLevel: 'k-3' | '4-6' | '7-9';
+  gradeLevel: 'k1' | 'k2' | 'k-3' | '4-6' | '7-9';
   avatar?: string;
   email?: string;
   password?: string;
@@ -42,7 +42,7 @@ const StudentProfile = ({ onStudentChange, currentStudentId, readOnly = false }:
   const [isSaving, setIsSaving] = useState(false);  const [newStudent, setNewStudent] = useState<Omit<Student, 'id'>>({
     name: '',
     age: 6,
-    gradeLevel: 'k-3',
+    gradeLevel: 'k1',  // Default to K1 as it's now the first option
     avatar: DEFAULT_AVATARS[0],
     email: '',
     password: '',
@@ -68,13 +68,14 @@ const StudentProfile = ({ onStudentChange, currentStudentId, readOnly = false }:
           if (error) {
             console.error('Error fetching students:', error);
             toast.error(language === 'id' ? 'Gagal memuat data siswa' : 'Failed to load student data');
-          } else if (data && isMounted) {
-            const formattedStudents = data.map(item => ({
+          } else if (data && isMounted) {            const formattedStudents = data.map(item => ({
               id: item.id,
               name: item.name,
               age: item.age || 6,
-              gradeLevel: item.grade_level as 'k-3' | '4-6' | '7-9',
-              avatar: DEFAULT_AVATARS[item.id.charCodeAt(0) % DEFAULT_AVATARS.length] // Generate avatar based on ID
+              gradeLevel: item.grade_level as 'k1' | 'k2' | 'k-3' | '4-6' | '7-9',
+              avatar: item.avatar || DEFAULT_AVATARS[item.id.charCodeAt(0) % DEFAULT_AVATARS.length],
+              email: item.email,
+              hasAccount: !!item.auth_id
             }));
             
             setStudents(formattedStudents);
@@ -182,9 +183,7 @@ const StudentProfile = ({ onStudentChange, currentStudentId, readOnly = false }:
           }
           
           studentAuthId = authData.user?.id;
-        }
-        
-        // Add to database
+        }        // Add to database
         const { data, error } = await supabase          .from('students')
           .insert([{
             name: newStudent.name,
@@ -193,6 +192,7 @@ const StudentProfile = ({ onStudentChange, currentStudentId, readOnly = false }:
             parent_id: user.id,
             auth_id: studentAuthId,
             email: newStudent.hasAccount ? newStudent.email : undefined
+            // avatar field temporarily removed until database schema is updated
           }])
           .select()
           .single();
@@ -201,11 +201,10 @@ const StudentProfile = ({ onStudentChange, currentStudentId, readOnly = false }:
           throw error;
         }
           // Create student object with available fields
-        const student = {
-          id: data.id,
+        const student = {          id: data.id,
           name: data.name,
           age: data.age || newStudent.age,
-          gradeLevel: data.grade_level as 'k-3' | '4-6' | '7-9',
+          gradeLevel: data.grade_level as 'k1' | 'k2' | 'k-3' | '4-6' | '7-9',
           avatar: newStudent.avatar,
           email: newStudent.hasAccount ? newStudent.email : undefined,
           hasAccount: !!studentAuthId
@@ -227,23 +226,47 @@ const StudentProfile = ({ onStudentChange, currentStudentId, readOnly = false }:
           ? 'Login untuk menyimpan profil siswa secara permanen' 
           : 'Login to save student profiles permanently');
       }
-      
-      setIsAddingStudent(false);
-      setNewStudent({ name: '', age: 6, gradeLevel: 'k-3', avatar: DEFAULT_AVATARS[0] });
+        setIsAddingStudent(false);
+      setNewStudent({ name: '', age: 6, gradeLevel: 'k1', avatar: DEFAULT_AVATARS[0], email: '', password: '', hasAccount: false });
       toast.success(language === 'id' ? 'Profil siswa berhasil dibuat!' : 'Student profile successfully created!');
       
       // Show additional toast for account creation
       if (newStudent.hasAccount) {
         toast.success(translations.studentAccountCreated, { duration: 5000 });
-      }
-    } catch (error) {
+      }    } catch (error) {
       console.error('Error adding student:', error);
-      toast.error(language === 'id' ? 'Gagal menambahkan siswa' : 'Failed to add student');
+      
+      // Check if error is related to avatar column
+      if (error && String(error).includes('avatar')) {
+        toast.error(
+          language === 'id' 
+            ? 'Siswa ditambahkan, tetapi gagal menyimpan avatar. Database perlu diperbarui.' 
+            : 'Student added, but failed to save avatar. Database needs to be updated.'
+        );
+        // Create a student object without relying on DB response
+        if (user) {
+          const tempId = `temp_${Date.now()}`;
+          const student = { 
+            id: tempId, 
+            name: newStudent.name,
+            age: newStudent.age,
+            gradeLevel: newStudent.gradeLevel,
+            avatar: newStudent.avatar,
+            email: newStudent.hasAccount ? newStudent.email : undefined,
+            hasAccount: newStudent.hasAccount
+          };
+          setStudents([...students, student]);
+          setActiveStudent(student);
+          if (onStudentChange) onStudentChange(student);
+          setIsAddingStudent(false);
+        }
+      } else {
+        toast.error(language === 'id' ? 'Gagal menambahkan siswa' : 'Failed to add student');
+      }
     } finally {
       setIsSaving(false);
     }
   };
-
   const handleUpdateStudent = async () => {
     if (!activeStudent) return;
     
@@ -252,17 +275,58 @@ const StudentProfile = ({ onStudentChange, currentStudentId, readOnly = false }:
       return;
     }
     
+    // Validate email and password if creating an account
+    if (newStudent.hasAccount && !activeStudent.hasAccount) {
+      if (!newStudent.email?.trim()) {
+        toast.error(language === 'id' ? 'Harap masukkan email siswa' : 'Please enter a student email');
+        return;
+      }
+      
+      if (!newStudent.password || newStudent.password.length < 6) {
+        toast.error(language === 'id' ? 'Kata sandi harus memiliki minimal 6 karakter' : 'Password must be at least 6 characters');
+        return;
+      }
+    }
+    
     setIsSaving(true);
     
     try {
       if (user) {
-        // Update in database
+        let studentAuthId = null;
+        
+        // Create auth account for student if requested and they don't have one yet
+        if (newStudent.hasAccount && !activeStudent.hasAccount && newStudent.email && newStudent.password) {
+          const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+            email: newStudent.email,
+            password: newStudent.password,
+            email_confirm: true, // Auto-confirm email
+            user_metadata: {
+              role: 'student',
+              parent_id: user.id
+            }
+          });
+          
+          if (authError) {
+            console.error('Error creating student account:', authError);
+            toast.error(language === 'id' 
+              ? 'Gagal membuat akun siswa. Email mungkin sudah digunakan.' 
+              : 'Failed to create student account. Email might already be in use.');
+            setIsSaving(false);
+            return;
+          }
+          
+          studentAuthId = authData.user?.id;
+        }
+          // Update in database
         const { error } = await supabase
           .from('students')
           .update({
             name: newStudent.name,
             age: newStudent.age,
-            grade_level: newStudent.gradeLevel
+            grade_level: newStudent.gradeLevel,
+            // avatar field temporarily removed until database schema is updated
+            auth_id: studentAuthId || undefined,
+            email: newStudent.hasAccount ? newStudent.email : undefined
           })
           .eq('id', activeStudent.id);
           
@@ -282,9 +346,31 @@ const StudentProfile = ({ onStudentChange, currentStudentId, readOnly = false }:
       
       setIsEditingStudent(false);
       toast.success(language === 'id' ? 'Profil siswa berhasil diperbarui!' : 'Student profile successfully updated!');
-    } catch (error) {
+      
+      // Show additional toast for account creation
+      if (newStudent.hasAccount && !activeStudent.hasAccount) {
+        toast.success(translations.studentAccountCreated, { duration: 5000 });
+      }    } catch (error) {
       console.error('Error updating student:', error);
-      toast.error(language === 'id' ? 'Gagal memperbarui siswa' : 'Failed to update student');
+      
+      // Check if error is related to avatar column
+      if (error && String(error).includes('avatar')) {
+        toast.error(
+          language === 'id' 
+            ? 'Gagal memperbarui avatar. Database perlu diperbarui.' 
+            : 'Failed to update avatar. Database needs to be updated.'
+        );
+        // Still update the local state so UI shows the change, even if database doesn't save it
+        const updatedStudents = students.map(s => 
+          s.id === activeStudent.id ? { ...s, ...newStudent, id: s.id } : s
+        );
+        setStudents(updatedStudents);
+        setActiveStudent({ ...activeStudent, ...newStudent });
+        if (onStudentChange) onStudentChange({ ...activeStudent, ...newStudent });
+        setIsEditingStudent(false);
+      } else {
+        toast.error(language === 'id' ? 'Gagal memperbarui siswa' : 'Failed to update student');
+      }
     } finally {
       setIsSaving(false);
     }
@@ -339,20 +425,26 @@ const StudentProfile = ({ onStudentChange, currentStudentId, readOnly = false }:
       name: activeStudent.name,
       age: activeStudent.age,
       gradeLevel: activeStudent.gradeLevel,
-      avatar: activeStudent.avatar || DEFAULT_AVATARS[0]
+      avatar: activeStudent.avatar || DEFAULT_AVATARS[0],
+      email: activeStudent.email || '',
+      hasAccount: !!activeStudent.hasAccount,
+      password: ''
     });
     setIsEditingStudent(true);
   };
-
-  const getGradeLabel = (grade: 'k-3' | '4-6' | '7-9') => {
+  const getGradeLabel = (grade: 'k1' | 'k2' | 'k-3' | '4-6' | '7-9') => {
     if (language === 'id') {
       switch (grade) {
+        case 'k1': return 'Kelompok Bermain (K1)';
+        case 'k2': return 'Taman Kanak-kanak (K2)';
         case 'k-3': return 'Tingkat Awal (K-3)';
         case '4-6': return 'Tingkat Menengah (4-6)';
         case '7-9': return 'Tingkat Lanjut (7-9)';
       }
     } else {
       switch (grade) {
+        case 'k1': return 'Playgroup (K1)';
+        case 'k2': return 'Kindergarten (K2)';
         case 'k-3': return 'Early Learners (K-3)';
         case '4-6': return 'Intermediate (4-6)';
         case '7-9': return 'Advanced (7-9)';
@@ -458,24 +550,24 @@ const StudentProfile = ({ onStudentChange, currentStudentId, readOnly = false }:
                     className="mt-1"
                   />
                 </div>                <div>
-                  <Label htmlFor="grade">{translations.gradeLevel}</Label>
-                  <Select
+                  <Label htmlFor="grade">{translations.gradeLevel}</Label>                  <Select
                     value={newStudent.gradeLevel}
-                    onValueChange={(value: 'k-3' | '4-6' | '7-9') => setNewStudent({...newStudent, gradeLevel: value})}
+                    onValueChange={(value: 'k1' | 'k2' | 'k-3' | '4-6' | '7-9') => setNewStudent({...newStudent, gradeLevel: value})}
                   >
                     <SelectTrigger className="mt-1">
                       <SelectValue placeholder={language === 'id' ? 'Pilih tingkat kelas' : 'Select grade level'} />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="k1">{language === 'id' ? 'Kelompok Bermain (K1)' : 'Playgroup (K1)'}</SelectItem>
+                      <SelectItem value="k2">{language === 'id' ? 'Taman Kanak-kanak (K2)' : 'Kindergarten (K2)'}</SelectItem>
                       <SelectItem value="k-3">{language === 'id' ? 'Tingkat Awal (K-3)' : 'Early Learners (K-3)'}</SelectItem>
                       <SelectItem value="4-6">{language === 'id' ? 'Tingkat Menengah (4-6)' : 'Intermediate (4-6)'}</SelectItem>
                       <SelectItem value="7-9">{language === 'id' ? 'Tingkat Lanjut (7-9)' : 'Advanced (7-9)'}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                
-                {/* Allow student to have their own account - Only shown when adding new student */}
-                {isAddingStudent && user && (
+                  {/* Allow student to have their own account - Shown when adding new student or editing a student without account */}
+                {(isAddingStudent || (isEditingStudent && !activeStudent?.hasAccount)) && user && (
                   <div className="space-y-4 pt-2 border-t mt-2">
                     <div className="flex items-center">
                       <input
@@ -486,7 +578,10 @@ const StudentProfile = ({ onStudentChange, currentStudentId, readOnly = false }:
                         className="h-4 w-4 rounded border-gray-300 text-eduPurple focus:ring-eduPurple"
                       />
                       <Label htmlFor="hasAccount" className="ml-2">
-                        {language === 'id' ? 'Buat akun untuk siswa' : 'Create account for student'}
+                        {isEditingStudent 
+                          ? (language === 'id' ? 'Tambahkan akun untuk siswa' : 'Add account for student')
+                          : (language === 'id' ? 'Buat akun untuk siswa' : 'Create account for student')
+                        }
                       </Label>
                     </div>
                     
@@ -553,8 +648,7 @@ const StudentProfile = ({ onStudentChange, currentStudentId, readOnly = false }:
                   </Button>
                 )}
               </div>
-              
-              {activeStudent ? (
+                {activeStudent ? (
                 <div className="border rounded-md p-4 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-full bg-eduPastel-purple flex items-center justify-center text-2xl">

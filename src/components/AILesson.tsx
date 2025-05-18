@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,9 +17,10 @@ interface AILessonProps {
   onComplete?: () => void;
   limitProgress?: boolean;
   studentId?: string; // Added studentId prop to the interface
+  recommendationId?: string; // Added recommendationId prop to track recommendation source
 }
 
-const AILesson = ({ subject, gradeLevel, topic, onComplete, limitProgress = false }: AILessonProps) => {
+const AILesson = ({ subject, gradeLevel, topic, onComplete, limitProgress = false, studentId, recommendationId }: AILessonProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [lessonContent, setLessonContent] = useState<LessonMaterial | null>(null);
   const [currentChapter, setCurrentChapter] = useState(0);
@@ -66,24 +66,53 @@ const AILesson = ({ subject, gradeLevel, topic, onComplete, limitProgress = fals
       const minutes = Math.ceil(wordCount / 200);
       setReadingTime(`${minutes}-${minutes + 5} minutes`);
       
-      // If user is logged in and we have a student profile, fetch progress
-      if (user && window.location.pathname.includes('studentId=')) {
-        // Extract student ID from URL or state
-        const urlParams = new URLSearchParams(window.location.search);
-        const studentId = urlParams.get('studentId');
-        
-        if (studentId && material.id) {
-          const progress = await lessonService.getLessonProgress(studentId, material.id);
-          
-          if (progress) {
-            setLessonProgress(progress);
-            
-            if (progress.is_completed) {
-              setLessonCompleted(true);
-            } else {
-              setCurrentChapter(progress.current_chapter);
-            }
+      // Track that this lesson was started from a recommendation if applicable
+      if (studentId && recommendationId && material.id) {
+        // Record learning activity linked to the recommendation
+        await supabase.from('learning_activities').upsert([
+          {
+            student_id: studentId,
+            activity_type: 'lesson',
+            subject: subject,
+            topic: topic,
+            started_at: new Date().toISOString(),
+            last_interaction_at: new Date().toISOString(),
+            completed: false,
+            progress: 0,
+            recommendation_id: recommendationId,
+            lesson_id: material.id
           }
+        ], {
+          onConflict: 'student_id,activity_type,lesson_id'
+        });
+        
+        // Also mark the recommendation as acted on
+        await supabase
+          .from('ai_recommendations')
+          .update({
+            acted_on: true,
+            read: true,
+            last_accessed_at: new Date().toISOString()
+          })
+          .eq('id', recommendationId)
+          .eq('student_id', studentId);
+      }
+      
+      // If user is logged in and we have a student profile, fetch progress
+      if (user && studentId && material.id) {
+        const progress = await lessonService.getLessonProgress(studentId, material.id);
+        
+        if (progress) {
+          setLessonProgress(progress);
+          
+          if (progress.is_completed) {
+            setLessonCompleted(true);
+          } else {
+            setCurrentChapter(progress.current_chapter);
+          }
+        } else {
+          // Initialize progress tracking for new lessons
+          await lessonService.createLessonProgress(studentId, material.id);
         }
       }
     } catch (error) {
@@ -93,16 +122,9 @@ const AILesson = ({ subject, gradeLevel, topic, onComplete, limitProgress = fals
       setIsLoading(false);
     }
   };
-
   // Save current progress
   const saveCurrentProgress = async () => {
-    if (!user || !lessonContent?.id) return;
-    
-    // Extract student ID from URL or state
-    const urlParams = new URLSearchParams(window.location.search);
-    const studentId = urlParams.get('studentId');
-    
-    if (!studentId) return;
+    if (!user || !lessonContent?.id || !studentId) return;
     
     setIsSavingProgress(true);
     
@@ -172,27 +194,25 @@ const AILesson = ({ subject, gradeLevel, topic, onComplete, limitProgress = fals
         setLessonCompleted(true);
         
         // Save completion status if user is logged in
-        if (user && lessonContent.id) {
-          const urlParams = new URLSearchParams(window.location.search);
-          const studentId = urlParams.get('studentId');
-          
-          if (studentId) {
-            await lessonService.markLessonComplete(studentId, lessonContent.id);
+        if (user && lessonContent.id && studentId) {
+          await lessonService.markLessonComplete(studentId, lessonContent.id);
             
-            // Update learning activity - now with proper supabase import
-            await supabase
-              .from('learning_activities')
-              .insert([{
-                student_id: studentId,
-                activity_type: 'lesson',
-                subject,
-                topic,
-                completed: true,
-                progress: 100,
-                stars_earned: 5,
-                completed_at: new Date().toISOString()
-              }]);
-          }
+          // Update learning activity with completion details including the summary
+          await supabase
+            .from('learning_activities')
+            .insert([{
+              student_id: studentId,
+              activity_type: 'lesson',
+              subject,
+              topic,
+              completed: true,
+              progress: 100,
+              stars_earned: 5,
+              completed_at: new Date().toISOString(),
+              recommendation_id: recommendationId, // Track recommendation if available
+              lesson_id: lessonContent.id, // Link to the specific lesson
+              summary: lessonContent.summary || `${topic} in ${subject}` // Store the lesson summary for future reference
+            }]);
         }
         
         toast.success("You completed the lesson! Great job!", {

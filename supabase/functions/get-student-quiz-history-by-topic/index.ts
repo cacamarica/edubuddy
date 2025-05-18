@@ -30,7 +30,10 @@ serve(async (req) => {
   }
 
   try {
-    const { studentId, topicId } = await req.json();
+    const { studentId, topicId } = await req.json() as {
+      studentId: string;
+      topicId: string;
+    };
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
 

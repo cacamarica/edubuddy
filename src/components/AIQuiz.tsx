@@ -18,9 +18,10 @@ export interface AIQuizProps {
   onComplete?: (score: number) => void;
   limitProgress?: boolean;
   studentId?: string; // Added studentId prop to the interface
+  recommendationId?: string; // Added recommendationId prop to track recommendation source
 }
 
-const AIQuiz = ({ subject, gradeLevel, topic, onComplete, limitProgress = false }: AIQuizProps) => {
+const AIQuiz = ({ subject, gradeLevel, topic, onComplete, limitProgress = false, studentId, recommendationId }: AIQuizProps) => {
   const [quizStarted, setQuizStarted] = useState(false);
   const [quizComplete, setQuizComplete] = useState(false);
   const [questionCount, setQuestionCount] = useState(10); // Default to 10 questions now
@@ -205,7 +206,8 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete, limitProgress = false 
         topic,
         completed: false,
         progress: 0,
-        stars_earned: 0
+        stars_earned: 0,
+        recommendation_id: recommendationId // Track recommendation usage
       });
       
       console.log('Quiz activity start recorded');
@@ -290,6 +292,35 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete, limitProgress = false 
             correct_answers: correctAnswers,
             is_completed: true
           });
+          
+          // Generate and store a summary of the quiz results
+          const correctCount = correctAnswers.length;
+          const totalQuestions = questions.length;
+          const percentage = Math.round((correctCount / totalQuestions) * 100);
+          
+          // Create a summary of the quiz results
+          const summary = `Quiz on ${topic} in ${subject}: Score ${correctCount}/${totalQuestions} (${percentage}%). ${
+            percentage >= 80 ? "Excellent performance!" : 
+            percentage >= 60 ? "Good job!" : 
+            "Keep practicing to improve!"
+          }`;
+          
+          // Store in learning_activities table with the summary
+          await supabase
+            .from('learning_activities')
+            .insert([{
+              student_id: student.id,
+              activity_type: 'quiz',
+              subject,
+              topic,
+              completed: true,
+              progress: 100,
+              stars_earned: Math.ceil(percentage / 20), // 1-5 stars based on percentage
+              completed_at: new Date().toISOString(),
+              last_interaction_at: new Date().toISOString(),
+              recommendation_id: recommendationId, // Track recommendation if available
+              summary: summary // Store the quiz summary for future reference
+            }]);
         }
       } catch (error) {
         console.error('Error saving progress:', error);
@@ -305,8 +336,6 @@ const AIQuiz = ({ subject, gradeLevel, topic, onComplete, limitProgress = false 
       const finalScore = calculateFinalScore();
       setScore(finalScore);
       setQuizComplete(true);
-      
-      // Remove celebration sound playback
       
       // Call the onComplete callback if provided
       if (onComplete) {

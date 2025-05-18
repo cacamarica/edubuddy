@@ -15,6 +15,9 @@ import {
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts'; // Added recharts
 import { toast } from 'sonner'; // For user feedback
 
+// Time interval types for the chart
+type TimeInterval = 'daily' | 'weekly' | 'monthly' | 'yearly';
+
 interface AIRecommendationsProps {
   studentId: string;
   gradeLevel: 'k-3' | '4-6' | '7-9'; 
@@ -23,13 +26,14 @@ interface AIRecommendationsProps {
 // AIRecommendation interface might need to be augmented if reasoning/impact is added
 // interface AIRecommendation { ... reasoning?: string; potentialImpact?: string; }
 
-
-const AIRecommendations: React.FC<AIRecommendationsProps> = ({ studentId, gradeLevel }) => {
-  const [recommendations, setRecommendations] = useState<AIRecommendation[]>([]);
+debugger
+const AIRecommendations: React.FC<AIRecommendationsProps> = ({ studentId, gradeLevel }) => {  const [recommendations, setRecommendations] = useState<AIRecommendation[]>([]);
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(true);
   const [summaryReport, setSummaryReport] = useState<AISummaryReport | null>(null);
   const [isLoadingReport, setIsLoadingReport] = useState(true);
   const [forceRefreshReport, setForceRefreshReport] = useState(false); // For report refresh
+  const [timeInterval, setTimeInterval] = useState<TimeInterval>('daily'); // Default to daily view
+  const [isChartLoading, setIsChartLoading] = useState(false); // Loading state for chart transitions
   const { language } = useLanguage();
   const navigate = useNavigate();
   const { selectedProfile } = useStudentProfile();
@@ -167,7 +171,133 @@ const AIRecommendations: React.FC<AIRecommendationsProps> = ({ studentId, gradeL
       return dateString; // fallback to original if parsing fails
     }
   };
-
+  // Function to filter chart data based on time interval
+  const getFilteredChartData = useCallback(() => {
+    if (!summaryReport?.knowledgeGrowthChartData || summaryReport.knowledgeGrowthChartData.length === 0) {
+      return [];
+    }
+    
+    const data = [...summaryReport.knowledgeGrowthChartData];
+    const now = new Date();
+    
+    // Sort data by date (oldest to newest)
+    data.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    
+    switch (timeInterval) {
+      case 'daily':
+        // Show data from the last 30 days
+        return data.filter(item => {
+          const date = new Date(item.date);
+          return (now.getTime() - date.getTime()) <= 30 * 24 * 60 * 60 * 1000;
+        });
+      case 'weekly':
+        // Group by week and average scores
+        const weeklyData: Record<string, { sum: number, count: number }> = {};
+        data.forEach(item => {
+          const date = new Date(item.date);
+          // Get the week number
+          const weekNumber = getWeekNumber(date);
+          const weekKey = `${date.getFullYear()}-W${weekNumber}`;
+          
+          if (!weeklyData[weekKey]) {
+            weeklyData[weekKey] = { sum: 0, count: 0 };
+          }
+          weeklyData[weekKey].sum += item.score;
+          weeklyData[weekKey].count++;
+        });
+        
+        return Object.entries(weeklyData)
+          .map(([weekKey, values]) => ({
+            date: weekKey,
+            score: Math.round(values.sum / values.count)
+          }))
+          .sort((a, b) => a.date.localeCompare(b.date)) // Ensure correct order
+          .slice(-12); // Last 12 weeks
+      
+      case 'monthly':
+        // Group by month and average scores
+        const monthlyData: Record<string, { sum: number, count: number }> = {};
+        data.forEach(item => {
+          const date = new Date(item.date);
+          const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+          
+          if (!monthlyData[monthKey]) {
+            monthlyData[monthKey] = { sum: 0, count: 0 };
+          }
+          monthlyData[monthKey].sum += item.score;
+          monthlyData[monthKey].count++;
+        });
+        
+        return Object.entries(monthlyData)
+          .map(([monthKey, values]) => ({
+            date: monthKey,
+            score: Math.round(values.sum / values.count)
+          }))
+          .sort((a, b) => a.date.localeCompare(b.date)) // Ensure correct order
+          .slice(-12); // Last 12 months
+      
+      case 'yearly':
+        // Group by year and average scores
+        const yearlyData: Record<string, { sum: number, count: number }> = {};
+        data.forEach(item => {
+          const date = new Date(item.date);
+          const yearKey = `${date.getFullYear()}`;
+          
+          if (!yearlyData[yearKey]) {
+            yearlyData[yearKey] = { sum: 0, count: 0 };
+          }
+          yearlyData[yearKey].sum += item.score;
+          yearlyData[yearKey].count++;
+        });
+        
+        return Object.entries(yearlyData)
+          .map(([yearKey, values]) => ({
+            date: yearKey,
+            score: Math.round(values.sum / values.count)
+          }))
+          .sort((a, b) => a.date.localeCompare(b.date)); // Ensure correct order
+      
+      default:
+        return data;
+    }
+  }, [summaryReport?.knowledgeGrowthChartData, timeInterval]);
+    // Helper function to get ISO week number
+  const getWeekNumber = (date: Date) => {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  };
+  
+  // Memoize the chart data to improve performance
+  const chartData = React.useMemo(() => getFilteredChartData(), [getFilteredChartData]);
+  
+  // Custom formatter for X-axis based on time interval
+  const formatXAxis = (dateString: string) => {
+    if (!dateString) return '';
+    
+    try {
+      // Handle different formats based on time interval
+      if (timeInterval === 'daily') {
+        // Original format for daily
+        return formatDateForChart(dateString);
+      } else if (timeInterval === 'weekly') {
+        // Format for weekly: "Week X"
+        const parts = dateString.split('-W');
+        return language === 'id' ? `Minggu ${parts[1]}` : `Week ${parts[1]}`;
+      } else if (timeInterval === 'monthly') {
+        // Format for monthly: "Jan 2023"
+        const parts = dateString.split('-');
+        const date = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1);
+        return date.toLocaleDateString(language === 'id' ? 'id-ID' : 'en-US', { month: 'short', year: 'numeric' });
+      } else {
+        // Format for yearly: "2023"
+        return dateString;
+      }
+    } catch (e) {
+      return dateString;
+    }
+  };
 
   return (
     <div className="h-full space-y-8">
@@ -232,26 +362,98 @@ const AIRecommendations: React.FC<AIRecommendationsProps> = ({ studentId, gradeL
             <div>
               <h4 className="font-semibold mb-1 text-gray-800">{language === 'id' ? 'Analisis Aktivitas' : 'Activity Analysis'}</h4>
               <p className="text-gray-700 whitespace-pre-wrap">{summaryReport.activityAnalysis}</p>
-            </div>
-
-            {/* Knowledge Growth Chart */}
+            </div>            {/* Knowledge Growth Chart */}
             {summaryReport.knowledgeGrowthChartData && summaryReport.knowledgeGrowthChartData.length > 0 && (
               <div className="mt-4">
-                <h4 className="font-semibold mb-2 text-gray-800">
-                  {language === 'id' ? 'Grafik Pertumbuhan Pengetahuan (Skor Kuis)' : 'Knowledge Growth Chart (Quiz Scores)'}
-                </h4>
-                <div style={{ width: '100%', height: 300 }} className="bg-white p-2 rounded shadow">
+                <div className="flex justify-between items-center mb-2">
+                  <h4 className="font-semibold text-gray-800">
+                    {language === 'id' ? 'Grafik Pertumbuhan Pengetahuan (Skor Kuis)' : 'Knowledge Growth Chart (Quiz Scores)'}
+                  </h4>                  <div className="flex space-x-2 text-xs">
+                    <button 
+                      className={`px-2 py-1 rounded transition-all duration-200 ${timeInterval === 'daily' ? 'bg-purple-100 text-purple-700 font-medium' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                      onClick={() => {
+                        if (timeInterval !== 'daily') {
+                          setIsChartLoading(true);
+                          setTimeInterval('daily');
+                          // Set a small timeout to simulate the loading state and allow React to re-render
+                          setTimeout(() => setIsChartLoading(false), 300);
+                        }
+                      }}
+                      disabled={isChartLoading}
+                    >
+                      {language === 'id' ? 'Harian' : 'Daily'}
+                    </button>
+                    <button 
+                      className={`px-2 py-1 rounded transition-all duration-200 ${timeInterval === 'weekly' ? 'bg-purple-100 text-purple-700 font-medium' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                      onClick={() => {
+                        if (timeInterval !== 'weekly') {
+                          setIsChartLoading(true);
+                          setTimeInterval('weekly');
+                          setTimeout(() => setIsChartLoading(false), 300);
+                        }
+                      }}
+                      disabled={isChartLoading}
+                    >
+                      {language === 'id' ? 'Mingguan' : 'Weekly'}
+                    </button>
+                    <button 
+                      className={`px-2 py-1 rounded transition-all duration-200 ${timeInterval === 'monthly' ? 'bg-purple-100 text-purple-700 font-medium' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                      onClick={() => {
+                        if (timeInterval !== 'monthly') {
+                          setIsChartLoading(true);
+                          setTimeInterval('monthly');
+                          setTimeout(() => setIsChartLoading(false), 300);
+                        }
+                      }}
+                      disabled={isChartLoading}
+                    >
+                      {language === 'id' ? 'Bulanan' : 'Monthly'}
+                    </button>
+                    <button 
+                      className={`px-2 py-1 rounded transition-all duration-200 ${timeInterval === 'yearly' ? 'bg-purple-100 text-purple-700 font-medium' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                      onClick={() => {
+                        if (timeInterval !== 'yearly') {
+                          setIsChartLoading(true);
+                          setTimeInterval('yearly');
+                          setTimeout(() => setIsChartLoading(false), 300);
+                        }
+                      }}
+                      disabled={isChartLoading}
+                    >
+                      {language === 'id' ? 'Tahunan' : 'Yearly'}
+                    </button>
+                  </div>
+                </div>                <div style={{ width: '100%', height: 300 }} className="bg-white p-2 rounded shadow relative">
+                  {isChartLoading && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-70 z-10">
+                      <Spinner size="sm" />
+                      <span className="ml-2 text-sm text-gray-600">{language === 'id' ? 'Memperbarui grafik...' : 'Updating chart...'}</span>
+                    </div>
+                  )}
                   <ResponsiveContainer>
-                    <LineChart data={summaryReport.knowledgeGrowthChartData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
+                    <LineChart 
+                      data={chartData} 
+                      margin={{ top: 5, right: 20, left: -20, bottom: 5 }}
+                      className={`transition-opacity duration-300 ${isChartLoading ? 'opacity-30' : 'opacity-100'}`}
+                    >
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" tickFormatter={formatDateForChart} />
-                      <YAxis domain={[0, 100]} />
-                      <Tooltip 
+                      <XAxis dataKey="date" tickFormatter={formatXAxis} />
+                      <YAxis domain={[0, 100]} />                      <Tooltip 
                         formatter={(value: number) => [`${value}%`, language === 'id' ? 'Skor' : 'Score']}
-                        labelFormatter={(label: string) => formatDateForChart(label)}
+                        labelFormatter={(label: string) => formatXAxis(label)}
+                        contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.9)', borderRadius: '4px', padding: '8px', boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)' }}
+                        wrapperStyle={{ outline: 'none' }}
                       />
                       <Legend />
-                      <Line type="monotone" dataKey="score" stroke="#8884d8" activeDot={{ r: 8 }} name={language === 'id' ? 'Skor Rata-rata' : 'Average Score'} unit="%" />
+                      <Line 
+                        type="monotone" 
+                        dataKey="score" 
+                        stroke="#8884d8" 
+                        activeDot={{ r: 8 }} 
+                        name={language === 'id' ? 'Skor Rata-rata' : 'Average Score'} 
+                        unit="%"
+                        animationDuration={500} 
+                      />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>

@@ -21,6 +21,7 @@ interface LearningContentProps {
   onTabChange: (tab: string) => void;
   onReset: () => void;
   onQuizComplete: (score: number) => void;
+  recommendationId?: string; // Add recommendationId to track source
 }
 
 interface StudentInfo {
@@ -38,6 +39,7 @@ const LearningContent: React.FC<LearningContentProps> = ({
   onTabChange,
   onReset,
   onQuizComplete,
+  recommendationId,
 }) => {
   const { language, t } = useLanguage();
   const { user } = useAuth();
@@ -145,14 +147,14 @@ const LearningContent: React.FC<LearningContentProps> = ({
             <span className="hidden sm:inline">{t('game')}</span>
           </TabsTrigger>
         </TabsList>
-        <div className="mt-6">
-          <TabsContent value="lesson">
+        <div className="mt-6">          <TabsContent value="lesson">
             <AILesson 
               subject={subject} 
               gradeLevel={effectiveGradeLevel} 
               topic={topic}
               limitProgress={!user}
               studentId={studentId}
+              recommendationId={recommendationId}
             />
           </TabsContent>
           <TabsContent value="quiz">
@@ -163,6 +165,7 @@ const LearningContent: React.FC<LearningContentProps> = ({
               onComplete={(score) => onQuizComplete(score)}
               limitProgress={!user}
               studentId={studentId}
+              recommendationId={recommendationId}
             />
           </TabsContent>
           <TabsContent value="game">
@@ -172,6 +175,7 @@ const LearningContent: React.FC<LearningContentProps> = ({
               topic={topic}
               limitProgress={!user}
               studentId={studentId}
+              recommendationId={recommendationId}
             />
           </TabsContent>
         </div>

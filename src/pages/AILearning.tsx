@@ -138,24 +138,140 @@ const AILearning = () => {
 
     fetchStudents();
   }, [user, location.state?.studentId, updateGradeLevelFromStudent, language]);
-
   // Handle auto-start of content if navigated with specific topic
   useEffect(() => {
     if (location.state?.topic && location.state?.autoStart && !contentReady) {
       setTopic(location.state.topic);
-      setContentReady(true);
       
-      // If user is not logged in, increment AI usage count
-      if (!user) {
-        setAiUsageCount(prev => prev + 1);
+      const studentId = location.state.studentId;
+      const resumeExisting = location.state.resumeExisting;
+      const recommendationId = location.state.recommendationId;
+      
+      // Try to resume existing content if requested and we have a student ID
+      if (resumeExisting && studentId && user) {
+        checkForExistingActivity(studentId, location.state.subject, location.state.topic);
+      } else {
+        // Otherwise just start new content
+        setContentReady(true);
+        
+        // If user is not logged in, increment AI usage count
+        if (!user) {
+          setAiUsageCount(prev => prev + 1);
+        }
+        
+        // Track recommendation usage if available
+        if (recommendationId && studentId) {
+          trackRecommendationUsage(recommendationId, studentId, location.state.subject, location.state.topic);
+        }
+        
+        toast.success(`${language === 'id' ? 'Memulai' : 'Starting'} ${location.state.topic} ${language === 'id' ? 'di' : 'in'} ${location.state.subject}!`, {
+          position: "bottom-right",
+          duration: 3000,
+        });
       }
-      
-      toast.success(`${language === 'id' ? 'Memulai' : 'Starting'} ${location.state.topic} ${language === 'id' ? 'di' : 'in'} ${location.state.subject}!`, {
-        position: "bottom-right",
-        duration: 3000,
-      });
     }
   }, [location.state, contentReady, language, user]);
+  
+  // Check for and resume existing learning activity
+  const checkForExistingActivity = async (studentId: string, subject: string, topic: string) => {
+    try {
+      // Look for an existing learning activity
+      const { data, error } = await supabase
+        .from('learning_activities')
+        .select('*')
+        .eq('student_id', studentId)
+        .eq('subject', subject)
+        .eq('topic', topic)
+        .eq('completed', false) // Only get incomplete activities
+        .order('last_interaction_at', { ascending: false })
+        .limit(1);
+        
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        // Found existing learning activity
+        console.log('Resuming existing learning activity:', data[0]);
+        
+        const existingActivity = data[0];
+        
+        // Set the active tab based on the activity type
+        if (existingActivity.activity_type) {
+          setActiveTab(existingActivity.activity_type);
+        }
+        
+        // Update the last interaction time
+        await supabase
+          .from('learning_activities')
+          .update({
+            last_interaction_at: new Date().toISOString()
+          })
+          .eq('id', existingActivity.id);
+        
+        toast.info(language === 'id' 
+          ? 'Melanjutkan aktivitas pembelajaran sebelumnya' 
+          : 'Resuming previous learning activity', {
+          position: "bottom-right",
+          duration: 3000,
+        });
+      } else {
+        // No existing activity found, we'll start fresh
+        console.log('No existing activity found, starting new content');
+        
+        // If this is from a recommendation, track it
+        const recommendationId = location.state?.recommendationId;
+        if (recommendationId && studentId) {
+          trackRecommendationUsage(recommendationId, studentId, subject, topic);
+        }
+      }
+      
+      // Whether resuming or starting new, set content ready
+      setContentReady(true);
+      
+    } catch (error) {
+      console.error('Error checking for existing activities:', error);
+      setContentReady(true); // Continue with new content as fallback
+    }
+  };
+    // Track recommendation usage for analytics
+  const trackRecommendationUsage = async (
+    recommendationId: string, 
+    studentId: string, 
+    subject: string, 
+    topic: string
+  ) => {
+    try {
+      // First mark the recommendation itself as acted upon 
+      await supabase
+        .from('ai_recommendations')
+        .update({
+          acted_on: true,
+          read: true,
+          last_accessed_at: new Date().toISOString()
+        })
+        .eq('id', recommendationId)
+        .eq('student_id', studentId);
+        
+      // We also log this action in learning_activities for better tracking
+      await supabase
+        .from('learning_activities')
+        .insert([{
+          student_id: studentId,
+          activity_type: activeTab as any, // 'lesson' or 'quiz'
+          subject: subject,
+          topic: topic,
+          recommendation_id: recommendationId,
+          started_at: new Date().toISOString(),
+          last_interaction_at: new Date().toISOString(),
+          completed: false,
+          progress: 0
+        }]);
+        
+      console.log('Recommendation usage tracked:', { recommendationId, studentId, subject, topic });
+    } catch (error) {
+      console.error('Error tracking recommendation usage:', error);
+      // Non-critical error, don't show to user
+    }
+  };
 
   // Update subject when grade level changes
   useEffect(() => {
@@ -310,8 +426,7 @@ const AILearning = () => {
                   onCreateContent={handleCreateContent}
                 />
               </div>
-            ) : (
-              <LearningContentWrapper
+            ) : (              <LearningContentWrapper
                 subject={subject}
                 gradeLevel={gradeLevel}
                 topic={topic}
@@ -319,6 +434,7 @@ const AILearning = () => {
                 onTabChange={setActiveTab}
                 onReset={handleReset}
                 onQuizComplete={handleQuizComplete}
+                recommendationId={location.state?.recommendationId}
               />
             )}
           </div>

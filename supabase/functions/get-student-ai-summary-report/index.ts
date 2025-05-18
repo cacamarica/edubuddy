@@ -375,7 +375,7 @@ function processQuizHistoryForChart(quizHistory: any[]): Array<{date: string, sc
   if (!quizHistory || quizHistory.length === 0) return [];
   
   // Group by date (just keep the date part, not time)
-  const groupedByDate = quizHistory.reduce((acc, attempt) => {
+  const groupedByDate = quizHistory.reduce<Record<string, {totalCorrect: number, totalQuestions: number}>>((acc, attempt) => {
     const date = new Date(attempt.attempted_at).toISOString().split('T')[0];
     
     if (!acc[date]) {
@@ -392,9 +392,8 @@ function processQuizHistoryForChart(quizHistory: any[]): Array<{date: string, sc
     
     return acc;
   }, {});
-
   // Convert to chart data format
-  return Object.entries(groupedByDate).map(([date, data]: [string, any]) => {
+  return Object.entries(groupedByDate).map(([date, data]: [string, {totalCorrect: number, totalQuestions: number}]) => {
     const score = Math.round((data.totalCorrect / data.totalQuestions) * 100);
     return {
       date,
@@ -432,7 +431,7 @@ function findMostFrequent(counts: Record<string, number>): string {
 
 // Generate sample chart data for visual consistency when real data is missing
 function generateSampleChartData(): Array<{date: string, score: number}> {
-  const data = [];
+  const data: Array<{date: string, score: number}> = [];
   const now = new Date();
   
   for (let i = 6; i >= 0; i--) {
@@ -465,7 +464,12 @@ serve(async (req) => {
   }
 
   try {
-    const { studentId, gradeLevel, studentName, forceRefresh } = await req.json();
+    const { studentId, gradeLevel, studentName, forceRefresh } = await req.json() as {
+      studentId: string;
+      gradeLevel: string;
+      studentName: string;
+      forceRefresh?: boolean;
+    };
     
     console.log(`Processing request for student: ${studentId}, grade: ${gradeLevel}, name: ${studentName}, forceRefresh: ${forceRefresh}`);
     

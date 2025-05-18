@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { getAIEducationContent } from "./aiEducationService";
 import { toast } from "sonner";
@@ -118,6 +117,47 @@ export const lessonService = {
     }
   },
 
+  // Get lesson material by ID directly
+  getLessonMaterialById: async (id: string): Promise<LessonMaterial | null> => {
+    try {
+      const { data, error } = await supabase
+        .from("lesson_materials")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      if (!data) {
+        return null;
+      }
+
+      return {
+        id: data.id,
+        subject: data.subject,
+        topic: data.topic,
+        grade_level: data.grade_level as "k-3" | "4-6" | "7-9",
+        title: data.title,
+        introduction: data.introduction,
+        chapters: safeParseJson<LessonChapter[]>(data.chapters, []),
+        fun_facts: safeParseJson<string[]>(data.fun_facts, []),
+        activity: safeParseJson<LessonActivity>(data.activity, {
+          title: "Activity", 
+          instructions: "No activity available"
+        }),
+        conclusion: data.conclusion,
+        summary: data.summary,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      };
+    } catch (error) {
+      console.error("Error in getLessonMaterialById:", error);
+      return null;
+    }
+  },
+
   // Generate lesson material using AI and store in database
   async generateAndStoreLessonMaterial(subject: string, topic: string, gradeLevel: "k-3" | "4-6" | "7-9"): Promise<LessonMaterial | null> {
     try {
@@ -228,6 +268,63 @@ export const lessonService = {
       return data as LessonProgress;
     } catch (error) {
       console.error("Error fetching lesson progress:", error);
+      return null;
+    }
+  },
+
+  // Create initial progress record for a lesson
+  createLessonProgress: async (studentId: string, lessonId: string): Promise<LessonProgress | null> => {
+    try {
+      // Check if progress already exists
+      const { data: existingProgress } = await supabase
+        .from("lesson_progress")
+        .select("*")
+        .eq("student_id", studentId)
+        .eq("lesson_id", lessonId)
+        .single();
+
+      if (existingProgress) {
+        return existingProgress as LessonProgress;
+      }
+
+      // Create new progress record
+      const initialProgress: LessonProgress = {
+        student_id: studentId,
+        lesson_id: lessonId,
+        current_chapter: 0,
+        is_completed: false,
+        last_read_at: new Date().toISOString()
+      };
+
+      const { data, error } = await supabase
+        .from("lesson_progress")
+        .insert([initialProgress])
+        .select()
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      // Also create or update learning activity record for analytics
+      await supabase.from("learning_activities").upsert([
+        {
+          student_id: studentId,
+          activity_type: "lesson",
+          subject: "", // These will be filled in later when we have the data
+          topic: "",
+          progress: 0,
+          started_at: new Date().toISOString(),
+          last_interaction_at: new Date().toISOString(),
+          lesson_id: lessonId
+        }
+      ], {
+        onConflict: "student_id,activity_type,lesson_id"
+      });
+
+      return data as LessonProgress;
+    } catch (error) {
+      console.error("Error creating lesson progress:", error);
       return null;
     }
   },

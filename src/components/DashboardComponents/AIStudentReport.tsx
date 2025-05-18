@@ -1,11 +1,14 @@
-
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { AISummaryReport } from '@/services/studentProgressService';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
-import { ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
+import { ChevronDown, ChevronUp, AlertCircle, CalendarDays } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from 'date-fns';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface AIStudentReportProps {
   report: AISummaryReport | null;
@@ -14,8 +17,31 @@ interface AIStudentReportProps {
   isLoading: boolean;
 }
 
+type Granularity = 'daily' | 'weekly' | 'monthly' | 'yearly';
+
+// Helper functions for date aggregation
+const getWeek = (date: Date): string => {
+  const year = date.getFullYear();
+  const firstDayOfYear = new Date(year, 0, 1);
+  const pastDaysOfYear = (date.getTime() - firstDayOfYear.getTime()) / 86400000;
+  return `${year}-W${String(Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7)).padStart(2, '0')}`;
+};
+
+const getMonth = (date: Date): string => {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`; // YYYY-MM
+};
+
+const getYear = (date: Date): string => {
+  return String(date.getFullYear()); // YYYY
+};
+
 const AIStudentReport: React.FC<AIStudentReportProps> = ({ report, isExpanded, toggleExpanded, isLoading }) => {
   const { language } = useLanguage();
+  const [granularity, setGranularity] = useState<Granularity>('monthly');
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
+    from: undefined,
+    to: undefined,
+  });
 
   if (isLoading) {
     return (
@@ -41,10 +67,11 @@ const AIStudentReport: React.FC<AIStudentReportProps> = ({ report, isExpanded, t
   }
 
   // Check if there's enough meaningful data in the report
-  const hasMinimalData = report.overallSummary && 
+  const hasMinimalData = report?.overallSummary && 
                         (report.strengths?.length > 0 || 
                          report.areasForImprovement?.length > 0 || 
-                         report.knowledgeGrowthChartData?.length > 1);
+                         (report.knowledgeGrowthChartData && report.knowledgeGrowthChartData.length > 0) // Changed to allow chart with 1 point before processing
+                        );
 
   if (!hasMinimalData) {
     return (
@@ -59,15 +86,92 @@ const AIStudentReport: React.FC<AIStudentReportProps> = ({ report, isExpanded, t
     );
   }
 
-  // Helper to format date for chart
-  const formatDateForChart = (dateString?: string) => {
+  // Helper to format date for chart based on granularity
+  const formatDateForChart = (dateString?: string, currentGranularity: Granularity = granularity) => {
     if (!dateString) return '';
     try {
-      return new Date(dateString).toLocaleDateString(language === 'id' ? 'id-ID' : 'en-US', { month: 'short', day: 'numeric' });
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return dateString; // Invalid date
+
+      switch (currentGranularity) {
+        case 'daily':
+          return format(date, 'MMM d');
+        case 'weekly':
+          // For weekly, dateString might be 'YYYY-WW'. We need to parse or display as is.
+          // If it's a full date string, format to week.
+          if (dateString.includes('-W')) return dateString; // Already formatted as YYYY-WW
+          return `Week of ${format(date, 'MMM d')}`;
+        case 'monthly':
+          return format(date, 'MMM yyyy');
+        case 'yearly':
+          return format(date, 'yyyy');
+        default:
+          return format(date, 'MMM d');
+      }
     } catch (e) {
       return dateString; // fallback to original if parsing fails
     }
   };
+
+  const processedChartData = useMemo(() => {
+  if (!report?.knowledgeGrowthChartData) return [];
+
+  // Filter data based on date range
+  const filteredData = report.knowledgeGrowthChartData.filter(item => {
+    const itemDate = new Date(item.date);
+    if (isNaN(itemDate.getTime())) return false;
+    if (dateRange.from && itemDate < dateRange.from) return false;
+    if (dateRange.to && itemDate > new Date(dateRange.to.getTime() + 86399999)) return false; // Include the whole 'to' day
+    return true;
+  });
+
+  // Process data based on granularity
+  const aggregatedData: Record<string, { sum: number; count: number; date: Date }> = {};
+
+    filteredData.forEach(item => {
+      const date = new Date(item.date);
+      if (isNaN(date.getTime())) return;
+
+      let key = '';
+      let groupDate = date;
+
+      switch (granularity) {
+        case 'daily':
+          key = date.toISOString().split('T')[0]; // YYYY-MM-DD
+          groupDate = date;
+          break;
+        case 'weekly':
+          key = getWeek(date);
+          const dayOfWeek = date.getDay();
+          const firstDayOfWeek = new Date(date);
+          firstDayOfWeek.setDate(date.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1));
+          groupDate = firstDayOfWeek;
+          break;
+        case 'monthly':
+          key = getMonth(date);
+          groupDate = new Date(date.getFullYear(), date.getMonth(), 1);
+          break;
+        case 'yearly':
+          key = getYear(date);
+          groupDate = new Date(date.getFullYear(), 0, 1);
+          break;
+      }
+
+      if (!aggregatedData[key]) {
+        aggregatedData[key] = { sum: 0, count: 0, date: groupDate };
+      }
+      aggregatedData[key].sum += item.score;
+      aggregatedData[key].count += 1;
+    });
+
+    // Convert aggregated data to chart format
+    return Object.keys(aggregatedData)
+      .map(key => ({
+        date: aggregatedData[key].date.toISOString(),
+        score: Math.round(aggregatedData[key].sum / aggregatedData[key].count),
+      }))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [report?.knowledgeGrowthChartData, granularity, dateRange]);
 
   return (
     <div className="space-y-4">
@@ -137,32 +241,88 @@ const AIStudentReport: React.FC<AIStudentReportProps> = ({ report, isExpanded, t
           ) : null}
 
           {/* Knowledge Growth Chart */}
-          {report.knowledgeGrowthChartData && report.knowledgeGrowthChartData.length > 1 ? (
+          {report.knowledgeGrowthChartData && report.knowledgeGrowthChartData.length > 0 ? ( // Check original data length
             <div className="mt-4">
               <h4 className="font-semibold mb-2 text-gray-800">
                 {language === 'id' ? 'Grafik Pertumbuhan Pengetahuan' : 'Knowledge Growth Chart'}
               </h4>
-              <div style={{ width: '100%', height: 250 }} className="bg-white p-2 rounded shadow">
-                <ResponsiveContainer>
-                  <LineChart data={report.knowledgeGrowthChartData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" tickFormatter={formatDateForChart} />
-                    <YAxis domain={[0, 100]} />
-                    <Tooltip 
-                      formatter={(value: number) => [`${value}%`, language === 'id' ? 'Skor' : 'Score']}
-                      labelFormatter={(label: string) => formatDateForChart(label)}
+
+              {/* Granularity and Date Range Filters */}
+              <div className="flex flex-wrap gap-2 mb-4 items-center">
+                <Select value={granularity} onValueChange={(value: Granularity) => setGranularity(value)}>
+                  <SelectTrigger className="w-[120px]">
+                    <SelectValue placeholder={language === 'id' ? 'Granularitas' : 'Granularity'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="daily">{language === 'id' ? 'Harian' : 'Daily'}</SelectItem>
+                    <SelectItem value="weekly">{language === 'id' ? 'Mingguan' : 'Weekly'}</SelectItem>
+                    <SelectItem value="monthly">{language === 'id' ? 'Bulanan' : 'Monthly'}</SelectItem>
+                    <SelectItem value="yearly">{language === 'id' ? 'Tahunan' : 'Yearly'}</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={"outline"}
+                      className="w-[240px] justify-start text-left font-normal"
+                    >
+                      <CalendarDays className="mr-2 h-4 w-4" />
+                      {dateRange.from ? (
+                        dateRange.to ? (
+                          <>
+                            {format(dateRange.from, "LLL dd, y")} - {format(dateRange.to, "LLL dd, y")}
+                          </>
+                        ) : (
+                          format(dateRange.from, "LLL dd, y")
+                        )
+                      ) : (
+                        <span>{language === 'id' ? 'Pilih rentang tanggal' : 'Pick a date range'}</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="range"
+                      selected={dateRange}
+                      onSelect={(range) => setDateRange(range ? { from: range.from, to: range.to } : { from: undefined, to: undefined })}
+                      initialFocus
+                      numberOfMonths={2}
                     />
-                    <Line 
-                      type="monotone" 
-                      dataKey="score" 
-                      stroke="#8884d8" 
-                      activeDot={{ r: 8 }} 
-                      name={language === 'id' ? 'Skor Rata-rata' : 'Average Score'} 
-                      unit="%" 
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
+                  </PopoverContent>
+                </Popover>
+                 <Button variant="outline" size="sm" onClick={() => setDateRange({ from: undefined, to: undefined })} disabled={!dateRange.from && !dateRange.to}>
+                  {language === 'id' ? 'Reset Tanggal' : 'Reset Dates'}
+                </Button>
               </div>
+              
+              {processedChartData && processedChartData.length > 1 ? (
+                <div style={{ width: '100%', height: 250 }} className="bg-white p-2 rounded shadow">
+                  <ResponsiveContainer>
+                    <LineChart data={processedChartData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" tickFormatter={(tick) => formatDateForChart(tick, granularity)} />
+                      <YAxis domain={[0, 100]} />
+                      <Tooltip 
+                        formatter={(value: number) => [`${value}%`, language === 'id' ? 'Skor' : 'Score']}
+                        labelFormatter={(label: string) => formatDateForChart(label, granularity)}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="score" 
+                        stroke="#8884d8" 
+                        activeDot={{ r: 8 }} 
+                        name={language === 'id' ? 'Skor Rata-rata' : 'Average Score'} 
+                        unit="%" 
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                 <div className="text-center py-4 text-muted-foreground">
+                  {language === 'id' ? 'Tidak cukup data untuk granularitas atau rentang tanggal yang dipilih.' : 'Not enough data for selected granularity or date range.'}
+                </div>
+              )}
             </div>
           ) : null}
         </div>

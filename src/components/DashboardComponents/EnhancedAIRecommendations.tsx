@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-import { Book, Calculator, Beaker, Globe, PenTool, Puzzle, Brain, BookOpen } from 'lucide-react';
+import { Book, Calculator, Beaker, Globe, PenTool, Puzzle, Brain, BookOpen, BarChart3, SparkleIcon, Sparkles, Zap } from 'lucide-react';
 import { studentProgressService, AIRecommendation } from '@/services/studentProgressService';
+import { aiLearningInsightService } from '@/services/aiLearningInsightService';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Spinner } from '@/components/ui/spinner';
 import { toast } from 'sonner';
@@ -58,9 +58,14 @@ const SubjectIcon = ({ subject }: { subject: string }) => {
   }
 };
 
+interface RecommendationWithAI extends RecommendationExtended {
+  aiGenerated?: boolean;
+}
+
 const EnhancedAIRecommendations: React.FC<EnhancedAIRecommendationsProps> = ({ studentId, gradeLevel }) => {
-  const [recommendations, setRecommendations] = useState<RecommendationExtended[]>([]);
+  const [recommendations, setRecommendations] = useState<RecommendationWithAI[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadingState, setLoadingState] = useState<'idle' | 'loading' | 'ai-enhancing' | 'loaded' | 'error'>('idle');
   const navigate = useNavigate();
   const { language } = useLanguage();
   
@@ -69,18 +74,30 @@ const EnhancedAIRecommendations: React.FC<EnhancedAIRecommendationsProps> = ({ s
       if (!studentId) return;
       
       setIsLoading(true);
+      setLoadingState('loading');
       try {
         // Get real recommendations from database
-        const data = await studentProgressService.getAIRecommendations(studentId);
+        const data = await studentProgressService.getAIRecommendations(studentId, 10); // Fetch more recommendations for better analysis
+        
+        // Check if we have enough data for meaningful recommendations (at least 3 data points)
+        const hasEnoughData = data.length >= 3;
+        
+        if (!hasEnoughData) {
+          console.log('Not enough learning data for personalized recommendations');
+          const insufficientDataRecs = getGradeLevelRecommendations(gradeLevel, studentId);
+          setRecommendations(insufficientDataRecs);
+          setIsLoading(false);
+          setLoadingState('loaded');
+          return;
+        }
         
         // Process each recommendation to extract subject, topic, etc.
         const processedRecs = data.map(rec => {
           // Parse the recommendation text to extract subject, topic, etc.
-          // This assumes the recommendation has some structure we can identify
-          const parsedRec: RecommendationExtended = {...rec};
+          const parsedRec: RecommendationWithAI = {...rec};
           
           // Example format: "lesson:Math:Algebra" or "quiz:Science:Plants"
-          if (rec.recommendation.includes(':')) {
+          if (rec.recommendation && rec.recommendation.includes(':')) {
             const parts = rec.recommendation.split(':');
             if (parts.length >= 3) {
               parsedRec.activityType = parts[0].trim();
@@ -90,6 +107,7 @@ const EnhancedAIRecommendations: React.FC<EnhancedAIRecommendationsProps> = ({ s
               const remaining = parts.slice(2).join(':').split('|');
               parsedRec.topic = remaining[0].trim();
               
+              // Extract reasoning and expected impact if available
               if (remaining.length > 1) {
                 parsedRec.reasoning = remaining[1].trim();
               }
@@ -99,30 +117,121 @@ const EnhancedAIRecommendations: React.FC<EnhancedAIRecommendationsProps> = ({ s
               }
             }
           } else {
-            // Default display values if we can't parse the recommendation
-            const subjectOptions = ['Math', 'Science', 'Language', 'Social Studies'];
-            parsedRec.subject = subjectOptions[Math.floor(Math.random() * subjectOptions.length)];
-            parsedRec.topic = 'Recommended Topic';
-            parsedRec.activityType = Math.random() > 0.5 ? 'lesson' : 'quiz';
+            // Default display values if we can't parse the recommendation format
+            parsedRec.subject = rec.recommendation_type || 'General';
+            parsedRec.topic = rec.recommendation || 'Recommended Topic';
+            parsedRec.activityType = rec.recommendation.toLowerCase().includes('quiz') ? 'quiz' : 'lesson';
           }
           
           return parsedRec;
         });
         
-        // If no recommendations, create some for demo based on grade level
         if (processedRecs.length === 0) {
-          const demoRecs = getGradeLevelRecommendations(gradeLevel, studentId);
-          setRecommendations(demoRecs);
+          // If still no recommendations after processing, use the insufficient data message
+          const insufficientDataRecs = getGradeLevelRecommendations(gradeLevel, studentId);
+          setRecommendations(insufficientDataRecs);
+          setLoadingState('loaded');
         } else {
-          setRecommendations(processedRecs);
+          try {
+            // Get AI-enhanced insights for the recommendations
+            console.log('Enhancing recommendations with AI-generated insights...');
+            setLoadingState('ai-enhancing');
+            
+            // Track the start time for analytics
+            const startTime = Date.now();
+            
+            // Call the enhanced AI service for better personalization
+            let aiEnhancedRecs;
+            try {
+              // Try the new parameter style first
+              aiEnhancedRecs = await aiLearningInsightService.enhanceRecommendationsWithInsights({
+                recommendations: processedRecs,
+                studentId,
+                gradeLevel,
+                language: language === 'id' ? 'id' : 'en'
+              });
+            } catch (paramError) {
+              // Fall back to old parameter style if needed
+              console.warn('Falling back to legacy parameter style for enhanceRecommendationsWithInsights');
+              aiEnhancedRecs = await aiLearningInsightService.enhanceRecommendationsWithInsights(
+                processedRecs,
+                studentId,
+                gradeLevel,
+                language === 'id' ? 'id' : 'en'
+              );
+            }
+            
+            // Analytics: Track performance
+            console.log(`AI insights generated in ${Date.now() - startTime}ms`);
+            
+            // Apply AI-generated insights to recommendations
+            const enhancedRecs = aiEnhancedRecs.map(rec => ({
+              ...rec,
+              aiGenerated: true // Flag to indicate this is AI-generated content
+            }));
+            
+            setRecommendations(enhancedRecs);
+            setLoadingState('loaded');
+          } catch (insightError) {
+            console.error('Failed to get AI insights for recommendations:', insightError);
+            
+            // Try to get insights one by one instead of bulk processing
+            try {
+              const enhancedRecs = [];
+              
+              for (const rec of processedRecs) {
+                try {
+                  const personalizedInsight = await aiLearningInsightService.getPersonalizedInsight({
+                    studentId,
+                    subject: rec.subject,
+                    topic: rec.topic,
+                    activityType: rec.activityType || 'lesson',
+                    gradeLevel,
+                    language: language === 'id' ? 'id' : 'en'
+                  });
+                  
+                  enhancedRecs.push({
+                    ...rec,
+                    reasoning: personalizedInsight?.reasoning || rec.reasoning,
+                    expectedImpact: personalizedInsight?.expectedImpact || rec.expectedImpact,
+                    aiGenerated: !!personalizedInsight
+                  });
+                } catch (individualError) {
+                  console.warn('Failed to get individual insight:', individualError);
+                  enhancedRecs.push(rec);
+                }
+              }
+              
+              setRecommendations(enhancedRecs);
+              setLoadingState('loaded');
+            } catch (secondaryError) {
+              console.error('Failed to get individual AI insights:', secondaryError);
+              
+              // Final fallback to basic enhancement
+              const basicEnhancedRecs = processedRecs.map(rec => ({
+                ...rec,
+                reasoning: rec.reasoning || (language === 'id' 
+                  ? `Berdasarkan analisis aktivitas pembelajaran Anda di ${rec.subject || 'berbagai mata pelajaran'}`
+                  : `Based on analysis of your learning activities in ${rec.subject || 'various subjects'}`),
+                expectedImpact: rec.expectedImpact || (language === 'id'
+                  ? `Akan membantu meningkatkan pemahaman di area ${rec.topic} dan kinerja keseluruhan Anda`
+                  : `Will help improve your understanding in ${rec.topic} and your overall performance`),
+                aiGenerated: false
+              }));
+              
+              setRecommendations(basicEnhancedRecs);
+              setLoadingState('loaded');
+            }
+          }
         }
       } catch (error) {
         console.error('Error fetching AI recommendations:', error);
         toast.error(language === 'id' ? 'Gagal memuat rekomendasi' : 'Failed to load recommendations');
         
-        // If error, provide grade-appropriate demo recommendations
-        const demoRecs = getGradeLevelRecommendations(gradeLevel, studentId);
-        setRecommendations(demoRecs);
+        // If error, show the insufficient data message
+        const insufficientDataRecs = getGradeLevelRecommendations(gradeLevel, studentId);
+        setRecommendations(insufficientDataRecs);
+        setLoadingState('error');
       } finally {
         setIsLoading(false);
       }
@@ -130,163 +239,28 @@ const EnhancedAIRecommendations: React.FC<EnhancedAIRecommendationsProps> = ({ s
     
     fetchRecommendations();
   }, [studentId, language, gradeLevel]);
-  
-  // Generate recommendations based on grade level
+    // Generate recommendations based on grade level and student's learning data
   const getGradeLevelRecommendations = (grade: string, studId: string): RecommendationExtended[] => {
-    // Default recommendations by age/grade group
-    if (grade === 'k-3' || grade.toLowerCase().includes('k-3')) {
-      return [
-        {
-          id: `demo-k3-1-${Date.now()}`,
-          student_id: studId,
-          recommendation_type: 'Math',
-          recommendation: 'lesson:Math:Counting Fun|Based on recent activities|Will build a strong number foundation',
-          created_at: new Date().toISOString(),
-          read: false,
-          acted_on: false,
-          subject: 'Math',
-          topic: 'Counting Fun',
-          activityType: 'lesson',
-          reasoning: 'Based on recent activities',
-          expectedImpact: 'Will build a strong number foundation'
-        },
-        {
-          id: `demo-k3-2-${Date.now()}`,
-          student_id: studId,
-          recommendation_type: 'Reading',
-          recommendation: 'lesson:Reading:Alphabet Adventures|To improve letter recognition|Helps with early reading skills',
-          created_at: new Date().toISOString(),
-          read: false,
-          acted_on: false,
-          subject: 'Reading',
-          topic: 'Alphabet Adventures',
-          activityType: 'lesson',
-          reasoning: 'To improve letter recognition',
-          expectedImpact: 'Helps with early reading skills'
-        },
-        {
-          id: `demo-k3-3-${Date.now()}`,
-          student_id: studId,
-          recommendation_type: 'Science',
-          recommendation: 'quiz:Science:Animal Friends|To test knowledge of animals|Will encourage scientific curiosity',
-          created_at: new Date().toISOString(),
-          read: false,
-          acted_on: false,
-          subject: 'Science',
-          topic: 'Animal Friends',
-          activityType: 'quiz',
-          reasoning: 'To test knowledge of animals',
-          expectedImpact: 'Will encourage scientific curiosity'
-        }
-      ];
-    } else if (grade === '4-6' || grade.toLowerCase().includes('4-6')) {
-      return [
-        {
-          id: `demo-46-1-${Date.now()}`,
-          student_id: studId,
-          recommendation_type: 'Math',
-          recommendation: 'lesson:Math:Fractions Basics|Foundational for math success|Will help with advanced math concepts',
-          created_at: new Date().toISOString(),
-          read: false,
-          acted_on: false,
-          subject: 'Math',
-          topic: 'Fractions Basics',
-          activityType: 'lesson',
-          reasoning: 'Foundational for math success',
-          expectedImpact: 'Will help with advanced math concepts'
-        },
-        {
-          id: `demo-46-2-${Date.now()}`,
-          student_id: studId,
-          recommendation_type: 'Science',
-          recommendation: 'quiz:Science:Simple Machines|To reinforce science lessons|Supports problem-solving abilities',
-          created_at: new Date().toISOString(),
-          read: false,
-          acted_on: false,
-          subject: 'Science',
-          topic: 'Simple Machines',
-          activityType: 'quiz',
-          reasoning: 'To reinforce science lessons',
-          expectedImpact: 'Supports problem-solving abilities'
-        },
-        {
-          id: `demo-46-3-${Date.now()}`,
-          student_id: studId,
-          recommendation_type: 'Language Arts',
-          recommendation: 'lesson:Language Arts:Reading Comprehension|To strengthen literacy skills|Will improve comprehension across subjects',
-          created_at: new Date().toISOString(),
-          read: false,
-          acted_on: false,
-          subject: 'Language Arts',
-          topic: 'Reading Comprehension',
-          activityType: 'lesson',
-          reasoning: 'To strengthen literacy skills',
-          expectedImpact: 'Will improve comprehension across subjects'
-        }
-      ];
-    } else { // 7-9 or any other grade level
-      return [
-        {
-          id: `demo-79-1-${Date.now()}`,
-          student_id: studId,
-          recommendation_type: 'Math',
-          recommendation: 'lesson:Mathematics:Algebra Foundations|Based on curriculum requirements|Critical for high school math success',
-          created_at: new Date().toISOString(),
-          read: false,
-          acted_on: false,
-          subject: 'Mathematics',
-          topic: 'Algebra Foundations',
-          activityType: 'lesson',
-          reasoning: 'Based on curriculum requirements',
-          expectedImpact: 'Critical for high school math success'
-        },
-        {
-          id: `demo-79-2-${Date.now()}`,
-          student_id: studId,
-          recommendation_type: 'Science',
-          recommendation: 'quiz:Science:Chemistry Basics|To test understanding of scientific concepts|Builds foundation for advanced sciences',
-          created_at: new Date().toISOString(),
-          read: false,
-          acted_on: false,
-          subject: 'Science',
-          topic: 'Chemistry Basics',
-          activityType: 'quiz',
-          reasoning: 'To test understanding of scientific concepts',
-          expectedImpact: 'Builds foundation for advanced sciences'
-        },
-        {
-          id: `demo-79-3-${Date.now()}`,
-          student_id: studId,
-          recommendation_type: 'Language Arts',
-          recommendation: 'lesson:English:Essay Writing|To develop critical writing skills|Prepares for high school and college assignments',
-          created_at: new Date().toISOString(),
-          read: false,
-          acted_on: false,
-          subject: 'English',
-          topic: 'Essay Writing',
-          activityType: 'lesson',
-          reasoning: 'To develop critical writing skills',
-          expectedImpact: 'Prepares for high school and college assignments'
-        },
-        {
-          id: `demo-79-4-${Date.now()}`,
-          student_id: studId,
-          recommendation_type: 'Computer Science',
-          recommendation: 'lesson:Computer Science:Programming Basics|To build technology literacy|Essential skill for future careers',
-          created_at: new Date().toISOString(),
-          read: false,
-          acted_on: false,
-          subject: 'Computer Science',
-          topic: 'Programming Basics',
-          activityType: 'lesson',
-          reasoning: 'To build technology literacy',
-          expectedImpact: 'Essential skill for future careers'
-        }
-      ];
-    }
+    // Create a single placeholder recommendation for when there's not enough data
+    const notEnoughDataRecommendation: RecommendationExtended = {
+      id: `insufficient-data-${Date.now()}`,
+      student_id: studId,
+      recommendation_type: 'Data Needed',
+      recommendation: 'more-activities',
+      created_at: new Date().toISOString(),
+      read: false,
+      acted_on: false,
+      subject: 'General',
+      topic: 'Continue Learning',
+      activityType: 'lesson',
+      reasoning: 'Not enough learning data available to generate personalized recommendations',
+      expectedImpact: 'Complete more lessons and quizzes to receive tailored learning suggestions'
+    };
+    
+    // Return the placeholder for insufficient data
+    return [notEnoughDataRecommendation];
   };
-
-  const handleRecommendationClick = async (recommendation: RecommendationExtended) => {
+  const handleRecommendationClick = async (recommendation: RecommendationWithAI) => {
     try {
       // Mark recommendation as read and acted on
       if (recommendation.id && !recommendation.id.toString().includes('demo')) {
@@ -294,11 +268,45 @@ const EnhancedAIRecommendations: React.FC<EnhancedAIRecommendationsProps> = ({ s
         await studentProgressService.markRecommendationAsActedOn(recommendation.id.toString());
       }
       
-      // Navigate based on activity type
+      // Prepare additional metadata for AI content generation
+      const metadata = {
+        recommendationId: recommendation.id?.toString(),
+        aiGenerated: recommendation.aiGenerated || false,
+        reasoning: recommendation.reasoning,
+        expectedImpact: recommendation.expectedImpact,
+        autoStart: true, // Automatically start generating content
+        resumeExisting: true // Try to resume existing content if available
+      };
+      
+      // Navigate based on activity type with enhanced metadata
       if (recommendation.activityType === 'lesson' && recommendation.subject && recommendation.topic) {
-        navigate(`/lessons?subject=${recommendation.subject}&topic=${recommendation.topic}`);
+        // For lessons, go to AI Learning page directly
+        navigate('/ai-learning', { 
+          state: { 
+            gradeLevel,
+            subject: recommendation.subject,
+            topic: recommendation.topic,
+            studentId,
+            recommendationId: recommendation.id?.toString(),
+            aiGenerated: recommendation.aiGenerated,
+            autoStart: true,
+            resumeExisting: true
+          }
+        });
       } else if (recommendation.activityType === 'quiz' && recommendation.subject && recommendation.topic) {
-        navigate(`/quiz?subject=${recommendation.subject}&topic=${recommendation.topic}`);
+        // For quizzes, go to quiz page with parameters
+        navigate('/quiz', {
+          state: {
+            subject: recommendation.subject,
+            topic: recommendation.topic,
+            gradeLevel,
+            studentId,
+            recommendationId: recommendation.id?.toString(),
+            aiGenerated: recommendation.aiGenerated,
+            autoStart: true,
+            resumeExisting: true
+          }
+        });
       } else {
         // Default to subjects page
         navigate('/subjects');
@@ -315,8 +323,7 @@ const EnhancedAIRecommendations: React.FC<EnhancedAIRecommendationsProps> = ({ s
       </div>
     );
   }
-  
-  return (
+    return (
     <div className="space-y-4">
       {recommendations.length === 0 ? (
         <div className="text-center py-8">
@@ -325,6 +332,39 @@ const EnhancedAIRecommendations: React.FC<EnhancedAIRecommendationsProps> = ({ s
               ? 'Belum ada rekomendasi pembelajaran untuk siswa ini.' 
               : 'No learning recommendations yet for this student.'}
           </p>
+        </div>
+      ) : recommendations[0]?.id?.toString().includes('insufficient-data') ? (
+        <div className="p-6 border rounded-lg bg-amber-50">
+          <h3 className="text-lg font-medium text-amber-800 mb-2">
+            {language === 'id' 
+              ? 'Belum Cukup Data untuk Rekomendasi yang Dipersonalisasi' 
+              : 'Not Enough Data for Personalized Recommendations'}
+          </h3>
+          <p className="mb-4 text-amber-700">
+            {language === 'id' 
+              ? 'Agar sistem AI kami dapat memberikan rekomendasi yang dipersonalisasi, siswa perlu menyelesaikan lebih banyak aktivitas pembelajaran.' 
+              : 'For our AI system to provide personalized recommendations, the student needs to complete more learning activities.'}
+          </p>
+          <div className="flex flex-col space-y-4">
+            <Card className="overflow-hidden border-amber-200">
+              <CardContent className="p-4">
+                <h4 className="font-medium text-amber-800 mb-2">
+                  {language === 'id' ? 'Apa yang Harus Dilakukan?' : 'What to do?'}
+                </h4>
+                <ul className="list-disc list-inside text-amber-700 space-y-1">
+                  <li>{language === 'id' ? 'Selesaikan setidaknya 3-5 pelajaran' : 'Complete at least 3-5 lessons'}</li>
+                  <li>{language === 'id' ? 'Ambil beberapa kuis untuk mengukur kemajuan' : 'Take some quizzes to measure progress'}</li>
+                  <li>{language === 'id' ? 'Jelajahi berbagai mata pelajaran' : 'Explore a variety of subjects'}</li>
+                </ul>
+                <Button 
+                  className="mt-4 bg-amber-600 hover:bg-amber-700 w-full"
+                  onClick={() => navigate('/subjects')}
+                >
+                  {language === 'id' ? 'Mulai Belajar Sekarang' : 'Start Learning Now'}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -353,26 +393,53 @@ const EnhancedAIRecommendations: React.FC<EnhancedAIRecommendationsProps> = ({ s
                         {rec.subject} - {rec.topic}
                       </h3>
                     </div>
-                  </div>
-                  
-                  {/* Reasoning and Expected Impact sections - highlighted */}
+                  </div>                  {/* Reasoning and Expected Impact sections with enhanced AI indicators */}
                   {rec.reasoning && (
-                    <div className="text-sm mt-3 p-2 bg-gray-50 rounded-md">
-                      <p className="font-medium text-gray-700">
-                        {language === 'id' ? 'Alasan: ' : 'Why this is recommended:'}
+                    <div className={`text-sm mt-3 p-3 rounded-md shadow-sm border ${
+                      rec.aiGenerated 
+                        ? 'bg-gradient-to-r from-purple-50 to-indigo-50 border-purple-200' 
+                        : 'bg-gradient-to-r from-gray-50 to-purple-50 border-purple-100'
+                    }`}>
+                      <p className="font-medium text-gray-800 flex items-center">
+                        {rec.aiGenerated ? (
+                          <Sparkles className="h-4 w-4 mr-1.5 text-purple-600" strokeWidth={2.5} />
+                        ) : (
+                          <Sparkles className="h-4 w-4 mr-1.5 text-purple-500" strokeWidth={2} />
+                        )}
+                        {language === 'id' 
+                          ? rec.aiGenerated ? 'Analisis AI Personal: Mengapa Direkomendasikan' : 'Analisis: Mengapa Direkomendasikan' 
+                          : rec.aiGenerated ? 'Personalized AI Analysis: Why This Is Recommended' : 'Analysis: Why This Is Recommended'}
                       </p>
-                      <p className="text-muted-foreground">
+                      <p className={`mt-1.5 ml-1 ${rec.aiGenerated ? 'text-gray-700' : 'text-gray-600'}`}>
                         {rec.reasoning}
                       </p>
                     </div>
                   )}
                   
                   {rec.expectedImpact && (
-                    <div className="text-sm mt-2 p-2 bg-blue-50 rounded-md">
-                      <p className="font-medium text-blue-700">
-                        {language === 'id' ? 'Dampak Pembelajaran: ' : 'Learning Impact:'}
+                    <div className={`text-sm mt-2.5 p-3 rounded-md shadow-sm border ${
+                      rec.aiGenerated 
+                        ? 'bg-gradient-to-r from-blue-50 to-cyan-100 border-blue-200' 
+                        : 'bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-100'
+                    }`}>
+                      <p className="font-medium flex items-center">
+                        {rec.aiGenerated ? (
+                          <>
+                            <Zap className="h-4 w-4 mr-1.5 text-blue-600" strokeWidth={2.5} />
+                            <span className="text-blue-800">
+                              {language === 'id' ? 'Analisis AI Personal: Dampak Pembelajaran' : 'Personalized AI Analysis: Learning Impact'}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <Zap className="h-4 w-4 mr-1.5 text-blue-500" strokeWidth={2} />
+                            <span className="text-blue-700">
+                              {language === 'id' ? 'Analisis: Dampak Pembelajaran' : 'Analysis: Learning Impact'}
+                            </span>
+                          </>
+                        )}
                       </p>
-                      <p className="text-muted-foreground">
+                      <p className={`mt-1.5 ml-1 ${rec.aiGenerated ? 'text-blue-700' : 'text-blue-600'}`}>
                         {rec.expectedImpact}
                       </p>
                     </div>
