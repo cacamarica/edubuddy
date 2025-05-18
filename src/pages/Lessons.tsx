@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import GradeSelector from '@/components/GradeSelector';
@@ -5,6 +6,16 @@ import SubjectCard from '@/components/SubjectCard';
 import TopicCarousel from '@/components/TopicCarousel';
 import { Student, StudentProfile, convertToStudent } from '@/types/learning';
 import { useStudentProfile } from '@/contexts/StudentProfileContext';
+
+// Define Subject interface
+interface Subject {
+  id: string;
+  name: string;
+  description: string;
+  color: string;
+  textColor: string;
+  icon: string;
+}
 
 // Mock data for subjects
 const subjects: Subject[] = [
