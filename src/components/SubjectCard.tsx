@@ -1,5 +1,4 @@
-
-import { FlaskConical, BookOpen, Number, Atom, Globe, Code, Languages, Music, Palette, GraduationCap, Calendar, PencilRuler, BookOpenCheck } from 'lucide-react';
+import { FlaskConical, BookOpen, Calculator, Atom, Globe, Code, Languages, Music, Palette, GraduationCap, Calendar, PencilRuler, BookOpenCheck } from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -32,7 +31,7 @@ const subjectConfig = {
       '7-9': 'Master algebra, geometry, and mathematical reasoning! Ages 12-15',
     },
     color: 'bg-eduPastel-blue',
-    icon: Number,
+    icon: Calculator,
     progress: {
       'k-3': 30,
       '4-6': 20,
