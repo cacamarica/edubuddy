@@ -29,7 +29,7 @@ const AIStudentReport: React.FC<AIStudentReportProps> = ({ report, isExpanded, t
 
   if (!report) {
     return (
-      <Alert variant="warning" className="my-4">
+      <Alert variant="default" className="my-4 border-yellow-400 bg-yellow-50 text-yellow-800">
         <AlertCircle className="h-4 w-4" />
         <AlertDescription>
           {language === 'id' 
@@ -48,7 +48,7 @@ const AIStudentReport: React.FC<AIStudentReportProps> = ({ report, isExpanded, t
 
   if (!hasMinimalData) {
     return (
-      <Alert variant="warning" className="my-4">
+      <Alert variant="default" className="my-4 border-yellow-400 bg-yellow-50 text-yellow-800">
         <AlertCircle className="h-4 w-4" />
         <AlertDescription>
           {language === 'id' 
