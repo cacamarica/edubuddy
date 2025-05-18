@@ -17,6 +17,7 @@ interface TranslationsType {
   id: Translation;
 }
 
+// Define translations object
 const translations: TranslationsType = {
   en: {
     'language.select': 'Select language',
@@ -33,7 +34,8 @@ const translations: TranslationsType = {
     'quiz.in': 'in',
     'quiz.questionCount': 'Number of Questions',
     'quiz.questions': 'questions',
-    'quiz.start': 'Start Quiz',    'quiz.create': 'Create Quiz',
+    'quiz.start': 'Start Quiz',    
+    'quiz.create': 'Create Quiz',
     'quiz.howToPlay': 'How to Play',
     'quiz.finished': 'I\'ve Completed the Quiz!',
     'quiz.question': 'Question {current} of {total}',
@@ -149,7 +151,8 @@ const translations: TranslationsType = {
     'quiz.in': 'dalam',
     'quiz.questionCount': 'Jumlah Pertanyaan',
     'quiz.questions': 'pertanyaan',
-    'quiz.start': 'Mulai Kuis',    'quiz.create': 'Buat Kuis',
+    'quiz.start': 'Mulai Kuis',    
+    'quiz.create': 'Buat Kuis',
     'quiz.howToPlay': 'Cara Bermain',
     'quiz.finished': 'Saya Telah Menyelesaikan Kuis!',
     'quiz.question': 'Pertanyaan {current} dari {total}',
@@ -258,21 +261,31 @@ const LanguageContext = createContext<LanguageContextType>({
   t: (key: string) => key,
 });
 
-export const LanguageProvider = ({ children }: { children: React.ReactNode }) => {
+export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Get saved language from localStorage or default to 'en'
   const [language, setLanguageState] = useState<Language>(() => {
-    const savedLanguage = localStorage.getItem('language');
-    return (savedLanguage === 'id' || savedLanguage === 'en') ? savedLanguage : 'en';
+    try {
+      const savedLanguage = localStorage.getItem('language');
+      return (savedLanguage === 'id' || savedLanguage === 'en') ? savedLanguage : 'en';
+    } catch (error) {
+      console.error('Failed to read language from localStorage:', error);
+      return 'en';
+    }
   });
 
   // When language changes, save to localStorage
   useEffect(() => {
-    localStorage.setItem('language', language);
+    try {
+      localStorage.setItem('language', language);
+    } catch (error) {
+      console.error('Failed to save language to localStorage:', error);
+    }
   }, [language]);
 
   const setLanguage = (lang: Language) => {
     setLanguageState(lang);
   };
+
   const t = (key: string, params?: Record<string, string | number>) => {
     let translatedText = translations[language][key] || key;
     
@@ -293,4 +306,11 @@ export const LanguageProvider = ({ children }: { children: React.ReactNode }) =>
   );
 };
 
-export const useLanguage = () => useContext(LanguageContext);
+// Export the useLanguage hook
+export const useLanguage = (): LanguageContextType => {
+  const context = useContext(LanguageContext);
+  if (!context) {
+    throw new Error('useLanguage must be used within a LanguageProvider');
+  }
+  return context;
+};

@@ -48,7 +48,7 @@ try {
           </AuthProvider>
         </LanguageProvider>
       </ErrorBoundary>
-    </React.StrictMode>,
+    </React.StrictMode>
   );
 } catch (error) {
   console.error('Failed to render application:', error);

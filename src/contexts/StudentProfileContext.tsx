@@ -1,11 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-
-interface StudentProfile {
-  id: string;
-  name: string;
-  gradeLevel?: string;
-}
+import { StudentProfile } from '../types/learning';
 
 interface StudentProfileContextProps {
   selectedProfile: StudentProfile | null;
