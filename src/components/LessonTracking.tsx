@@ -39,7 +39,6 @@ const LessonTracking = ({ subject, topic, gradeLevel, isComplete, progress }: Le
           completed: isComplete,
           progress: progress,
           stars_earned: isComplete ? 5 : Math.floor(progress / 20), // Award stars based on progress
-          completed_at: isComplete ? new Date().toISOString() : null,
           last_interaction_at: new Date().toISOString() // Add this to ensure proper sorting
         });
         

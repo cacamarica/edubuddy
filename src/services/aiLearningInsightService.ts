@@ -107,7 +107,7 @@ export const aiLearningInsightService = {
       return data || recommendations;
     } catch (error) {
       console.error("Error in enhanceRecommendationsWithInsights:", error);
-      return recommendations || [];
+      return Array.isArray(optionsOrRecommendations) ? optionsOrRecommendations : optionsOrRecommendations.recommendations || [];
     }
   },
 

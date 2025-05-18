@@ -27,7 +27,8 @@ interface AIRecommendationsProps {
 // interface AIRecommendation { ... reasoning?: string; potentialImpact?: string; }
 
 debugger
-const AIRecommendations: React.FC<AIRecommendationsProps> = ({ studentId, gradeLevel }) => {  const [recommendations, setRecommendations] = useState<AIRecommendation[]>([]);
+const AIRecommendations: React.FC<AIRecommendationsProps> = ({ studentId, gradeLevel }) => {  
+  const [recommendations, setRecommendations] = useState<AIRecommendation[]>([]);
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(true);
   const [summaryReport, setSummaryReport] = useState<AISummaryReport | null>(null);
   const [isLoadingReport, setIsLoadingReport] = useState(true);
@@ -48,7 +49,7 @@ const AIRecommendations: React.FC<AIRecommendationsProps> = ({ studentId, gradeL
       setRecommendations(recData);
       for (const rec of recData) {
         if (rec.id && !rec.read) {
-          await studentProgressService.markRecommendationAsRead(rec.id);
+          await studentProgressService.markRecommendationAsRead(rec.id.toString());
         }
       }
     } catch (error) {
@@ -92,11 +93,10 @@ const AIRecommendations: React.FC<AIRecommendationsProps> = ({ studentId, gradeL
     setForceRefreshReport(true); // This will trigger the useEffect
   };
 
-  // ... (handleStartLesson, ensureRecommendations, getSubjectColor remain mostly the same) ...
-  // Minor update to handleStartLesson if recommendation structure changes for reasoning
+  // Minor update to handleStartLesson to ensure proper string casting
   const handleStartLesson = async (rec: AIRecommendation) => {
     if (rec.id) {
-      await studentProgressService.markRecommendationAsActedOn(rec.id);
+      await studentProgressService.markRecommendationAsActedOn(rec.id.toString());
       setRecommendations(prevRecs => 
         prevRecs.map(item => 
           item.id === rec.id ? { ...item, acted_on: true } : item
@@ -506,7 +506,9 @@ const AIRecommendations: React.FC<AIRecommendationsProps> = ({ studentId, gradeL
           </div>
         ) : (
           <div className="text-center py-8 text-muted-foreground p-4 border rounded-lg bg-gray-50">
-            {language === 'id' ? 'Tidak dapat memuat laporan ringkasan saat ini atau tidak ada data.' : 'Could not load summary report at this time or no data available.'}
+            {language === 'id' 
+              ? 'Tidak dapat memuat laporan ringkasan saat ini atau tidak ada data.' 
+              : 'Could not load summary report at this time or no data available.'}
           </div>
         )}
       </div>

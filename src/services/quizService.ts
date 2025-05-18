@@ -42,7 +42,11 @@ export async function fetchQuizQuestions(options: FetchQuizQuestionsOptions): Pr
       // We have enough cached questions, transform them to match QuizQuestion interface
       return cachedQuestions.map(q => ({
         question: q.question,
-        options: Array.isArray(q.options) ? q.options : (q.options && typeof q.options === 'object' ? Object.values(q.options) : []),
+        options: Array.isArray(q.options) 
+          ? q.options 
+          : (q.options && typeof q.options === 'object' 
+            ? Object.values(q.options).map(opt => String(opt)) 
+            : []),
         correctAnswer: q.correct_answer,
         explanation: q.explanation
       }));
