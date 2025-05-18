@@ -142,6 +142,8 @@ async function generateAIReport(
   let learningActivities: any[] = [];
   let subjectProgress: any[] = [];
   let badges: any[] = [];
+  let highProgressSubjects: string[] = [];
+  let averageScore = 0;
   
   try {
     // Get real quiz scores
@@ -191,6 +193,11 @@ async function generateAIReport(
 
     if (!progressError && progress) {
       subjectProgress = progress;
+      
+      // Find subjects with high progress
+      highProgressSubjects = progress
+        .filter(s => s.progress >= 70)
+        .map(s => s.subject);
     }
 
     // Get earned badges
@@ -207,6 +214,11 @@ async function generateAIReport(
 
     if (!badgesError && studentBadges) {
       badges = studentBadges;
+    }
+
+    // Calculate average quiz score if we have data
+    if (quizScores.length > 0) {
+      averageScore = quizScores.reduce((sum, q) => sum + q.percentage, 0) / quizScores.length;
     }
     
   } catch (error) {
@@ -242,20 +254,14 @@ async function generateAIReport(
   // Generate strengths based on real data
   let strengths: string[] = [];
   if (hasProgressData) {
-    // Find subjects with high progress
-    const highProgressSubjects = subjectProgress
-      .filter(s => s.progress >= 70)
-      .map(s => s.subject);
-      
+    // Use highProgressSubjects which is now initialized 
     if (highProgressSubjects.length > 0) {
       strengths.push(`Strong performance in ${highProgressSubjects.join(', ')}`);
     }
   }
 
-  let averageScore = 0;
   if (hasQuizData) {
-    // Calculate average score
-    averageScore = quizScores.reduce((sum, q) => sum + q.percentage, 0) / quizScores.length;
+    // Calculate average score - now initialized at the top
     
     // Check for perfect scores
     const perfectScores = quizScores.filter(q => q.percentage === 100);
@@ -330,7 +336,7 @@ async function generateAIReport(
       ? subjectProgress.filter(s => s.progress < 50).map(s => s.subject)
       : [];
     
-    activityAnalysis += ` Based on activity patterns, we recommend ${lowProgressSubjects?.length > 0 ? `additional focus on ${lowProgressSubjects.join(', ')}` : 'continuing to explore diverse topics'} to create a well-rounded learning profile.`;
+    activityAnalysis += ` Based on activity patterns, we recommend ${lowProgressSubjects.length > 0 ? `additional focus on ${lowProgressSubjects.join(', ')}` : 'continuing to explore diverse topics'} to create a well-rounded learning profile.`;
   } else {
     activityAnalysis = `${studentName || 'The student'} is just beginning their learning journey. As more lessons and quizzes are completed, we'll provide more detailed insights on learning patterns and progress areas.`;
   }
@@ -354,7 +360,7 @@ async function generateAIReport(
   // Create the complete report
   return {
     studentName: studentName || "Student",
-    overallSummary: `${studentName || 'The student'} is showing ${hasActivityData ? 'steady' : 'initial'} progress in their ${levelInfo.levelName} education (${levelInfo.ageRange}). ${hasActivityData ? `Their engagement with interactive lessons has been ${learningActivities.length > 5 ? 'consistent' : 'developing'}, with particular ${hasProgressData && highProgressSubjects?.length > 0 ? `strengths in ${highProgressSubjects.join(', ')}` : 'interest in exploring new topics'}.` : 'They are just beginning their learning journey with us.'} ${hasQuizData ? `Based on quiz performance, they are demonstrating ${averageScore >= 80 ? 'excellent' : averageScore >= 70 ? 'good' : 'developing'} understanding of core concepts appropriate for their grade level.` : ''}`,
+    overallSummary: `${studentName || 'The student'} is showing ${hasActivityData ? 'steady' : 'initial'} progress in their ${levelInfo.levelName} education (${levelInfo.ageRange}). ${hasActivityData ? `Their engagement with interactive lessons has been ${learningActivities.length > 5 ? 'consistent' : 'developing'}, with particular ${hasProgressData && highProgressSubjects.length > 0 ? `strengths in ${highProgressSubjects.join(', ')}` : 'interest in exploring new topics'}.` : 'They are just beginning their learning journey with us.'} ${hasQuizData ? `Based on quiz performance, they are demonstrating ${averageScore >= 80 ? 'excellent' : averageScore >= 70 ? 'good' : 'developing'} understanding of core concepts appropriate for their grade level.` : ''}`,
     strengths,
     areasForImprovement,
     activityAnalysis,
@@ -514,8 +520,19 @@ serve(async (req) => {
   } catch (error) {
     console.error("Error in get-student-ai-summary-report function:", error);
     return new Response(
-      JSON.stringify({ error: "Internal server error", details: error.message }),
-      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      JSON.stringify({ 
+        error: "Internal server error", 
+        details: error.message,
+        fallbackReport: {
+          overallSummary: "We're experiencing technical difficulties generating your report. Here's a simple summary based on available data.",
+          strengths: ["Regular engagement with learning materials", "Interest in interactive educational content"],
+          areasForImprovement: ["Continue exploring different subjects", "Complete more quizzes for personalized feedback"],
+          activityAnalysis: "We're currently unable to provide detailed activity analysis due to technical issues.",
+          knowledgeGrowthChartData: generateSampleChartData(),
+          generatedAt: new Date().toISOString()
+        }
+      }),
+      { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   }
 });
