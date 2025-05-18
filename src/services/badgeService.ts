@@ -57,29 +57,27 @@ export const badgeService = {
       } = params;
       
       // First, get existing badges to prevent duplicates
-      let existingBadges: any[] = [];
-      try {
-        // Use direct fetch to avoid TypeScript type issues
-        const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/student_badges?student_id=eq.${studentId}&select=badge_id,badges(name,type)`,
-          {
-            headers: {
-              "apikey": import.meta.env.VITE_SUPABASE_ANON_KEY,
-              "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
-            }
-          }
-        );
+      const { data: existingBadges, error: badgeError } = await supabase
+        .from("student_badges")
+        .select(`
+          badge_id,
+          badges (
+            id, 
+            name, 
+            type
+          )
+        `)
+        .eq("student_id", studentId);
         
-        if (response.ok) {
-          existingBadges = await response.json();
-        }
-      } catch (err) {
-        console.error("Error fetching badges:", err);
-        // Continue with empty badges array
+      if (badgeError) {
+        console.error("Error fetching badges:", badgeError);
+        return null;
       }
 
       // Map of existing badge types this student has
-      const existingBadgeTypes = new Set(existingBadges.map(eb => eb.badges?.type));
+      const existingBadgeTypes = new Set(
+        existingBadges?.map(eb => eb.badges?.type) || []
+      );
       
       // Check for first quiz badge
       if (badgeType === "quiz_completion_first") {
@@ -222,50 +220,25 @@ export const badgeService = {
   }): Promise<Badge | null> {
     try {
       const { studentId, name, description, type, imageUrl } = params;
+      
+      // Get or create badge
+      const { data: badges, error: getBadgeError } = await supabase
+        .from("badges")
+        .select("id")
+        .eq("type", type);
+        
+      if (getBadgeError) {
+        console.error("Error finding badge:", getBadgeError);
+        return null;
+      }
+      
       let badgeId: string;
       
-      // Fetch badge by type using fetch API directly instead of Supabase client
-      // to avoid TypeScript deep instantiation issues
-      try {
-        const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/badges?type=eq.${type}&select=id`,
-          {
-            headers: {
-              "apikey": import.meta.env.VITE_SUPABASE_ANON_KEY,
-              "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
-            }
-          }
-        );
-        
-        if (response.ok) {
-          const badges = await response.json();
-          if (badges.length > 0) {
-            badgeId = badges[0].id;
-          } else {
-            // Create a new badge using supabase client
-            const { data: newBadge, error: createError } = await (supabase as any)
-              .from("badges")
-              .insert({
-                name,
-                description,
-                type,
-                image_url: imageUrl
-              })
-              .select("id")
-              .single();
-              
-            if (createError) {
-              throw createError;
-            }
-            
-            badgeId = newBadge.id;
-          }
-        } else {
-          throw new Error(`Failed to fetch badge: ${response.statusText}`);
-        }
-      } catch (err) {
-        // Create a new badge if fetch fails
-        const { data: newBadge, error: createError } = await (supabase as any)
+      if (badges && badges.length > 0) {
+        badgeId = badges[0].id;
+      } else {
+        // Create a new badge
+        const { data: newBadge, error: createError } = await supabase
           .from("badges")
           .insert({
             name,
@@ -276,15 +249,16 @@ export const badgeService = {
           .select("id")
           .single();
           
-        if (createError) {
-          throw createError;
+        if (createError || !newBadge) {
+          console.error("Error creating badge:", createError);
+          return null;
         }
         
         badgeId = newBadge.id;
       }
       
       // Award the badge to the student
-      const { data: studentBadge, error: awardError } = await (supabase as any)
+      const { data: studentBadge, error: awardError } = await supabase
         .from("student_badges")
         .insert({
           student_id: studentId,
@@ -306,7 +280,8 @@ export const badgeService = {
         .single();
         
       if (awardError) {
-        throw awardError;
+        console.error("Error awarding badge:", awardError);
+        return null;
       }
       
       if (!studentBadge) {
@@ -316,7 +291,7 @@ export const badgeService = {
       toast.success(`New badge awarded: ${name}`);
       
       // Return the badge that was awarded
-      return studentBadge.badges;
+      return studentBadge.badges as Badge;
       
     } catch (error) {
       console.error("Error awarding badge:", error);

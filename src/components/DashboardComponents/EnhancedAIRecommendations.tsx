@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-import { Book, Calculator, Flask, Globe, PenTool, Puzzle, Brain, BookOpen } from 'lucide-react';
+import { Book, Calculator, Beaker, Globe, PenTool, Puzzle, Brain, BookOpen } from 'lucide-react';
 import { studentProgressService, AIRecommendation } from '@/services/studentProgressService';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Spinner } from '@/components/ui/spinner';
@@ -30,7 +29,7 @@ const SubjectIcon = ({ subject }: { subject: string }) => {
     case 'math':
       return <Calculator {...iconProps} />;
     case 'science':
-      return <Flask {...iconProps} />;
+      return <Beaker {...iconProps} />;
     case 'social studies':
     case 'history':
     case 'geography':

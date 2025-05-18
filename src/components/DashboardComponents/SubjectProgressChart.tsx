@@ -2,7 +2,7 @@
 import React from 'react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { Spinner } from '@/components/ui/spinner';
-import { Book, Calculator, Flask, Globe, PenTool, Puzzle, Brain, BookOpen } from 'lucide-react';
+import { Book, Calculator, Beaker, Globe, PenTool, Puzzle, Brain, BookOpen } from 'lucide-react';
 
 interface SubjectProgressChartProps {
   subjectProgress: any[];
@@ -18,7 +18,7 @@ const SubjectIcon = ({ subject }: { subject: string }) => {
     case 'math':
       return <Calculator {...iconProps} />;
     case 'science':
-      return <Flask {...iconProps} />;
+      return <Beaker {...iconProps} />;
     case 'social studies':
     case 'history':
     case 'geography':

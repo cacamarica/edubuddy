@@ -84,13 +84,13 @@ const QuizResults: React.FC<QuizResultsProps> = ({
         // 1. First Quiz Badge
         await badgeService.checkAndAwardBadges({
           studentId: student.id,
-          badgeType: 'first_quiz'
+          badgeType: "quiz_completion_first"
         });
         
         // 2. Subject-specific Quiz Badge
         await badgeService.checkAndAwardBadges({
           studentId: student.id,
-          badgeType: 'quiz_completion',
+          badgeType: "quiz_completion_5",
           subject
         });
         
@@ -98,7 +98,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
         if (validatedScore === totalQuestions) {
           await badgeService.checkAndAwardBadges({
             studentId: student.id,
-            badgeType: 'perfect_score',
+            badgeType: "quiz_perfect_score",
             score: validatedScore,
             totalQuestions
           });
