@@ -90,7 +90,8 @@ const Auth = () => {
   const onSignUp = async (values: z.infer<typeof signUpSchema>) => {
     setIsLoading(true);
     try {
-      const { error } = await signUp(values.email, values.password, values.fullName);
+      // Fix: Adding 'parent' as the fourth argument to signUp function
+      const { error } = await signUp(values.email, values.password, values.fullName, 'parent');
       if (!error) {
         // User should be automatically signed in after signup now
         // We'll still redirect to dashboard after a slight delay to ensure the session is set
