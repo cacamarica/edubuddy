@@ -46,15 +46,11 @@ export const badgeService = {
     try {
       const { 
         studentId, 
-        badgeType, 
-        subject, 
-        topic, 
-        score, 
-        totalQuestions, 
-        streakDays, 
-        questionsAsked, 
-        lessonCount 
+        badgeType
       } = params;
+      
+      // Get badge name mapping
+      const badgeName = this.getBadgeName(badgeType);
       
       // First, get existing badges to prevent duplicates
       const { data: existingBadges, error: badgeError } = await supabase
@@ -73,29 +69,51 @@ export const badgeService = {
         return null;
       }
 
-      // Get badge type mappings
-      const { data: badgeData } = await supabase
+      // Get badge by name
+      const { data: badgeData, error: nameError } = await supabase
         .from("badges")
         .select("id, name")
-        .eq("name", this.getBadgeName(badgeType));
+        .eq("name", badgeName)
+        .maybeSingle();
       
-      // Map of existing badge types this student has - using badge names as identifiers
+      if (nameError) {
+        console.error("Error fetching badge by name:", nameError);
+        return null;
+      }
+      
+      // Map of existing badge IDs this student has
       const existingBadgeIds = new Set(
         existingBadges?.map(eb => eb.badge_id) || []
       );
 
       // Check if the student already has this badge
-      const matchingBadge = badgeData?.find(badge => 
-        !existingBadgeIds.has(badge.id)
-      );
-      
-      if (matchingBadge) {
-        return this.awardBadgeById(studentId, matchingBadge.id);
+      if (badgeData && !existingBadgeIds.has(badgeData.id)) {
+        return this.awardBadgeById(studentId, badgeData.id);
+      } else if (!badgeData) {
+        // Badge doesn't exist yet, create it
+        const description = this.getBadgeDescription(badgeType);
+        const imageUrl = this.getBadgeImageUrl(badgeType);
+        
+        const { data: newBadge, error: createError } = await supabase
+          .from("badges")
+          .insert({
+            name: badgeName,
+            description,
+            image_url: imageUrl
+          })
+          .select("id")
+          .single();
+          
+        if (createError || !newBadge) {
+          console.error("Error creating badge:", createError);
+          return null;
+        }
+        
+        return this.awardBadgeById(studentId, newBadge.id);
       }
       
-      // If we get here, either the student already has the badge or the badge doesn't exist
-      // Let's create the badge if it doesn't exist
-      return this.awardBadgeByType(studentId, badgeType);
+      // Student already has this badge
+      return null;
       
     } catch (error) {
       console.error("Error checking and awarding badges:", error);
@@ -107,7 +125,7 @@ export const badgeService = {
   getBadgeName(badgeType: BadgeType): string {
     switch (badgeType) {
       case "quiz_completion_first":
-        return "First Quiz";
+        return "Quiz Starter";
       case "quiz_completion_5":
         return "Quiz Master";
       case "quiz_completion_10":
@@ -115,41 +133,41 @@ export const badgeService = {
       case "quiz_perfect_score":
         return "Perfect Score";
       case "quiz_score_improvement":
-        return "Rising Star";
+        return "Score Improver";
       case "lesson_completion_first":
-        return "First Lesson";
+        return "First Step";
       case "lesson_completion_5":
-        return "Study Buddy";
+        return "Eager Reader";
       case "lesson_completion_10":
-        return "Knowledge Seeker";
+        return "Knowledge Explorer";
       case "lesson_completion_25":
-        return "Learning Legend";
+        return "Learning Champion";
       case "subject_math_5":
         return "Math Explorer";
       case "subject_science_5":
-        return "Science Explorer";
+        return "Science Discoverer";
       case "subject_language_5":
-        return "Language Explorer";
+        return "Language Lover";
       case "streak_3_days":
         return "3-Day Streak";
       case "streak_7_days":
         return "Week Warrior";
       case "streak_14_days":
-        return "Fortnight Champion";
+        return "Unstoppable";
       case "growth_retry_quiz":
-        return "Perseverance";
+        return "Bounce Back";
       case "growth_difficult_lesson":
-        return "Challenge Accepted";
+        return "Problem Solver";
       case "game_first":
-        return "Game Starter";
+        return "Game Player";
       case "game_5":
-        return "Game Pro";
+        return "Game Enthusiast";
       case "curiosity_questions_5":
         return "Curious Mind";
       case "curiosity_questions_10":
-        return "Knowledge Hunter";
+        return "Deep Thinker";
       case "family_session":
-        return "Family Learning";
+        return "Family Support";
       default:
         return "Achievement";
     }
@@ -213,56 +231,6 @@ export const badgeService = {
     }
   },
   
-  // Award a badge by its type
-  async awardBadgeByType(studentId: string, badgeType: BadgeType): Promise<Badge | null> {
-    try {
-      const badgeName = this.getBadgeName(badgeType);
-      
-      // Get badge data by name
-      const { data: badgeData, error: badgeError } = await supabase
-        .from("badges")
-        .select("id, name, description, image_url")
-        .eq("name", badgeName)
-        .maybeSingle();
-        
-      if (badgeError) {
-        console.error("Error finding badge with name:", badgeName, badgeError);
-        return null;
-      }
-      
-      if (badgeData) {
-        // Badge exists, award it
-        return this.awardBadgeById(studentId, badgeData.id);
-      } else {
-        // Badge doesn't exist, create it
-        const description = this.getBadgeDescription(badgeType);
-        const imageUrl = this.getBadgeImageUrl(badgeType);
-        
-        // Create a new badge
-        const { data: newBadge, error: createError } = await supabase
-          .from("badges")
-          .insert({
-            name: badgeName,
-            description: description,
-            image_url: imageUrl
-          })
-          .select("id")
-          .single();
-          
-        if (createError || !newBadge) {
-          console.error("Error creating badge:", createError);
-          return null;
-        }
-        
-        // Award the newly created badge
-        return this.awardBadgeById(studentId, newBadge.id);
-      }
-    } catch (error) {
-      console.error("Error awarding badge by type:", error);
-      return null;
-    }
-  },
-  
   // Get badge description from badge type
   getBadgeDescription(badgeType: BadgeType): string {
     switch (badgeType) {
@@ -317,8 +285,53 @@ export const badgeService = {
   
   // Get badge image URL from badge type (placeholder function)
   getBadgeImageUrl(badgeType: BadgeType): string | undefined {
-    // This would typically return a URL to an image for the badge
-    // For now, we'll return undefined and let the component handle fallbacks
-    return undefined;
+    // Map badge types to image paths
+    switch (badgeType) {
+      case "quiz_completion_first":
+        return "/badges/quiz_starter.png";
+      case "quiz_perfect_score":
+        return "/badges/perfect_score.png";
+      case "quiz_completion_5":
+      case "quiz_completion_10":
+        return "/badges/quiz_master.png";
+      case "quiz_score_improvement":
+        return "/badges/score_improver.png";
+      case "lesson_completion_first":
+        return "/badges/first_step.png";
+      case "lesson_completion_5":
+        return "/badges/eager_reader.png";
+      case "lesson_completion_10":
+        return "/badges/knowledge_explorer.png";
+      case "lesson_completion_25":
+        return "/badges/learning_champion.png";
+      case "subject_math_5":
+        return "/badges/math_explorer.png";
+      case "subject_science_5":
+        return "/badges/science_discoverer.png";
+      case "subject_language_5":
+        return "/badges/language_lover.png";
+      case "streak_3_days":
+        return "/badges/streak_3.png";
+      case "streak_7_days":
+        return "/badges/streak_7.png";
+      case "streak_14_days":
+        return "/badges/streak_14.png";
+      case "growth_retry_quiz":
+        return "/badges/bounce_back.png";
+      case "growth_difficult_lesson":
+        return "/badges/problem_solver.png";
+      case "game_first":
+        return "/badges/game_player.png";
+      case "game_5":
+        return "/badges/game_enthusiast.png";
+      case "curiosity_questions_5":
+        return "/badges/curious_mind.png";
+      case "curiosity_questions_10":
+        return "/badges/deep_thinker.png";
+      case "family_session":
+        return "/badges/family_support.png";
+      default:
+        return undefined;
+    }
   }
 };
