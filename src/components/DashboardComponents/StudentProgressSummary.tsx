@@ -1,762 +1,250 @@
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { studentProgressService, StudentProgress, LearningActivity, AISummaryReport } from '@/services/studentProgressService';
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line } from 'recharts';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell } from 'recharts';
+import { studentProgressService, AISummaryReport } from '@/services/studentProgressService';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Spinner } from '@/components/ui/spinner';
-import { Filter, Calendar, Clock, BookOpen, Award, Brain, ChartPieIcon, TrendingUp } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
-import { useStudentProfile } from '@/contexts/StudentProfileContext';
+import { BarChart3, FileText, Check, X, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
+import AIStudentReport from './AIStudentReport';
+import SubjectProgressChart from './SubjectProgressChart';
 
 interface StudentProgressSummaryProps {
   studentId: string;
 }
 
-const COLORS = ['#845EF7', '#FF6B6B', '#4D9DE0', '#33A1FD', '#22B8CF', '#51CF66'];
-
 const StudentProgressSummary: React.FC<StudentProgressSummaryProps> = ({ studentId }) => {
-  const [progressData, setProgressData] = useState<StudentProgress[]>([]);
-  const [filteredData, setFilteredData] = useState<StudentProgress[]>([]);
+  const [subjectProgress, setSubjectProgress] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isAIReportLoading, setIsAIReportLoading] = useState(false);
-  const [subjectFilter, setSubjectFilter] = useState<string>('all');
+  const [aiReport, setAIReport] = useState<AISummaryReport | null>(null);
+  const [isLoadingReport, setIsLoadingReport] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
-  const [activitiesData, setActivitiesData] = useState<LearningActivity[]>([]);
-  const [streakData, setStreakData] = useState<{day: string; count: number}[]>([]);
-  const [timeSpentData, setTimeSpentData] = useState<{day: string; minutes: number}[]>([]);
-  const [completionData, setCompletionData] = useState<{subject: string; lessons: number; quizzes: number; total: number; completed: number; timeSpent: number}[]>([]);
-  const [currentStreak, setCurrentStreak] = useState<number>(0);
-  const [aiReport, setAiReport] = useState<AISummaryReport | null>(null);
   const { language } = useLanguage();
-  const { selectedProfile } = useStudentProfile();
-
-  // Fetch AI Summary Report
-  const fetchAISummaryReport = async (forceRefresh = false) => {
-    if (!studentId || !selectedProfile?.gradeLevel || !selectedProfile?.name) return;
-    
-    setIsAIReportLoading(true);
-    try {
-      console.log(`Fetching AI report for student ${studentId}, grade ${selectedProfile.gradeLevel}, name ${selectedProfile.name}`);
-      const report = await studentProgressService.getAISummaryReport(
-        studentId, 
-        selectedProfile.gradeLevel, 
-        selectedProfile.name,
-        forceRefresh
-      );
-      
-      if (report) {
-        console.log("Successfully fetched AI report:", report);
-        setAiReport(report);
-      } else {
-        console.error("Failed to fetch AI report - no data returned");
-      }
-    } catch (error) {
-      console.error("Error fetching AI report:", error);
-    } finally {
-      setIsAIReportLoading(false);
-    }
-  };
-
-  // Process real data to derive statistics
-  const processActivitiesData = (activities: LearningActivity[]) => {
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const today = new Date().getDay();
-    
-    // Initialize data structures
-    const dailyActivitiesCount = new Array(7).fill(0);
-    const dailyTimeSpent = new Array(7).fill(0);
-    const subjectCompletion: Record<string, {
-      lessons: number, 
-      quizzes: number, 
-      completed: number, 
-      total: number,
-      timeSpent: number
-    }> = {};
-    
-    // Track consecutive days with activities
-    const lastSevenDays: boolean[] = new Array(7).fill(false);
-    
-    // Process each activity
-    activities.forEach(activity => {
-      if (!activity.last_interaction_at) return;
-      
-      // Get day index of activity
-      const activityDate = new Date(activity.last_interaction_at);
-      const dayIndex = activityDate.getDay();
-      const daysSinceActivity = Math.floor((new Date().getTime() - activityDate.getTime()) / (1000 * 3600 * 24));
-      
-      // Count activities by day for the last 7 days
-      if (daysSinceActivity < 7) {
-        dailyActivitiesCount[dayIndex]++;
-        lastSevenDays[daysSinceActivity] = true;
-      }
-      
-      // Calculate time spent (if the activity has a start and end)
-      let timeSpent = 0;
-      if (activity.started_at && activity.completed_at) {
-        timeSpent = (new Date(activity.completed_at).getTime() - new Date(activity.started_at).getTime()) / (1000 * 60);
-        timeSpent = Math.min(timeSpent, 120); // Cap at 2 hours to avoid outliers
-        
-        if (daysSinceActivity < 7) {
-          dailyTimeSpent[dayIndex] += timeSpent;
-        }
-      } else {
-        // If we don't have both timestamps, estimate based on activity type
-        timeSpent = activity.activity_type === 'quiz' ? 10 : 20;
-      }
-      
-      // Track completion by subject
-      if (!subjectCompletion[activity.subject]) {
-        subjectCompletion[activity.subject] = {
-          lessons: 0,
-          quizzes: 0,
-          completed: 0,
-          total: 0,
-          timeSpent: 0
-        };
-      }
-      
-      // Count by activity type
-      if (activity.activity_type === 'lesson') {
-        subjectCompletion[activity.subject].lessons++;
-      } else if (activity.activity_type === 'quiz') {
-        subjectCompletion[activity.subject].quizzes++;
-      }
-      
-      // Count completions
-      subjectCompletion[activity.subject].total++;
-      if (activity.completed) {
-        subjectCompletion[activity.subject].completed++;
-      }
-      
-      // Add time spent to subject
-      subjectCompletion[activity.subject].timeSpent += timeSpent;
-    });
-    
-    // Format data for charts
-    const streakData = days.map((day, i) => {
-      // Reorder days so that today is the last day in the chart
-      const adjustedIndex = (i + 7 - today) % 7;
-      return {
-        day,
-        count: dailyActivitiesCount[(i + today) % 7]
-      };
-    });
-    
-    const timeSpentData = days.map((day, i) => {
-      // Reorder days so that today is the last day in the chart
-      const adjustedIndex = (i + 7 - today) % 7;
-      return {
-        day,
-        minutes: Math.round(dailyTimeSpent[(i + today) % 7])
-      };
-    });
-      const completionData = Object.keys(subjectCompletion).map(subject => ({
-      subject,
-      lessons: subjectCompletion[subject].lessons,
-      quizzes: subjectCompletion[subject].quizzes,
-      total: subjectCompletion[subject].total,
-      completed: subjectCompletion[subject].completed,
-      timeSpent: Math.round(subjectCompletion[subject].timeSpent)
-    }));
-    
-    // Calculate current streak from the last seven days data
-    // This counts consecutive days with at least one activity
-    let currentStreak = 0;
-    for (let i = 0; i < lastSevenDays.length; i++) {
-      if (lastSevenDays[i]) {
-        currentStreak++;
-      } else {
-        // If we hit a day with no activity, break the streak
-        // unless it's a future day
-        if (i === 0) {
-          // Today has no activity yet, continue counting previous days
-          continue;
-        } else {
-          break;
-        }
-      }
-    }
-    
-    return {
-      streakData,
-      timeSpentData,
-      completionData,
-      currentStreak
-    };
-  };
+  const [showFullReport, setShowFullReport] = useState(false);
   
+  // Fetch subject progress
   useEffect(() => {
     const fetchProgress = async () => {
-      setIsLoading(true);      
+      if (!studentId) return;
       
-      // Fetch actual data from services
-      const data = await studentProgressService.getSubjectProgress(studentId);
-      const activities = await studentProgressService.getLearningActivities(studentId, 50); // Get more activities for better stats
-      const quizScores = await studentProgressService.getQuizScores(studentId, 20);
-      
-      // Set state for progress data
-      setProgressData(data);
-      setFilteredData(data);
-      setActivitiesData(activities);
-      
-      // Process activities to generate real metrics
-      const { streakData: realStreakData, timeSpentData: realTimeData, completionData: realCompletionData, currentStreak: realStreak } = 
-        processActivitiesData(activities);
-      
-      setStreakData(realStreakData);
-      setTimeSpentData(realTimeData);
-      setCompletionData(realCompletionData);
-      setCurrentStreak(realStreak);
-      
-      setIsLoading(false);
-      
-      // Fetch AI report last, after basic data is loaded
-      fetchAISummaryReport();
+      setIsLoading(true);
+      try {
+        const progress = await studentProgressService.getSubjectProgress(studentId);
+        setSubjectProgress(progress);
+      } catch (error) {
+        console.error('Error fetching subject progress:', error);
+        toast.error(language === 'id' ? 'Gagal memuat kemajuan mata pelajaran' : 'Failed to load subject progress');
+      } finally {
+        setIsLoading(false);
+      }
     };
     
-    if (studentId) {
-      fetchProgress();
-    }
-  }, [studentId, selectedProfile]);
+    fetchProgress();
+  }, [studentId, language]);
   
-  // Apply filtering
-  useEffect(() => {
-    if (subjectFilter === 'all') {
-      setFilteredData(progressData);
-    } else {
-      setFilteredData(progressData.filter(item => item.subject === subjectFilter));
-    }
-  }, [subjectFilter, progressData]);
-  
-  // Process data for chart
-  const chartData = filteredData.map((item, index) => ({
-    name: item.subject,
-    value: item.progress,
-    color: COLORS[index % COLORS.length]
+  // Prepare data for pie chart
+  const pieChartData = subjectProgress.map(subject => ({
+    name: subject.subject,
+    value: subject.progress
   }));
   
-  // Calculate overall progress
-  const overallProgress = filteredData.length > 0 
-    ? Math.round(filteredData.reduce((sum, item) => sum + item.progress, 0) / filteredData.length) 
-    : 0;
+  // Colors for pie chart segments
+  const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#0088fe', '#ff8042'];
   
-  // Get unique subjects for filter
-  const subjects = Array.from(new Set(progressData.map(item => item.subject)));
-
-  // Handle refresh of AI report
-  const handleRefreshAIReport = () => {
-    toast.info(language === 'id' ? 'Menyegarkan laporan AI...' : 'Refreshing AI report...');
-    fetchAISummaryReport(true);
+  const handleRefreshReport = async () => {
+    if (!studentId) return;
+    
+    setIsLoadingReport(true);
+    try {
+      // Get the grade level - in a real app, this would come from the student's data
+      const gradeLevel = 'k-3'; // This should be dynamic based on the student
+      
+      // Force refresh the AI summary report
+      const report = await studentProgressService.getAISummaryReport(
+        studentId, 
+        gradeLevel,
+        "Student", // This should be the actual student name
+        true // Force refresh
+      );
+      
+      setAIReport(report);
+      toast.success(language === 'id' ? 'Laporan berhasil diperbarui' : 'Report refreshed successfully');
+    } catch (error) {
+      console.error('Error refreshing AI report:', error);
+      toast.error(language === 'id' ? 'Gagal memperbarui laporan' : 'Failed to refresh report');
+    } finally {
+      setIsLoadingReport(false);
+    }
   };
-
+  
+  useEffect(() => {
+    const fetchAIReport = async () => {
+      if (!studentId) return;
+      
+      setIsLoadingReport(true);
+      try {
+        // Get the grade level - in a real app, this would come from the student's data
+        const gradeLevel = 'k-3'; // This should be dynamic based on the student
+        console.log("Fetching AI report for student:", studentId, "grade:", gradeLevel);
+        
+        const report = await studentProgressService.getAISummaryReport(
+          studentId, 
+          gradeLevel,
+          "Student", // This should be the actual student name
+          false
+        );
+        
+        console.log("AI Report fetched:", report);
+        setAIReport(report);
+      } catch (error) {
+        console.error('Error fetching AI report:', error);
+        toast.error(language === 'id' ? 'Gagal memuat laporan AI' : 'Failed to load AI report');
+        setAIReport(null);
+      } finally {
+        setIsLoadingReport(false);
+      }
+    };
+    
+    fetchAIReport();
+  }, [studentId, language]);
+  
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center p-12">
+        <Spinner size="lg" />
+      </div>
+    );
+  }
+  
   return (
-    <div className="h-full">
-      <Tabs defaultValue="overview" onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid grid-cols-5">
-          <TabsTrigger value="overview" className="flex gap-1 items-center">
-            <BookOpen className="h-4 w-4" />
+    <div className="space-y-6">
+      <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="mb-4">
+          <TabsTrigger value="overview">
             {language === 'id' ? 'Ikhtisar' : 'Overview'}
           </TabsTrigger>
-          <TabsTrigger value="ai-report" className="flex gap-1 items-center">
-            <Brain className="h-4 w-4" />
-            {language === 'id' ? 'Laporan AI' : 'AI Report'}
-          </TabsTrigger>
-          <TabsTrigger value="completion" className="flex gap-1 items-center">
-            <Award className="h-4 w-4" />
-            {language === 'id' ? 'Penyelesaian' : 'Completion'}
-          </TabsTrigger>
-          <TabsTrigger value="streaks" className="flex gap-1 items-center">
-            <Calendar className="h-4 w-4" />
-            {language === 'id' ? 'Aktivitas' : 'Activity'}
-          </TabsTrigger>
-          <TabsTrigger value="time" className="flex gap-1 items-center">
-            <Clock className="h-4 w-4" />
-            {language === 'id' ? 'Waktu' : 'Time'}
+          <TabsTrigger value="subjects">
+            {language === 'id' ? 'Mata Pelajaran' : 'Subjects'}
           </TabsTrigger>
         </TabsList>
         
-        {/* Subject Progress Overview Tab */}
-        <TabsContent value="overview">
-          <div className="flex justify-between items-center mb-4">
-            <div>
-              <h3 className="font-medium text-lg">
-                {language === 'id' ? 'Kemajuan Mata Pelajaran' : 'Subject Progress'}
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                {language === 'id' ? 'Kemajuan belajar berdasarkan mata pelajaran' : 'Learning progress by subject'}
-              </p>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              <Select value={subjectFilter} onValueChange={setSubjectFilter}>
-                <SelectTrigger className="w-[130px]">
-                  <SelectValue placeholder={language === 'id' ? "Filter" : "Filter"} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">
-                    {language === 'id' ? 'Semua' : 'All'}
-                  </SelectItem>
-                  {subjects.map(subject => (
-                    <SelectItem key={subject} value={subject}>{subject}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          
-          {isLoading ? (
-            <div className="flex justify-center items-center h-40">
-              <Spinner size="lg" />
-            </div>
-          ) : filteredData.length > 0 ? (
-            <div className="space-y-8">
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium">
-                    {language === 'id' ? 'Kemajuan Keseluruhan' : 'Overall Progress'}
+        <TabsContent value="overview" className="space-y-5">
+          {/* AI Report Summary Section */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>
+                <div className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-purple-500" /> 
+                  {language === 'id' ? 'Laporan AI' : 'AI Report'}
+                </div>
+              </CardTitle>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleRefreshReport} 
+                disabled={isLoadingReport}
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isLoadingReport ? 'animate-spin' : ''}`} />
+                {language === 'id' ? 'Perbarui' : 'Refresh'}
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {isLoadingReport ? (
+                <div className="flex justify-center items-center h-32">
+                  <Spinner size="md" />
+                  <span className="ml-3 text-muted-foreground">
+                    {language === 'id' ? 'Memuat laporan AI...' : 'Loading AI report...'}
                   </span>
-                  <span className="text-sm font-bold">{overallProgress}%</span>
                 </div>
-                <Progress value={overallProgress} className="h-2" />
-              </div>
-              
-              <div className="grid gap-4">
-                {filteredData.map((subject) => (
-                  <div key={subject.id} className="space-y-1">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium">{subject.subject}</span>
-                      <span className="text-sm">{subject.progress}%</span>
-                    </div>
-                    <Progress value={subject.progress} className="h-2" />
-                  </div>
-                ))}
-              </div>
-              
-              {filteredData.length >= 2 && (
-                <div className="h-60">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={chartData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={80}
-                        paddingAngle={2}
-                        dataKey="value"
-                        label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      >
-                        {chartData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
+              ) : (
+                <AIStudentReport 
+                  report={aiReport} 
+                  isExpanded={showFullReport} 
+                  toggleExpanded={() => setShowFullReport(!showFullReport)}
+                />
               )}
-            </div>
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              {language === 'id' 
-                ? 'Belum ada data kemajuan. Mulai belajar untuk melihat perkembangan!' 
-                : 'No progress data yet. Start learning to see your progress!'}
-            </div>
-          )}
-        </TabsContent>
-        
-        {/* AI Report Tab */}
-        <TabsContent value="ai-report">
-          <div className="mb-4 flex justify-between">
-            <div>
-              <h3 className="font-medium text-lg">
-                {language === 'id' ? 'Laporan Ringkasan AI' : 'AI Summary Report'}
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                {language === 'id' ? 'Analisis kecerdasan buatan tentang kemajuan siswa' : 'Artificial intelligence analysis of student progress'}
-              </p>
-            </div>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={handleRefreshAIReport}
-              disabled={isAIReportLoading}
-              className="flex items-center gap-1"
-            >
-              {isAIReportLoading ? <Spinner size="sm" /> : 
-                language === 'id' ? 'Segarkan Laporan' : 'Refresh Report'}
-            </Button>
-          </div>
+            </CardContent>
+          </Card>
           
-          {isAIReportLoading ? (
-            <div className="flex justify-center items-center h-60">
-              <Spinner size="lg" />
-            </div>
-          ) : aiReport ? (
-            <div className="space-y-8">
-              {/* Overall Summary Card */}
-              <Card className="border-eduPurple/30">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Brain className="h-5 w-5 text-eduPurple" />
-                    {language === 'id' ? 'Ringkasan Keseluruhan' : 'Overall Summary'}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p>{aiReport.overallSummary}</p>
-                </CardContent>
-              </Card>
-              
-              {/* Strengths & Areas for Improvement */}
-              <div className="grid md:grid-cols-2 gap-4">
-                <Card className="border-green-300/50">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm flex items-center gap-2">
-                      <TrendingUp className="h-4 w-4 text-green-600" />
-                      {language === 'id' ? 'Kekuatan' : 'Strengths'}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="list-disc pl-5 space-y-1">
-                      {aiReport.strengths.map((strength, index) => (
-                        <li key={index} className="text-sm">{strength}</li>
-                      ))}
-                    </ul>
-                  </CardContent>
-                </Card>
-                
-                <Card className="border-orange-300/50">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm flex items-center gap-2">
-                      <ChartPieIcon className="h-4 w-4 text-orange-600" />
-                      {language === 'id' ? 'Area untuk Perbaikan' : 'Areas for Improvement'}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="list-disc pl-5 space-y-1">
-                      {aiReport.areasForImprovement.map((area, index) => (
-                        <li key={index} className="text-sm">{area}</li>
-                      ))}
-                    </ul>
-                  </CardContent>
-                </Card>
-              </div>
-              
-              {/* Activity Analysis */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">
-                    {language === 'id' ? 'Analisis Aktivitas' : 'Activity Analysis'}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm">{aiReport.activityAnalysis}</p>
-                </CardContent>
-              </Card>
-              
-              {/* Knowledge Growth Chart - if available */}
-              {aiReport.knowledgeGrowthChartData && aiReport.knowledgeGrowthChartData.length > 0 && (
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">
-                      {language === 'id' ? 'Pertumbuhan Pengetahuan' : 'Knowledge Growth'}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-60">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart
-                          data={aiReport.knowledgeGrowthChartData}
-                          margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+          {/* Overall Progress Card */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>{language === 'id' ? 'Kemajuan Keseluruhan' : 'Overall Progress'}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div style={{ width: '100%', height: 250 }}>
+                  {subjectProgress.length > 0 ? (
+                    <ResponsiveContainer>
+                      <PieChart>
+                        <Pie
+                          data={pieChartData}
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={80}
+                          fill="#8884d8"
+                          dataKey="value"
+                          label={({name, value}) => `${name}: ${value}%`}
                         >
-                          <XAxis dataKey="date" />
-                          <YAxis />
-                          <Tooltip />
-                          <Line 
-                            type="monotone" 
-                            name={language === 'id' ? "Skor" : "Score"} 
-                            dataKey="score" 
-                            stroke="#845EF7" 
-                            strokeWidth={2}
-                          />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-              
-              {/* Recent Quiz Results - if available */}
-              {aiReport.quizReview && aiReport.quizReview.length > 0 && (
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">
-                      {language === 'id' ? 'Hasil Kuis Terbaru' : 'Recent Quiz Results'}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {aiReport.quizReview.map((quiz, qIndex) => (
-                      <div key={qIndex} className="mb-4 border-b pb-4 last:border-b-0 last:pb-0">
-                        <div className="flex justify-between mb-2">
-                          <span className="font-medium">{quiz.quizTitle}</span>
-                          <span className="text-sm">{quiz.score}/{quiz.maxScore} ({quiz.percentage}%)</span>
-                        </div>
-                        <ul className="space-y-1">
-                          {quiz.questions.map((q, i) => (
-                            <li key={i} className={`text-xs ${q.isCorrect ? 'text-green-600' : 'text-red-600'}`}>
-                              {q.questionText} - {q.isCorrect ? '✓' : '✗'}
-                            </li>
+                          {pieChartData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                           ))}
-                        </ul>
+                        </Pie>
+                        <Tooltip 
+                          formatter={(value) => `${value}%`} 
+                          labelFormatter={(label) => label} 
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex justify-center items-center h-full">
+                      <p className="text-muted-foreground">
+                        {language === 'id' ? 'Belum ada data kemajuan.' : 'No progress data yet.'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+            
+            {/* Recent Achievements Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle>{language === 'id' ? 'Pencapaian Terbaru' : 'Recent Achievements'}</CardTitle>
+              </CardHeader>
+              <CardContent className="h-[250px] overflow-auto">
+                {subjectProgress.length > 0 ? (
+                  <div className="space-y-3">
+                    {subjectProgress.slice(0, 5).map((subject, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 border rounded-md">
+                        <span className="font-medium">{subject.subject}</span>
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${subject.progress >= 70 ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                          {subject.progress}%
+                        </span>
                       </div>
                     ))}
-                  </CardContent>
-                </Card>
-              )}
-              
-              <div className="text-xs text-muted-foreground text-center">
-                {language === 'id' 
-                  ? `Laporan dibuat pada ${new Date(aiReport.generatedAt || '').toLocaleString()}` 
-                  : `Report generated on ${new Date(aiReport.generatedAt || '').toLocaleString()}`}
-              </div>
-            </div>
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              {language === 'id' 
-                ? 'Belum ada laporan AI tersedia. Mulai belajar untuk mendapatkan wawasan AI!' 
-                : 'No AI report available yet. Start learning to get AI insights!'}
-            </div>
-          )}
+                  </div>
+                ) : (
+                  <div className="flex justify-center items-center h-full">
+                    <p className="text-muted-foreground">
+                      {language === 'id' ? 'Belum ada pencapaian.' : 'No achievements yet.'}
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
         
-        {/* Completion Tab */}
-        <TabsContent value="completion">
-          <div className="mb-4">
-            <h3 className="font-medium text-lg">
-              {language === 'id' ? 'Penyelesaian Pelajaran & Kuis' : 'Lesson & Quiz Completion'}
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              {language === 'id' ? 'Persentase penyelesaian pembelajaran' : 'Learning completion percentage'}
-            </p>
-          </div>
-          
-          {isLoading ? (
-            <div className="flex justify-center items-center h-40">
-              <Spinner size="lg" />
-            </div>
-          ) : completionData.length > 0 ? (
-            <div className="space-y-8">
-              {/* Completion by Subject */}
-              <div className="space-y-4">
-                {completionData.map((item, index) => (
-                  <div key={index} className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="font-medium">{item.subject}</span>
-                      <span className="text-sm">
-                        {item.completed}/{item.total} ({Math.round((item.completed/item.total)*100)}%)
-                      </span>
-                    </div>
-                    <div className="flex gap-2 text-sm">
-                      <span>{language === 'id' ? 'Pelajaran:' : 'Lessons:'} {item.lessons}</span>
-                      <span>•</span>
-                      <span>{language === 'id' ? 'Kuis:' : 'Quizzes:'} {item.quizzes}</span>
-                    </div>
-                    <Progress 
-                      value={(item.completed/item.total)*100} 
-                      className="h-2" 
-                    />
-                  </div>
-                ))}
-              </div>
-              
-              {/* Completion Chart */}
-              <div className="h-60 mt-4">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={completionData}
-                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                  >
-                    <XAxis dataKey="subject" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar name={language === 'id' ? "Pelajaran" : "Lessons"} dataKey="lessons" stackId="a" fill="#8884d8" />
-                    <Bar name={language === 'id' ? "Kuis" : "Quizzes"} dataKey="quizzes" stackId="a" fill="#82ca9d" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              {language === 'id' 
-                ? 'Belum ada data penyelesaian. Mulai belajar untuk melihat perkembangan!' 
-                : 'No completion data yet. Start learning to see your progress!'}
-            </div>
-          )}
-        </TabsContent>
-        
-        {/* Streaks Tab */}
-        <TabsContent value="streaks">
-          <div className="mb-4">
-            <h3 className="font-medium text-lg">
-              {language === 'id' ? 'Aktivitas Harian & Mingguan' : 'Daily & Weekly Activity'}
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              {language === 'id' ? 'Riwayat aktivitas belajar' : 'Learning activity history'}
-            </p>
-          </div>
-          
-          {isLoading ? (
-            <div className="flex justify-center items-center h-40">
-              <Spinner size="lg" />
-            </div>
-          ) : streakData.length > 0 ? (
-            <div className="space-y-8">              {/* Current Streak */}
-              <div className="p-4 bg-muted rounded-lg flex flex-col items-center">
-                <span className="text-sm text-muted-foreground">
-                  {language === 'id' ? 'Streak Saat Ini' : 'Current Streak'}
-                </span>
-                <div className="text-3xl font-bold">{currentStreak} {language === 'id' ? 'Hari' : 'Days'}</div>
-              </div>
-              
-              {/* Streak Chart */}
-              <div className="h-60">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={streakData}
-                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                  >
-                    <XAxis dataKey="day" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar 
-                      name={language === 'id' ? "Aktivitas" : "Activities"} 
-                      dataKey="count" 
-                      fill="#FF6B6B"
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-                {/* Weekly Stats */}
-              <div>
-                <h4 className="font-medium mb-2">
-                  {language === 'id' ? 'Statistik Mingguan' : 'Weekly Stats'}
-                </h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-3 bg-muted rounded-lg">
-                    <div className="text-sm text-muted-foreground">
-                      {language === 'id' ? 'Total Aktivitas' : 'Total Activities'}
-                    </div>
-                    <div className="text-xl font-bold">{streakData.reduce((sum, day) => sum + day.count, 0)}</div>
-                  </div>
-                  <div className="p-3 bg-muted rounded-lg">
-                    <div className="text-sm text-muted-foreground">
-                      {language === 'id' ? 'Hari Aktif' : 'Active Days'}
-                    </div>
-                    <div className="text-xl font-bold">{streakData.filter(day => day.count > 0).length}/7</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              {language === 'id' 
-                ? 'Belum ada data aktivitas. Mulai belajar untuk melihat riwayat aktivitas!' 
-                : 'No activity data yet. Start learning to see your activity history!'}
-            </div>
-          )}
-        </TabsContent>
-        
-        {/* Time Spent Tab */}
-        <TabsContent value="time">
-          <div className="mb-4">
-            <h3 className="font-medium text-lg">
-              {language === 'id' ? 'Waktu Belajar' : 'Learning Time'}
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              {language === 'id' ? 'Waktu yang dihabiskan untuk belajar' : 'Time spent learning'}
-            </p>
-          </div>
-          
-          {isLoading ? (
-            <div className="flex justify-center items-center h-40">
-              <Spinner size="lg" />
-            </div>
-          ) : timeSpentData.length > 0 ? (
-            <div className="space-y-8">
-              {/* Daily Time Chart */}
-              <div className="h-60">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart
-                    data={timeSpentData}
-                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                  >
-                    <XAxis dataKey="day" />
-                    <YAxis />
-                    <Tooltip />
-                    <Line 
-                      type="monotone" 
-                      name={language === 'id' ? "Menit" : "Minutes"} 
-                      dataKey="minutes" 
-                      stroke="#845EF7" 
-                      strokeWidth={2}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-              
-              {/* Time Summary */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-muted rounded-lg">
-                  <div className="text-sm text-muted-foreground">
-                    {language === 'id' ? 'Waktu Belajar Hari Ini' : 'Today\'s Learning Time'}
-                  </div>
-                  <div className="text-2xl font-bold">
-                    {timeSpentData[new Date().getDay()].minutes} {language === 'id' ? 'menit' : 'minutes'}
-                  </div>
-                </div>
-                <div className="p-4 bg-muted rounded-lg">
-                  <div className="text-sm text-muted-foreground">
-                    {language === 'id' ? 'Total Minggu Ini' : 'This Week\'s Total'}
-                  </div>
-                  <div className="text-2xl font-bold">
-                    {timeSpentData.reduce((sum, item) => sum + item.minutes, 0)} {language === 'id' ? 'menit' : 'minutes'}
-                  </div>
-                </div>
-              </div>                {/* Subject Time Distribution */}
-              <div>
-                <h4 className="font-medium mb-2">
-                  {language === 'id' ? 'Distribusi Waktu per Mata Pelajaran' : 'Time by Subject'}
-                </h4>
-                <div className="space-y-2">                  {completionData.map((item, index) => (
-                    <div key={index} className="flex justify-between items-center">
-                      <span>{item.subject}</span>
-                      <span className="font-medium">{item.timeSpent} {language === 'id' ? 'menit' : 'minutes'}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              {language === 'id' 
-                ? 'Belum ada data waktu belajar. Mulai belajar untuk melihat statistik waktu!' 
-                : 'No learning time data yet. Start learning to see your time statistics!'}
-            </div>
-          )}
+        <TabsContent value="subjects">
+          <SubjectProgressChart 
+            subjectProgress={subjectProgress} 
+            isLoading={isLoading} 
+            language={language} 
+          />
         </TabsContent>
       </Tabs>
     </div>
