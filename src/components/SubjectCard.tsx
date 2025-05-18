@@ -1,5 +1,5 @@
 
-import { Book, BookOpen, Pencil } from 'lucide-react';
+import { FlaskConical, BookOpen, Number, Atom, Globe, Code, Languages, Music, Palette, GraduationCap, Calendar, PencilRuler, BookOpenCheck } from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -27,12 +27,12 @@ const subjectConfig = {
   math: {
     title: 'Mathematics',
     description: {
-      'k-3': 'Learn numbers, counting, shapes, and basic addition!',
-      '4-6': 'Explore fractions, decimals, multiplication, and division!',
-      '7-9': 'Master algebra, geometry, and mathematical reasoning!',
+      'k-3': 'Learn numbers, counting, shapes, and basic addition! Ages 5-8',
+      '4-6': 'Explore fractions, decimals, multiplication, and division! Ages 9-11',
+      '7-9': 'Master algebra, geometry, and mathematical reasoning! Ages 12-15',
     },
     color: 'bg-eduPastel-blue',
-    icon: BookOpen,
+    icon: Number,
     progress: {
       'k-3': 30,
       '4-6': 20,
@@ -47,12 +47,12 @@ const subjectConfig = {
   english: {
     title: 'English',
     description: {
-      'k-3': 'Learn letters, sounds, reading, and basic vocabulary!',
-      '4-6': 'Explore grammar, writing stories, and reading comprehension!',
-      '7-9': 'Master essays, literature analysis, and advanced grammar!',
+      'k-3': 'Learn letters, sounds, reading, and basic vocabulary! Ages 5-8',
+      '4-6': 'Explore grammar, writing stories, and reading comprehension! Ages 9-11',
+      '7-9': 'Master essays, literature analysis, and advanced grammar! Ages 12-15',
     },
     color: 'bg-eduPastel-green',
-    icon: Book,
+    icon: BookOpenCheck,
     progress: {
       'k-3': 40,
       '4-6': 25,
@@ -67,12 +67,12 @@ const subjectConfig = {
   science: {
     title: 'Science',
     description: {
-      'k-3': 'Discover plants, animals, weather, and our five senses!',
-      '4-6': 'Explore habitats, simple machines, and the water cycle!',
-      '7-9': 'Investigate chemistry, physics, and biology concepts!',
+      'k-3': 'Discover plants, animals, weather, and our five senses! Ages 5-8',
+      '4-6': 'Explore habitats, simple machines, and the water cycle! Ages 9-11',
+      '7-9': 'Investigate chemistry, physics, and biology concepts! Ages 12-15',
     },
     color: 'bg-eduPastel-peach',
-    icon: Pencil,
+    icon: Atom,
     progress: {
       'k-3': 20,
       '4-6': 15,
@@ -87,12 +87,12 @@ const subjectConfig = {
   history: {
     title: 'History',
     description: {
-      'k-3': 'Discover historical figures, events, and traditions!',
-      '4-6': 'Explore ancient civilizations, important events, and cultural history!',
-      '7-9': 'Master historical analysis, world wars, and modern history!',
+      'k-3': 'Discover historical figures, events, and traditions! Ages 5-8',
+      '4-6': 'Explore ancient civilizations, important events, and cultural history! Ages 9-11',
+      '7-9': 'Master historical analysis, world wars, and modern history! Ages 12-15',
     },
     color: 'bg-eduPastel-yellow',
-    icon: Book,
+    icon: BookOpen,
     progress: {
       'k-3': 15,
       '4-6': 22,
@@ -107,12 +107,12 @@ const subjectConfig = {
   computer: {
     title: 'Computer Science',
     description: {
-      'k-3': 'Learn basic coding, digital safety, and technology basics!',
-      '4-6': 'Explore programming, digital skills, and simple algorithms!',
-      '7-9': 'Master coding languages, web development, and computational thinking!',
+      'k-3': 'Learn basic coding, digital safety, and technology basics! Ages 5-8',
+      '4-6': 'Explore programming, digital skills, and simple algorithms! Ages 9-11',
+      '7-9': 'Master coding languages, web development, and computational thinking! Ages 12-15',
     },
     color: 'bg-eduPastel-purple',
-    icon: BookOpen,
+    icon: Code,
     progress: {
       'k-3': 10,
       '4-6': 15,
@@ -127,12 +127,12 @@ const subjectConfig = {
   art: {
     title: 'Art',
     description: {
-      'k-3': 'Express creativity through drawing, coloring, and crafts!',
-      '4-6': 'Explore different art mediums, techniques, and famous artists!',
-      '7-9': 'Master advanced art techniques, art history, and personal style!',
+      'k-3': 'Express creativity through drawing, coloring, and crafts! Ages 5-8',
+      '4-6': 'Explore different art mediums, techniques, and famous artists! Ages 9-11',
+      '7-9': 'Master advanced art techniques, art history, and personal style! Ages 12-15',
     },
     color: 'bg-eduPastel-red',
-    icon: Pencil,
+    icon: Palette,
     progress: {
       'k-3': 25,
       '4-6': 18,
@@ -147,12 +147,12 @@ const subjectConfig = {
   music: {
     title: 'Music',
     description: {
-      'k-3': 'Explore rhythm, simple songs, and musical instruments!',
-      '4-6': 'Learn musical notation, instrumental basics, and music appreciation!',
-      '7-9': 'Develop music theory knowledge, composition, and performance skills!',
+      'k-3': 'Explore rhythm, simple songs, and musical instruments! Ages 5-8',
+      '4-6': 'Learn musical notation, instrumental basics, and music appreciation! Ages 9-11',
+      '7-9': 'Develop music theory knowledge, composition, and performance skills! Ages 12-15',
     },
     color: 'bg-eduPastel-blue',
-    icon: Book,
+    icon: Music,
     progress: {
       'k-3': 30,
       '4-6': 20,
@@ -167,12 +167,12 @@ const subjectConfig = {
   geography: {
     title: 'Geography',
     description: {
-      'k-3': 'Explore maps, landforms, and community locations!',
-      '4-6': 'Learn about continents, countries, and natural wonders!',
-      '7-9': 'Study climates, cultures, and global geography concepts!',
+      'k-3': 'Explore maps, landforms, and community locations! Ages 5-8',
+      '4-6': 'Learn about continents, countries, and natural wonders! Ages 9-11',
+      '7-9': 'Study climates, cultures, and global geography concepts! Ages 12-15',
     },
     color: 'bg-eduPastel-green',
-    icon: BookOpen,
+    icon: Globe,
     progress: {
       'k-3': 15,
       '4-6': 25,
@@ -187,12 +187,12 @@ const subjectConfig = {
   social: {
     title: 'Social Studies',
     description: {
-      'k-3': 'Learn about communities, families, and diversity!',
-      '4-6': 'Explore citizenship, government, and cultural traditions!',
-      '7-9': 'Master civic responsibility, global relationships, and economics!',
+      'k-3': 'Learn about communities, families, and diversity! Ages 5-8',
+      '4-6': 'Explore citizenship, government, and cultural traditions! Ages 9-11',
+      '7-9': 'Master civic responsibility, global relationships, and economics! Ages 12-15',
     },
     color: 'bg-eduPastel-yellow',
-    icon: Book,
+    icon: GraduationCap,
     progress: {
       'k-3': 35,
       '4-6': 20,

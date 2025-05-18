@@ -2,11 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { studentProgressService, StudentProgress, LearningActivity } from '@/services/studentProgressService';
+import { studentProgressService, StudentProgress, LearningActivity, AISummaryReport } from '@/services/studentProgressService';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line } from 'recharts';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Spinner } from '@/components/ui/spinner';
-import { Filter, Calendar, Clock, BookOpen, Award } from 'lucide-react';
+import { Filter, Calendar, Clock, BookOpen, Award, Brain, ChartPieIcon, TrendingUp } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Select,
@@ -15,6 +15,9 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { useStudentProfile } from '@/contexts/StudentProfileContext';
+import { toast } from 'sonner';
 
 interface StudentProgressSummaryProps {
   studentId: string;
@@ -26,13 +29,45 @@ const StudentProgressSummary: React.FC<StudentProgressSummaryProps> = ({ student
   const [progressData, setProgressData] = useState<StudentProgress[]>([]);
   const [filteredData, setFilteredData] = useState<StudentProgress[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAIReportLoading, setIsAIReportLoading] = useState(false);
   const [subjectFilter, setSubjectFilter] = useState<string>('all');
   const [activeTab, setActiveTab] = useState('overview');
-  const [activitiesData, setActivitiesData] = useState<LearningActivity[]>([]);  const [streakData, setStreakData] = useState<{day: string; count: number}[]>([]);
+  const [activitiesData, setActivitiesData] = useState<LearningActivity[]>([]);
+  const [streakData, setStreakData] = useState<{day: string; count: number}[]>([]);
   const [timeSpentData, setTimeSpentData] = useState<{day: string; minutes: number}[]>([]);
   const [completionData, setCompletionData] = useState<{subject: string; lessons: number; quizzes: number; total: number; completed: number; timeSpent: number}[]>([]);
   const [currentStreak, setCurrentStreak] = useState<number>(0);
+  const [aiReport, setAiReport] = useState<AISummaryReport | null>(null);
   const { language } = useLanguage();
+  const { selectedProfile } = useStudentProfile();
+
+  // Fetch AI Summary Report
+  const fetchAISummaryReport = async (forceRefresh = false) => {
+    if (!studentId || !selectedProfile?.gradeLevel || !selectedProfile?.name) return;
+    
+    setIsAIReportLoading(true);
+    try {
+      console.log(`Fetching AI report for student ${studentId}, grade ${selectedProfile.gradeLevel}, name ${selectedProfile.name}`);
+      const report = await studentProgressService.getAISummaryReport(
+        studentId, 
+        selectedProfile.gradeLevel, 
+        selectedProfile.name,
+        forceRefresh
+      );
+      
+      if (report) {
+        console.log("Successfully fetched AI report:", report);
+        setAiReport(report);
+      } else {
+        console.error("Failed to fetch AI report - no data returned");
+      }
+    } catch (error) {
+      console.error("Error fetching AI report:", error);
+    } finally {
+      setIsAIReportLoading(false);
+    }
+  };
+
   // Process real data to derive statistics
   const processActivitiesData = (activities: LearningActivity[]) => {
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -175,7 +210,8 @@ const StudentProgressSummary: React.FC<StudentProgressSummaryProps> = ({ student
       setProgressData(data);
       setFilteredData(data);
       setActivitiesData(activities);
-        // Process activities to generate real metrics
+      
+      // Process activities to generate real metrics
       const { streakData: realStreakData, timeSpentData: realTimeData, completionData: realCompletionData, currentStreak: realStreak } = 
         processActivitiesData(activities);
       
@@ -185,12 +221,15 @@ const StudentProgressSummary: React.FC<StudentProgressSummaryProps> = ({ student
       setCurrentStreak(realStreak);
       
       setIsLoading(false);
+      
+      // Fetch AI report last, after basic data is loaded
+      fetchAISummaryReport();
     };
     
     if (studentId) {
       fetchProgress();
     }
-  }, [studentId]);
+  }, [studentId, selectedProfile]);
   
   // Apply filtering
   useEffect(() => {
@@ -215,13 +254,24 @@ const StudentProgressSummary: React.FC<StudentProgressSummaryProps> = ({ student
   
   // Get unique subjects for filter
   const subjects = Array.from(new Set(progressData.map(item => item.subject)));
-    return (
+
+  // Handle refresh of AI report
+  const handleRefreshAIReport = () => {
+    toast.info(language === 'id' ? 'Menyegarkan laporan AI...' : 'Refreshing AI report...');
+    fetchAISummaryReport(true);
+  };
+
+  return (
     <div className="h-full">
       <Tabs defaultValue="overview" onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid grid-cols-4">
+        <TabsList className="grid grid-cols-5">
           <TabsTrigger value="overview" className="flex gap-1 items-center">
             <BookOpen className="h-4 w-4" />
             {language === 'id' ? 'Ikhtisar' : 'Overview'}
+          </TabsTrigger>
+          <TabsTrigger value="ai-report" className="flex gap-1 items-center">
+            <Brain className="h-4 w-4" />
+            {language === 'id' ? 'Laporan AI' : 'AI Report'}
           </TabsTrigger>
           <TabsTrigger value="completion" className="flex gap-1 items-center">
             <Award className="h-4 w-4" />
@@ -324,6 +374,170 @@ const StudentProgressSummary: React.FC<StudentProgressSummaryProps> = ({ student
               {language === 'id' 
                 ? 'Belum ada data kemajuan. Mulai belajar untuk melihat perkembangan!' 
                 : 'No progress data yet. Start learning to see your progress!'}
+            </div>
+          )}
+        </TabsContent>
+        
+        {/* AI Report Tab */}
+        <TabsContent value="ai-report">
+          <div className="mb-4 flex justify-between">
+            <div>
+              <h3 className="font-medium text-lg">
+                {language === 'id' ? 'Laporan Ringkasan AI' : 'AI Summary Report'}
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {language === 'id' ? 'Analisis kecerdasan buatan tentang kemajuan siswa' : 'Artificial intelligence analysis of student progress'}
+              </p>
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleRefreshAIReport}
+              disabled={isAIReportLoading}
+              className="flex items-center gap-1"
+            >
+              {isAIReportLoading ? <Spinner size="sm" /> : 
+                language === 'id' ? 'Segarkan Laporan' : 'Refresh Report'}
+            </Button>
+          </div>
+          
+          {isAIReportLoading ? (
+            <div className="flex justify-center items-center h-60">
+              <Spinner size="lg" />
+            </div>
+          ) : aiReport ? (
+            <div className="space-y-8">
+              {/* Overall Summary Card */}
+              <Card className="border-eduPurple/30">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Brain className="h-5 w-5 text-eduPurple" />
+                    {language === 'id' ? 'Ringkasan Keseluruhan' : 'Overall Summary'}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p>{aiReport.overallSummary}</p>
+                </CardContent>
+              </Card>
+              
+              {/* Strengths & Areas for Improvement */}
+              <div className="grid md:grid-cols-2 gap-4">
+                <Card className="border-green-300/50">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4 text-green-600" />
+                      {language === 'id' ? 'Kekuatan' : 'Strengths'}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="list-disc pl-5 space-y-1">
+                      {aiReport.strengths.map((strength, index) => (
+                        <li key={index} className="text-sm">{strength}</li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+                
+                <Card className="border-orange-300/50">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <ChartPieIcon className="h-4 w-4 text-orange-600" />
+                      {language === 'id' ? 'Area untuk Perbaikan' : 'Areas for Improvement'}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="list-disc pl-5 space-y-1">
+                      {aiReport.areasForImprovement.map((area, index) => (
+                        <li key={index} className="text-sm">{area}</li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              </div>
+              
+              {/* Activity Analysis */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">
+                    {language === 'id' ? 'Analisis Aktivitas' : 'Activity Analysis'}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm">{aiReport.activityAnalysis}</p>
+                </CardContent>
+              </Card>
+              
+              {/* Knowledge Growth Chart - if available */}
+              {aiReport.knowledgeGrowthChartData && aiReport.knowledgeGrowthChartData.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">
+                      {language === 'id' ? 'Pertumbuhan Pengetahuan' : 'Knowledge Growth'}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-60">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart
+                          data={aiReport.knowledgeGrowthChartData}
+                          margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                        >
+                          <XAxis dataKey="date" />
+                          <YAxis />
+                          <Tooltip />
+                          <Line 
+                            type="monotone" 
+                            name={language === 'id' ? "Skor" : "Score"} 
+                            dataKey="score" 
+                            stroke="#845EF7" 
+                            strokeWidth={2}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
+              {/* Recent Quiz Results - if available */}
+              {aiReport.quizReview && aiReport.quizReview.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">
+                      {language === 'id' ? 'Hasil Kuis Terbaru' : 'Recent Quiz Results'}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {aiReport.quizReview.map((quiz, qIndex) => (
+                      <div key={qIndex} className="mb-4 border-b pb-4 last:border-b-0 last:pb-0">
+                        <div className="flex justify-between mb-2">
+                          <span className="font-medium">{quiz.quizTitle}</span>
+                          <span className="text-sm">{quiz.score}/{quiz.maxScore} ({quiz.percentage}%)</span>
+                        </div>
+                        <ul className="space-y-1">
+                          {quiz.questions.map((q, i) => (
+                            <li key={i} className={`text-xs ${q.isCorrect ? 'text-green-600' : 'text-red-600'}`}>
+                              {q.questionText} - {q.isCorrect ? '✓' : '✗'}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+              
+              <div className="text-xs text-muted-foreground text-center">
+                {language === 'id' 
+                  ? `Laporan dibuat pada ${new Date(aiReport.generatedAt || '').toLocaleString()}` 
+                  : `Report generated on ${new Date(aiReport.generatedAt || '').toLocaleString()}`}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              {language === 'id' 
+                ? 'Belum ada laporan AI tersedia. Mulai belajar untuk mendapatkan wawasan AI!' 
+                : 'No AI report available yet. Start learning to get AI insights!'}
             </div>
           )}
         </TabsContent>

@@ -1,52 +1,53 @@
+
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
-import { BookOpen, Book, Pencil, Atom, Globe, Calculator, Code, Languages, Music, Palette, GraduationCap, Calendar } from "lucide-react";
+import { BookOpen, Number, FlaskConical, Atom, Globe, Calculator, Code, Languages, Music, Palette, GraduationCap, Calendar, BookOpenCheck, PencilRuler } from "lucide-react";
 
 const topics = [
   {
     id: 1,
     title: "Mathematics",
-    description: "Master algebra, geometry, and mathematical reasoning!",
+    description: "Master algebra, geometry, and mathematical reasoning! Ages 12-15",
     color: "bg-eduPastel-blue",
-    icon: Calculator,
+    icon: Number,
     lessons: ["Algebra Foundations", "Geometry Concepts", "Statistics"],
     progress: 20,
   },
   {
     id: 2,
     title: "English",
-    description: "Master essays, literature analysis, and advanced grammar!",
+    description: "Master essays, literature analysis, and advanced grammar! Ages 12-15",
     color: "bg-eduPastel-green",
-    icon: Book,
+    icon: BookOpenCheck,
     lessons: ["Essay Structure", "Literary Analysis", "Advanced Grammar"],
     progress: 35,
   },
   {
     id: 3,
     title: "Science",
-    description: "Investigate chemistry, physics, and biology concepts!",
+    description: "Investigate chemistry, physics, and biology concepts! Ages 12-15",
     color: "bg-eduPastel-peach",
-    icon: Atom,
+    icon: FlaskConical,
     lessons: ["Chemistry Basics", "Forces & Motion", "Cell Biology"],
     progress: 15,
   },
   {
     id: 4,
     title: "History",
-    description: "Explore ancient civilizations, world wars and global events!",
+    description: "Explore ancient civilizations, world wars and global events! Ages 12-15",
     color: "bg-eduPastel-yellow",
-    icon: Globe,
+    icon: BookOpen,
     lessons: ["Ancient Civilizations", "World Wars", "Modern History"],
     progress: 40,
   },
   {
     id: 5,
     title: "Computer Science",
-    description: "Learn programming, algorithms, and computational thinking!",
+    description: "Learn programming, algorithms, and computational thinking! Ages 12-15",
     color: "bg-eduPastel-purple",
     icon: Code,
     lessons: ["Programming Basics", "Data Structures", "Web Development"],
@@ -55,7 +56,7 @@ const topics = [
   {
     id: 6,
     title: "Foreign Languages",
-    description: "Master vocabulary, grammar and communication skills!",
+    description: "Master vocabulary, grammar and communication skills! Ages 12-15",
     color: "bg-eduPastel-blue",
     icon: Languages,
     lessons: ["Basic Vocabulary", "Grammar Rules", "Conversation Practice"],
@@ -64,7 +65,7 @@ const topics = [
   {
     id: 7,
     title: "Music",
-    description: "Study music theory, instruments, and composition!",
+    description: "Study music theory, instruments, and composition! Ages 12-15",
     color: "bg-eduPastel-green",
     icon: Music,
     lessons: ["Music Theory", "Instruments", "Music History"],
@@ -73,7 +74,7 @@ const topics = [
   {
     id: 8,
     title: "Art",
-    description: "Explore drawing techniques, art history, and creative expression!",
+    description: "Explore drawing techniques, art history, and creative expression! Ages 12-15",
     color: "bg-eduPastel-peach",
     icon: Palette,
     lessons: ["Drawing Basics", "Color Theory", "Art History"],
@@ -82,7 +83,7 @@ const topics = [
   {
     id: 9,
     title: "Geography",
-    description: "Discover continents, countries, and natural wonders!",
+    description: "Discover continents, countries, and natural wonders! Ages 12-15",
     color: "bg-eduPastel-yellow",
     icon: Globe,
     lessons: ["Continents", "Map Reading", "Physical Geography"],
@@ -91,7 +92,7 @@ const topics = [
   {
     id: 10,
     title: "Physical Education",
-    description: "Learn about fitness, sports, and healthy habits!",
+    description: "Learn about fitness, sports, and healthy habits! Ages 12-15",
     color: "bg-eduPastel-purple",
     icon: GraduationCap,
     lessons: ["Team Sports", "Fitness Basics", "Health & Nutrition"],
@@ -100,7 +101,7 @@ const topics = [
   {
     id: 11,
     title: "Social Studies",
-    description: "Explore communities, government, and cultural diversity!",
+    description: "Explore communities, government, and cultural diversity! Ages 12-15",
     color: "bg-eduPastel-blue",
     icon: BookOpen,
     lessons: ["Communities", "Government", "Cultural Studies"],
@@ -109,7 +110,7 @@ const topics = [
   {
     id: 12,
     title: "Life Skills",
-    description: "Develop organization, communication, and problem-solving skills!",
+    description: "Develop organization, communication, and problem-solving skills! Ages 12-15",
     color: "bg-eduPastel-green",
     icon: Calendar,
     lessons: ["Organization", "Communication", "Problem Solving"],

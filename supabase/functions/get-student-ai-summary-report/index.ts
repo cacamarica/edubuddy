@@ -88,20 +88,18 @@ async function mockAIService(
 serve(async (req) => {
   // Handle OPTIONS request for CORS preflight
   if (req.method === 'OPTIONS') {
-    console.log('Handling OPTIONS request for get-student-ai-summary-report'); // Added for debugging
-    // Using 204 No Content is a common practice for preflight responses
+    console.log('Handling OPTIONS request for get-student-ai-summary-report');
     return new Response(null, { 
       status: 204, 
       headers: corsHeaders 
     });
   }
 
-  // For any other request type, apply CORS headers to all responses
   try {
     const { studentId, gradeLevel, studentName, forceRefresh } = await req.json();
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
-
+    
+    console.log(`Processing request for student: ${studentId}, grade: ${gradeLevel}, name: ${studentName}, forceRefresh: ${forceRefresh}`);
+    
     if (!studentId || !gradeLevel) {
       return new Response(
         JSON.stringify({ error: "studentId and gradeLevel are required" }),
@@ -109,135 +107,21 @@ serve(async (req) => {
       );
     }
 
-    if (!supabaseUrl || !supabaseAnonKey) {
-      return new Response(
-        JSON.stringify({ error: "Supabase environment variables not set" }),
-        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-    let reportToReturn: AISummaryReport | null = null;
-    const reportStalenessThresholdHours = 24; // Regenerate if older than 24 hours or new activity
-
-    if (!forceRefresh) {
-      // 1. Check for an existing, up-to-date report
-      const { data: existingReportData, error: existingReportError } = await supabase
-        .from("ai_student_reports")
-        .select("id, report_data, last_activity_timestamp_at_generation, generated_at, grade_level")
-        .eq("student_id", studentId)
-        .eq("grade_level", gradeLevel) // Ensure grade level matches
-        .order("generated_at", { ascending: false })
-        .limit(1)
-        .single();
-
-      if (existingReportError && existingReportError.code !== 'PGRST116') { // PGRST116: single row not found
-        console.error("Error fetching existing report:", existingReportError);
-        // Potentially return error, or proceed to generate new one
-      }
-
-      if (existingReportData) {
-        const report = existingReportData.report_data as AISummaryReport;
-        report.reportId = existingReportData.id; // Add reportId
-        const reportGeneratedAt = new Date(existingReportData.generated_at);
-        const now = new Date();
-        const reportAgeHours = (now.getTime() - reportGeneratedAt.getTime()) / (1000 * 60 * 60);
-
-        // Check for new student activity (e.g., last quiz attempt)
-        // This is a simplified check. A more robust solution might involve a dedicated 'last_activity' table or more complex queries.
-        const { data: latestActivity, error: activityError } = await supabase
-          .from("student_quiz_attempts") // Assuming this table exists and has student_id and attempted_at
-          .select("attempted_at")
-          .eq("student_id", studentId)
-          .order("attempted_at", { ascending: false })
-          .limit(1)
-          .single();
-        
-        let isStaleByActivity = false;
-        if (activityError && activityError.code !== 'PGRST116') {
-            console.warn("Could not fetch latest activity to check staleness:", activityError.message);
-        } else if (latestActivity && existingReportData.last_activity_timestamp_at_generation) {
-            if (new Date(latestActivity.attempted_at) > new Date(existingReportData.last_activity_timestamp_at_generation)) {
-                isStaleByActivity = true;
-                console.log(`Report for student ${studentId} is stale due to new activity.`);
-            }
-        } else if (latestActivity && !existingReportData.last_activity_timestamp_at_generation) {
-            // Report exists but no last_activity_timestamp, consider it stale if there's any activity
-            isStaleByActivity = true;
-            console.log(`Report for student ${studentId} is stale (no previous activity timestamp, but new activity found).`);
-        }
-
-        if (reportAgeHours < reportStalenessThresholdHours && !isStaleByActivity) {
-          console.log(`Returning existing report for student ${studentId}, generated at ${reportGeneratedAt.toISOString()}`);
-          reportToReturn = report;
-        } else {
-          console.log(`Existing report for student ${studentId} is stale (age: ${reportAgeHours.toFixed(1)}h, new_activity_staleness: ${isStaleByActivity}). Regenerating.`);
-        }
-      }
-    }
-
-    if (!reportToReturn) {
-      // 2. Fetch recent activity (mocked for now, replace with actual DB queries)
-      // For a real implementation, you'd query student_quiz_attempts, lesson_completions, etc.
-      const recentActivityData: any[] = []; // Placeholder
-
-      // 3. Call AI service
-      console.log(`Generating new AI summary report for student ${studentId}, grade ${gradeLevel}.`);
-      const newReport = await mockAIService(studentId, gradeLevel, studentName, recentActivityData);
-      newReport.generatedAt = new Date().toISOString(); // Ensure generatedAt is set
-
-      // 4. Store new/updated report
-      // Determine the latest activity timestamp to store with the report
-      // This should be the timestamp of the most recent data point used to generate the report
-      let currentLastActivityTimestamp = new Date(0).toISOString(); // Default to epoch if no activity
-      const { data: latestActivityForStorage, error: latestActivityErrorStorage } = await supabase
-        .from("student_quiz_attempts")
-        .select("attempted_at")
-        .eq("student_id", studentId)
-        .order("attempted_at", { ascending: false })
-        .limit(1)
-        .single();
-
-      if (latestActivityErrorStorage && latestActivityErrorStorage.code !== 'PGRST116') {
-        console.warn("Could not fetch latest activity timestamp for storage:", latestActivityErrorStorage.message);
-      } else if (latestActivityForStorage) {
-        currentLastActivityTimestamp = latestActivityForStorage.attempted_at;
-      }
-      
-      const { data: upsertedReport, error: upsertError } = await supabase
-        .from("ai_student_reports")
-        .upsert({
-          student_id: studentId,
-          report_data: newReport,
-          last_activity_timestamp_at_generation: currentLastActivityTimestamp, 
-          generated_at: newReport.generatedAt,
-          grade_level: gradeLevel,
-        }, { 
-            onConflict: 'student_id, grade_level', // Uses the unique constraint we created
-        })
-        .select("id") // Return the ID of the upserted row
-        .single();
-
-      if (upsertError) {
-        console.error("Error storing new AI report:", upsertError);
-        // Decide if to return the newReport even if storage failed, or an error
-        return new Response(
-          JSON.stringify({ error: "Failed to store AI report", details: upsertError.message }),
-          { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
-        );
-      }
-      
-      if (upsertedReport) {
-        newReport.reportId = upsertedReport.id; // Add the new report's ID
-      }
-      reportToReturn = newReport;
-    }
-
-    // 5. Return the report
+    // Generate a simple mock report without using the database
+    // This is a temporary solution to bypass the current DB issues
+    console.log(`Generating basic mock report for student ${studentId}, grade ${gradeLevel}`);
+    const newReport = await mockAIService(studentId, gradeLevel, studentName, []);
+    
     return new Response(
-      JSON.stringify(reportToReturn),
-      { headers: { "Content-Type": "application/json", "Cache-Control": "no-cache", ...corsHeaders } } 
+      JSON.stringify(newReport),
+      { 
+        status: 200,
+        headers: { 
+          "Content-Type": "application/json", 
+          "Cache-Control": "no-cache", 
+          ...corsHeaders 
+        } 
+      }
     );
 
   } catch (error) {

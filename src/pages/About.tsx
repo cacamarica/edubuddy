@@ -42,10 +42,42 @@ const About = () => {
                   This platform was dreamed up by an 11-year-old 4th grader named Danish Adlanahza Hartono. Danish noticed something troubling: many kids today are more excited about mobile games than learning new things. While games are fun, Danish believes that too much screen time without learning can lead to what he calls "brainrot" — where our minds forget how to grow and explore.
                 </p>
                 <p>
-                  That's why this educational platform was born — a fun, smart, and interactive learning space made by a kid, for kids. It helps students from ages 5 to 15 learn useful subjects like Math, Science, and English, all through games, quizzes, and exciting AI-powered lessons.
+                  That's why this educational platform was born — a fun, smart, and interactive learning space made by a kid, for kids. It helps students learn useful subjects like Math, Science, and English, all through games, quizzes, and exciting AI-powered lessons.
                 </p>
                 <p>
                   But it's not just for kids — it's also built for the new generation of parents. Using AI, parents and teachers can monitor each child's progress, see detailed reports, and understand how their kids are learning — almost like having a virtual teacher assistant by their side!
+                </p>
+              </CardContent>
+            </Card>
+            
+            {/* Educational levels info */}
+            <Card className="mb-8 overflow-hidden">
+              <div className="bg-eduPastel-green p-6">
+                <h2 className="text-2xl font-display font-bold flex items-center gap-2">
+                  <BookOpen className="h-6 w-6 text-eduPurple" />
+                  Our Educational Levels
+                </h2>
+              </div>
+              <CardContent className="p-6 text-lg space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="p-4 bg-eduPastel-blue/20 rounded-lg">
+                    <h3 className="text-xl font-bold text-eduPurple mb-2">K-3 (Ages 5-8)</h3>
+                    <p>Early learning concepts focused on building fundamental knowledge through interactive and playful activities. Perfect for kindergarten through 3rd grade students just starting their educational journey.</p>
+                  </div>
+                  
+                  <div className="p-4 bg-eduPastel-green/20 rounded-lg">
+                    <h3 className="text-xl font-bold text-eduPurple mb-2">4-6 (Ages 9-11)</h3>
+                    <p>Intermediate learning that builds on basics while introducing more complex topics. Designed for 4th through 6th grade students who are developing critical thinking and independent learning skills.</p>
+                  </div>
+                  
+                  <div className="p-4 bg-eduPastel-peach/20 rounded-lg">
+                    <h3 className="text-xl font-bold text-eduPurple mb-2">7-9 (Ages 12-15)</h3>
+                    <p>Advanced concepts that prepare students for higher education. Created for 7th through 9th grade students who are ready for more challenging material and deeper understanding of subjects.</p>
+                  </div>
+                </div>
+                
+                <p className="text-center font-medium text-eduPurple">
+                  Each level is carefully designed with age-appropriate content, vocabulary, and learning approaches to ensure the best possible educational experience!
                 </p>
               </CardContent>
             </Card>
