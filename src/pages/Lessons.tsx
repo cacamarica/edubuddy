@@ -1,10 +1,9 @@
-
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import GradeSelector from '@/components/GradeSelector';
 import SubjectCard from '@/components/SubjectCard';
 import TopicCarousel from '@/components/TopicCarousel';
-import { Student, StudentProfile, convertToStudent, Subject } from '@/types/learning';
+import { Student, StudentProfile, convertToStudent } from '@/types/learning';
 import { useStudentProfile } from '@/contexts/StudentProfileContext';
 
 // Mock data for subjects
@@ -129,10 +128,10 @@ const Lessons = () => {
       ) : (
         <TopicCarousel
           gradeLevel={selectedGradeLevel}
-          onSelectTopic={handleTopicSelect}
-          onBackClick={handleBackClick}
           subjectName={selectedSubject}
           topicList={topics[selectedSubject] || []}
+          onSelectTopic={handleTopicSelect}
+          onBackClick={handleBackClick}
           currentGrade={selectedGradeLevel}
         />
       )}

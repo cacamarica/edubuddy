@@ -10,7 +10,7 @@ export interface TopicCarouselProps {
   topicList: string[];
   onSelectTopic: (topic: string) => void;
   onBackClick: () => void;
-  currentGrade: 'k-3' | '4-6' | '7-9';
+  currentGrade?: 'k-3' | '4-6' | '7-9';
 }
 
 const TopicCarousel: React.FC<TopicCarouselProps> = ({
@@ -22,6 +22,7 @@ const TopicCarousel: React.FC<TopicCarouselProps> = ({
   currentGrade,
 }) => {
   const subjectDisplayName = subjectName.charAt(0).toUpperCase() + subjectName.slice(1);
+  const displayGrade = currentGrade || gradeLevel;
   
   return (
     <div className="space-y-6">
@@ -36,7 +37,7 @@ const TopicCarousel: React.FC<TopicCarouselProps> = ({
           <span>Back to Subjects</span>
         </Button>
         <h2 className="text-xl font-medium">
-          {subjectDisplayName} Topics for {gradeLevel === 'k-3' ? 'K-3rd' : gradeLevel === '4-6' ? '4-6th' : '7-9th'} Grade
+          {subjectDisplayName} Topics for {displayGrade === 'k-3' ? 'K-3rd' : displayGrade === '4-6' ? '4-6th' : '7-9th'} Grade
         </h2>
       </div>
       
@@ -50,7 +51,7 @@ const TopicCarousel: React.FC<TopicCarouselProps> = ({
             <CardHeader className="pb-2">
               <CardTitle className="text-lg">{topic}</CardTitle>
               <CardDescription>
-                {subjectDisplayName} - {gradeLevel === 'k-3' ? 'K-3rd' : gradeLevel === '4-6' ? '4-6th' : '7-9th'} Grade
+                {subjectDisplayName} - {displayGrade === 'k-3' ? 'K-3rd' : displayGrade === '4-6' ? '4-6th' : '7-9th'} Grade
               </CardDescription>
             </CardHeader>
             <CardContent>

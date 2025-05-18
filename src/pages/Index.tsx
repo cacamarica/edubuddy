@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -12,6 +11,7 @@ import { useNavigate } from 'react-router-dom';
 const Index = () => {
   const navigate = useNavigate();
   const [showWelcome, setShowWelcome] = useState(true);
+  const [selectedGradeLevel, setSelectedGradeLevel] = useState<'k-3' | '4-6' | '7-9'>('k-3');
   
   useEffect(() => {
     // Welcome toast on first visit
@@ -123,7 +123,10 @@ const Index = () => {
         {/* Grade Selector Section */}
         <section id="grade-selector" className="py-12 bg-eduPastel-gray">
           <div className="container px-4 md:px-6">
-            <GradeSelector />
+            <GradeSelector 
+              selectedGradeLevel={selectedGradeLevel}
+              onGradeChange={setSelectedGradeLevel}
+            />
           </div>
         </section>
         
