@@ -1,5 +1,5 @@
 
-// Add student types
+// Student types
 export interface Student {
   id: string;
   name: string;
@@ -17,7 +17,7 @@ export interface StudentProfile {
   parentId: string;
   createdAt: string;
   avatarUrl?: string;
-  age?: number; // Added age to match Student interface
+  age?: number;
 }
 
 // Helper function to convert between formats
@@ -45,7 +45,7 @@ export function convertToStudentProfile(student: Student): StudentProfile {
   };
 }
 
-// Define Subject interface
+// Subject interface for consistency
 export interface Subject {
   id: string;
   name: string;

@@ -15,14 +15,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-
-interface Student {
-  id: string;
-  name: string;
-  age: number;
-  gradeLevel: 'k-3' | '4-6' | '7-9';
-  avatar?: string;
-}
+import { Student } from '@/types/learning';
 
 const AILearning = () => {
   const location = useLocation();
@@ -373,7 +366,6 @@ const AILearning = () => {
             <div className="container px-4 md:px-6">
               <StudentProfile 
                 student={currentStudent || undefined} 
-                onStudentChange={handleStudentChange}
                 currentStudentId={currentStudent?.id}
               />
             </div>
@@ -387,7 +379,12 @@ const AILearning = () => {
                 {!currentStudent && !isLoadingStudents && (
                   <div className="md:col-span-3">
                     <StudentProfile 
-                      onStudentChange={handleStudentChange}
+                      onStudentChange={(student) => handleStudentChange({
+                        ...student,
+                        grade_level: student.grade_level || 'k-3',
+                        parent_id: student.parent_id || '',
+                        created_at: student.created_at || new Date().toISOString()
+                      })}
                     />
                   </div>
                 )}

@@ -1,3 +1,4 @@
+
 import { FlaskConical, BookOpen, Calculator, Atom, Globe, Code, Languages, Music, Palette, GraduationCap, Calendar, PencilRuler, BookOpenCheck } from 'lucide-react';
 import {
   Card,
@@ -12,12 +13,12 @@ import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { studentProgressService } from '@/services/studentProgressService';
-import { Subject } from '@/types/learning';
+import { Subject as LearningSubject } from '@/types/learning';
 
-type Subject = 'math' | 'english' | 'science' | 'history' | 'computer' | 'art' | 'music' | 'geography' | 'social';
+type SubjectId = 'math' | 'english' | 'science' | 'history' | 'computer' | 'art' | 'music' | 'geography' | 'social';
 
 interface SubjectCardProps {
-  subject: string | Subject;
+  subject: string | LearningSubject;
   gradeLevel?: 'k-3' | '4-6' | '7-9';
   hasProgress?: boolean;
   studentId?: string;

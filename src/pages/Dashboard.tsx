@@ -14,6 +14,7 @@ import StudentAchievements from '@/components/DashboardComponents/StudentAchieve
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { Spinner } from '@/components/ui/spinner';
 import { useStudentProfile } from '@/contexts/StudentProfileContext';
+import { Student, StudentProfile as StudentProfileType, convertToStudent } from '@/types/learning';
 
 // Import our new enhanced components
 import EnhancedRecentActivities from '@/components/DashboardComponents/EnhancedRecentActivities';

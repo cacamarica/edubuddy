@@ -11,6 +11,7 @@ import StudentProfile from '@/components/StudentProfile';
 import { toast } from 'sonner';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { useNavigate } from 'react-router-dom';
+import { Student } from '@/types/learning';
 
 // Fallback component to show when StudentProfile fails to load
 const StudentProfileFallback = () => {
@@ -45,14 +46,15 @@ const MOCK_STUDENT = {
   auth_id: "auth-user-id",
 };
 
-// Interface for student data
+// Update the StudentData interface to match Student interface:
 interface StudentData {
   id: string;
   name: string;
   age?: number;
-  grade_level?: string;
+  grade_level: string;
+  parent_id: string;
+  created_at: string;
   auth_id?: string;
-  [key: string]: any;
 }
 
 const StudentProfilePage = () => {
@@ -135,7 +137,7 @@ const StudentProfilePage = () => {
                 </div>              ) : studentData ? (
                 <ErrorBoundary fallback={<StudentProfileFallback />}>
                   <StudentProfile 
-                    student={studentData} 
+                    student={studentData as Student} 
                     readOnly={true} /* Student views their own profile in read-only mode */
                   />
                 </ErrorBoundary>
