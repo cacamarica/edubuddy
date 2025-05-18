@@ -67,6 +67,8 @@ export interface AIRecommendation {
   created_at: string;
   read: boolean;
   acted_on: boolean;
+  reason?: string;
+  learning_impact?: string;
 }
 
 export interface AIRecommendationData {
@@ -74,6 +76,9 @@ export interface AIRecommendationData {
   recommendation: string;
   recommendation_type: string;
   read?: boolean;
+  acted_on?: boolean;
+  reason?: string;
+  learning_impact?: string;
 }
 
 export interface DetailedQuizAttempt {
@@ -371,7 +376,9 @@ export const studentProgressService = {
           recommendation: data.recommendation,
           recommendation_type: data.recommendation_type,
           read: data.read || false,
-          acted_on: false
+          acted_on: data.acted_on || false,
+          reason: data.reason || null,
+          learning_impact: data.learning_impact || null
         }]);
         
       if (error) {
