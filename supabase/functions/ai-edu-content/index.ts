@@ -1,7 +1,45 @@
-
+// NOTE: This file is designed to run in Supabase Edge Functions with Deno runtime
+// These imports and globals won't be recognized in a regular Node.js environment 
+// but will work correctly when deployed to Supabase
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+// TypeScript interfaces to fix type errors 
+interface RequestData {
+  contentType: 'lesson' | 'quiz' | 'game' | 'buddy';
+  subject?: string;
+  gradeLevel?: 'k-3' | '4-6' | '7-9';
+  topic?: string;
+  question?: string;
+  includeImages?: boolean;
+  language?: 'en' | 'id';
+  imageStyle?: string;
+}
+
+interface OpenAIResponse {
+  choices: Array<{
+    message: {
+      content: string;
+    };
+  }>;
+  [key: string]: any;
+}
+
+// Define content interfaces to improve type safety
+interface LessonContent {
+  title?: string;
+  introduction?: string;
+  mainContent?: Array<any>;
+  funFacts?: Array<string>;
+  activity?: {
+    title?: string;
+    instructions?: string;
+    image?: any;
+  };
+  questions?: Array<any>;
+  [key: string]: any;
+}
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -229,7 +267,7 @@ serve(async (req) => {
   }
 
   try {
-    const requestData = await req.json();
+    const requestData = await req.json() as RequestData;
     const { 
       contentType, 
       subject, 
@@ -259,19 +297,19 @@ serve(async (req) => {
           Create an engaging, age-appropriate lesson about ${topic} in ${subject}. 
           Use simple language for K-3, more detailed explanations for 4-6, and deeper concepts for 7-9.
           
-          The lesson should be comprehensive and take about 10-15 minutes to read through.
+          The lesson should be comprehensive and take about 60-90 minutes to read through and engage with.
           
           Format as JSON with these sections:
           - title: A catchy, engaging title for the lesson
           - introduction: A brief, engaging introduction to the topic
-          - mainContent: An array of 5-7 detailed sections, each with:
+          - mainContent: An array of 10-15 detailed sections, each with:
             - heading: A clear section heading
-            - text: Detailed, age-appropriate explanation (300-500 words per section)
+            - text: Detailed, age-appropriate explanation (400-600 words per section)
             - image (optional): Object with suggested image description if you want an image for this section
-          - funFacts: Array of 5 interesting facts related to the topic
+          - funFacts: Array of 8-10 interesting facts related to the topic
           - activity: Object with title and instructions for a hands-on activity
-          - conclusion: A brief summary of what was learned
-          - summary: A concise summary of the key points
+          - conclusion: A thorough conclusion tying everything together (250-350 words)
+          - summary: A comprehensive summary of key points (300-400 words)
           
           Make the content educational, engaging, and rich in detail. Include examples, analogies, and real-world connections appropriate for the age group.
           
@@ -281,19 +319,19 @@ serve(async (req) => {
           Buatlah pelajaran yang menarik dan sesuai usia tentang ${topic} dalam ${subject}.
           Gunakan bahasa sederhana untuk K-3, penjelasan lebih detail untuk 4-6, dan konsep yang lebih mendalam untuk 7-9.
           
-          Pelajaran harus komprehensif dan membutuhkan sekitar 10-15 menit untuk dibaca.
+          Pelajaran harus komprehensif dan membutuhkan sekitar 60-90 menit untuk dibaca dan dipahami.
           
           Format sebagai JSON dengan bagian-bagian berikut:
           - title: Judul yang menarik untuk pelajaran
           - introduction: Pengantar singkat dan menarik tentang topik
-          - mainContent: Array dari 5-7 bagian detail, masing-masing dengan:
+          - mainContent: Array dari 10-15 bagian detail, masing-masing dengan:
             - heading: Judul bagian yang jelas
-            - text: Penjelasan sesuai usia yang detail (300-500 kata per bagian)
+            - text: Penjelasan sesuai usia yang detail (400-600 kata per bagian)
             - image (opsional): Objek dengan deskripsi gambar yang disarankan jika Anda ingin gambar untuk bagian ini
-          - funFacts: Array dari 5 fakta menarik terkait topik
+          - funFacts: Array dari 8-10 fakta menarik terkait topik
           - activity: Objek dengan judul dan instruksi untuk aktivitas praktis
-          - conclusion: Ringkasan singkat tentang apa yang telah dipelajari
-          - summary: Ringkasan singkat dari poin-poin utama
+          - conclusion: Ringkasan menyeluruh yang mengikat semua konten (250-350 kata)
+          - summary: Ringkasan komprehensif dari poin-poin utama (300-400 kata)
           
           Buatlah konten yang mendidik, menarik, dan kaya detail. Sertakan contoh, analogi, dan koneksi dunia nyata yang sesuai untuk kelompok usia tersebut.
           
@@ -404,12 +442,13 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4o',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userContent }
         ],
         temperature: 0.7,
+        max_tokens: 7000,
       }),
     });
 
@@ -419,7 +458,7 @@ serve(async (req) => {
       throw new Error(`OpenAI API error: ${response.status}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as OpenAIResponse;
     let content = data.choices[0].message.content;
     
     // Process the response based on content type
@@ -431,6 +470,8 @@ serve(async (req) => {
     } else {
       // For other content types, try to parse JSON
       try {
+        let parsedContent: LessonContent | null = null;
+        
         if (typeof content === 'string') {
           // Extract JSON if it's wrapped in markdown code blocks
           if (content.includes('```json')) {
@@ -442,16 +483,51 @@ serve(async (req) => {
           
           // Try to parse JSON
           try {
-            content = JSON.parse(content);
+            parsedContent = JSON.parse(content);
           } catch (parseError) {
             console.error('JSON parse error:', parseError);
             // If JSON parsing fails, structure the content properly
-            if (contentType === 'quiz' && typeof content === 'string') {
+            if (contentType === 'quiz') {
               // For quiz, create a fallback structure with the content as text
-              content = { questions: [] };
+              parsedContent = { questions: [] };
             }
           }
+        } else {
+          // Content is already parsed
+          parsedContent = content as LessonContent;
+        }
+        
+        // Add images to content if requested
+        if (includeImages && contentType === 'lesson' && parsedContent) {
+          // Add images to each section if mainContent exists
+          if (parsedContent.mainContent && Array.isArray(parsedContent.mainContent)) {
+            parsedContent.mainContent = parsedContent.mainContent.map((section: any) => {
+              // Create a contextual image for each section based on its heading and content
+              let imageObj;
+              
+              if (section.image && section.image.description) {
+                // Convert the description to a proper image URL with context
+                imageObj = convertImageDescription(section.image.description, subject || '', topic || '', section.heading);
+              } else if (section.image && typeof section.image === 'string') {
+                // Convert the string to a proper image URL with context
+                imageObj = convertImageDescription(section.image, subject || '', topic || '', section.heading);
+              } else {
+                // Create a new image based on section heading and topic
+                imageObj = getRandomImage(subject || '', section.heading, `Image illustrating ${section.heading} in ${topic || ''}`);
+              }
+              
+              return {
+                ...section,
+                image: imageObj
+              };
+            });
           
+            // Add image to activity if it exists
+            if (parsedContent.activity) {
+              if (parsedContent.activity.image && parsedContent.activity.image.description) {
+                parsedContent.activity.image = convertImageDescription(
+                  parsedContent.activity.image.description, 
+                  subject || '', 
           // Add images to content if requested
           if (includeImages && contentType === 'lesson' && typeof content === 'object') {
             // Add images to each section if mainContent exists
@@ -560,3 +636,4 @@ serve(async (req) => {
     });
   }
 });
+

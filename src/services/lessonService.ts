@@ -105,10 +105,10 @@ export const lessonService = {
         chapters: safeParseJson<LessonChapter[]>(data.chapters, []),
         fun_facts: safeParseJson<string[]>(data.fun_facts, []),
         activity: safeParseJson<LessonActivity>(data.activity, { title: "Activity", instructions: "No activity available" }),
-        conclusion: data.conclusion,
-        summary: data.summary,
-        created_at: data.created_at,
-        updated_at: data.updated_at,
+        conclusion: data.conclusion || undefined,
+        summary: data.summary || undefined,
+        created_at: data.created_at || undefined,
+        updated_at: data.updated_at || undefined,
       };
     } catch (error) {
       console.error("Error in getLessonMaterial:", error);
@@ -147,10 +147,10 @@ export const lessonService = {
           title: "Activity", 
           instructions: "No activity available"
         }),
-        conclusion: data.conclusion,
-        summary: data.summary,
-        created_at: data.created_at,
-        updated_at: data.updated_at,
+        conclusion: data.conclusion || undefined,
+        summary: data.summary || undefined,
+        created_at: data.created_at || undefined,
+        updated_at: data.updated_at || undefined,
       };
     } catch (error) {
       console.error("Error in getLessonMaterialById:", error);
@@ -185,6 +185,7 @@ export const lessonService = {
 
       if (error) {
         console.error("Error saving lesson to database:", error);
+        console.error("Payload:", JSON.stringify(processedContent, null, 2));
         throw error;
       }
 
@@ -199,10 +200,10 @@ export const lessonService = {
         chapters: safeParseJson<LessonChapter[]>(data.chapters, []),
         fun_facts: safeParseJson<string[]>(data.fun_facts, []),
         activity: safeParseJson<LessonActivity>(data.activity, { title: "Activity", instructions: "No activity available" }),
-        conclusion: data.conclusion,
-        summary: data.summary,
-        created_at: data.created_at,
-        updated_at: data.updated_at,
+        conclusion: data.conclusion || undefined,
+        summary: data.summary || undefined,
+        created_at: data.created_at || undefined,
+        updated_at: data.updated_at || undefined,
       };
     } catch (error) {
       console.error("Error generating lesson material:", error);
@@ -311,12 +312,14 @@ export const lessonService = {
         {
           student_id: studentId,
           activity_type: "lesson",
-          subject: "", // These will be filled in later when we have the data
-          topic: "",
+          subject: '',
+          topic: '',
           progress: 0,
           started_at: new Date().toISOString(),
           last_interaction_at: new Date().toISOString(),
-          lesson_id: lessonId
+          lesson_id: lessonId,
+          completed: false,
+          grade_level: '',
         }
       ], {
         onConflict: "student_id,activity_type,lesson_id"
@@ -369,12 +372,16 @@ export const lessonService = {
         .insert([{
           student_id: studentId,
           activity_type: 'lesson',
-          subject: '', // These will be filled in by the component
+          subject: '',
           topic: '',
           completed: true,
           progress: 100,
-          stars_earned: 5, // Default value
-          completed_at: new Date().toISOString()
+          stars_earned: 5,
+          completed_at: new Date().toISOString(),
+          started_at: new Date().toISOString(),
+          last_interaction_at: new Date().toISOString(),
+          lesson_id: lessonId,
+          grade_level: '',
         }]);
       
       return true;

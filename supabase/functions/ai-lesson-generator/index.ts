@@ -1,7 +1,55 @@
-
+// NOTE: This file is designed to run in Supabase Edge Functions with Deno runtime
+// These imports and globals won't be recognized in a regular Node.js environment 
+// but will work correctly when deployed to Supabase
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
+// TypeScript interfaces to fix type errors 
+interface RequestData {
+  subject: string;
+  gradeLevel: 'k-3' | '4-6' | '7-9';
+  topic: string;
+  language?: 'en' | 'id';
+  forceLongerLessons?: boolean;
+}
+
+interface OpenAIResponse {
+  choices: Array<{
+    message: {
+      content: string;
+    };
+  }>;
+  error?: {
+    message: string;
+  };
+  [key: string]: any;
+}
+
+interface LessonChapter {
+  heading: string;
+  text: string;
+  image?: {
+    url?: string;
+    description?: string;
+    alt?: string;
+    caption?: string;
+    searchQuery?: string;
+  };
+}
+
+interface LessonContent {
+  title: string;
+  introduction: string;
+  chapters: LessonChapter[];
+  funFacts: string[];
+  activities: any[];
+  realWorldExamples?: any[];
+  conclusion: string;
+  summary: string;
+  challengeQuestions?: string[];
+}
+
+// Deno.env is a Deno-specific API to access environment variables
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
 const corsHeaders = {
@@ -23,7 +71,7 @@ serve(async (req) => {
     const requestBody = await req.json().catch(error => {
       console.error("Error parsing request body:", error);
       throw new Error("Invalid request body format");
-    });
+    }) as RequestData;
 
     const { subject, gradeLevel, topic, language = 'en' } = requestBody;
     
@@ -35,50 +83,78 @@ serve(async (req) => {
 
     // Create a prompt for OpenAI
     const prompt = `
-    Create a comprehensive lesson about "${topic}" in ${subject} for grade ${gradeLevel} students in ${language === 'id' ? 'Indonesian' : 'English'} language. 
+    Create a comprehensive, in-depth educational lesson about "${topic}" in ${subject} for grade ${gradeLevel} students in ${language === 'id' ? 'Indonesian' : 'English'} language. 
+    
+    This should be a substantial lesson designed to take students 60-90 minutes to read through and engage with. Include rich details, examples, and explanations appropriate for the grade level.
     
     The lesson should include:
-    - An engaging title
-    - A brief introduction
-    - Between 3-6 chapters/sections with headings and detailed content
-    - Fun facts about the topic
-    - An interactive activity or exercise
-    - A conclusion
-    - A brief summary of key points
+    - An engaging, captivating title
+    - A thorough introduction that hooks the student (300-400 words)
+    - 10-15 detailed chapters/sections with clear headings and extensive content (at least 400-600 words per chapter)
+    - Multiple fun facts and interesting information spread throughout (at least 8-10 facts)
+    - 3-5 interactive activities or exercises
+    - Real-world applications and examples of the concepts (4-6 examples)
+    - A thoughtful conclusion that ties everything together (250-350 words)
+    - A comprehensive summary of key points (300-400 words)
+    - Challenge questions for students (5-8 questions)
     
-    For each chapter, suggest an image description that would help illustrate the content.
+    For each chapter, suggest an image description that would help illustrate the content. Be detailed in what the image should show.
     
     Format the response as a JSON object with the following structure:
     {
       "title": "Lesson Title",
-      "introduction": "Brief introduction text",
+      "introduction": "Thorough introduction text (200-300 words)",
       "chapters": [
         {
           "heading": "Chapter 1 Title",
-          "text": "Detailed content for chapter 1...",
+          "text": "Detailed content for chapter 1 (300-500 words)...",
           "image": {
             "url": "",
-            "description": "Description of an ideal image for this chapter",
+            "description": "Detailed description of an ideal image for this chapter - be specific about what should be shown",
             "alt": "Alt text for accessibility"
           }
         },
         // more chapters...
       ],
-      "funFacts": ["Fun fact 1", "Fun fact 2", "Fun fact 3"],
-      "activity": {
-        "title": "Activity Title",
-        "instructions": "Detailed instructions for the activity...",
-        "image": {
-          "url": "",
-          "description": "Description of an ideal image for this activity",
-          "alt": "Alt text for accessibility"
+      "funFacts": ["Fun fact 1", "Fun fact 2", "Fun fact 3", "Fun fact 4", "Fun fact 5"],
+      "activities": [
+        {
+          "title": "Activity 1 Title",
+          "instructions": "Detailed instructions for the activity...",
+          "materials": ["Item 1", "Item 2", "Item 3"],
+          "image": {
+            "url": "",
+            "description": "Description of an ideal image for this activity",
+            "alt": "Alt text for accessibility"
+          }
+        },
+        {
+          "title": "Activity 2 Title",
+          "instructions": "Detailed instructions for the second activity...",
+          "materials": ["Item 1", "Item 2", "Item 3"],
+          "image": {
+            "url": "",
+            "description": "Description of an ideal image for this activity",
+            "alt": "Alt text for accessibility"
+          }
         }
-      },
-      "conclusion": "Concluding paragraph",
-      "summary": "Brief summary of key points"
+      ],
+      "realWorldExamples": [
+        {
+          "title": "Example 1 Title",
+          "description": "Detailed description of a real-world example..."
+        },
+        {
+          "title": "Example 2 Title",
+          "description": "Detailed description of another real-world example..."
+        }
+      ],
+      "conclusion": "Concluding paragraph (150-200 words)",
+      "summary": "Comprehensive summary of key points (200-300 words)",
+      "challengeQuestions": ["Question 1?", "Question 2?", "Question 3?"]
     }
     
-    Make the content appropriate for ${gradeLevel} grade level, engaging, educational, and accurate.
+    Make the content appropriate for ${gradeLevel} grade level, engaging, educational, and accurate. Adjust language complexity appropriately for the grade level while ensuring sufficient depth and coverage of the topic.
     `;
     
     console.log("Sending request to OpenAI API");
@@ -91,12 +167,16 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4o',
         messages: [
-          { role: 'system', content: 'You are an expert educational content creator specializing in creating engaging lessons for children.' },
+          { 
+            role: 'system', 
+            content: 'You are an expert educational content creator specializing in creating comprehensive, engaging lessons for children. Your content is detailed, age-appropriate, and rich with examples, analogies, and connections to real-world experiences. You create lessons that take 60-90 minutes to read through and fully engage with.' 
+          },
           { role: 'user', content: prompt }
         ],
         temperature: 0.7,
+        max_tokens: 7000,
       }),
     }).catch(error => {
       console.error("Error fetching from OpenAI:", error);
@@ -112,7 +192,7 @@ serve(async (req) => {
     const data = await response.json().catch(error => {
       console.error("Error parsing OpenAI response:", error);
       throw new Error("Invalid response from OpenAI");
-    });
+    }) as OpenAIResponse;
     
     if (data.error) {
       console.error("OpenAI returned error:", data.error);
@@ -146,24 +226,33 @@ serve(async (req) => {
               image: {
                 url: imageUrl,
                 alt: chapter.image.alt || `Image for ${chapter.heading}`,
-                caption: chapter.image.description || `Visual aid for ${chapter.heading}`
+                caption: chapter.image.description || `Visual aid for ${chapter.heading}`,
+                searchQuery: `${topic} ${chapter.heading}`
               }
             };
           }
           return chapter;
-        })
+        }),
+        activities: Array.isArray(lessonContent.activities) ? 
+          lessonContent.activities.map((activity: any, index: number) => {
+            if (activity.image) {
+              const imageUrl = `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(topic)}-activity-${index}&backgroundColor=ffdfbf,ffd5dc,c0aede,d1d4f9,b6e3f4`;
+              
+              return {
+                ...activity,
+                image: {
+                  url: imageUrl,
+                  alt: activity.image.alt || `Image for ${activity.title}`,
+                  caption: activity.image.description || `Visual aid for this activity`,
+                  searchQuery: `${topic} ${activity.title} activity`
+                }
+              };
+            }
+            return activity;
+          }) : [],
+        realWorldExamples: lessonContent.realWorldExamples || [],
+        challengeQuestions: lessonContent.challengeQuestions || []
       };
-      
-      // Process the activity image if it exists
-      if (processedContent.activity && processedContent.activity.image) {
-        const imageUrl = `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(topic)}-activity&backgroundColor=ffdfbf,ffd5dc,c0aede,d1d4f9,b6e3f4`;
-        
-        processedContent.activity.image = {
-          url: imageUrl,
-          alt: processedContent.activity.image.alt || `Image for ${processedContent.activity.title}`,
-          caption: processedContent.activity.image.description || `Visual aid for this activity`
-        };
-      }
       
       console.log("Successfully processed lesson content");
       
@@ -196,10 +285,13 @@ serve(async (req) => {
           }
         ],
         funFacts: ["Did you know that even AI sometimes needs a break?"],
-        activity: {
-          title: "Try again later",
-          instructions: "Please check back soon when our systems are working properly."
-        },
+        activities: [
+          {
+            title: "Try again later",
+            instructions: "Please check back soon when our systems are working properly."
+          }
+        ],
+        realWorldExamples: [],
         conclusion: "We apologize for the inconvenience.",
         summary: "Error: " + (error.message || 'Unknown error occurred')
       }

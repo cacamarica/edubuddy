@@ -125,6 +125,8 @@ export type Database = {
           student_id: string
           subject: string
           topic: string
+          lesson_id: string | null
+          grade_level: string | null
         }
         Insert: {
           activity_type: string
@@ -138,6 +140,8 @@ export type Database = {
           student_id: string
           subject: string
           topic: string
+          lesson_id?: string | null
+          grade_level?: string | null
         }
         Update: {
           activity_type?: string
@@ -151,6 +155,8 @@ export type Database = {
           student_id?: string
           subject?: string
           topic?: string
+          lesson_id?: string | null
+          grade_level?: string | null
         }
         Relationships: [
           {
@@ -160,6 +166,13 @@ export type Database = {
             referencedRelation: "students"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "learning_activities_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_materials"
+            referencedColumns: ["id"]
+          }
         ]
       }
       lesson_materials: {

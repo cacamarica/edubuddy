@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -26,10 +25,10 @@ export async function getAIEducationContent({
   try {
     console.log(`Fetching ${contentType} content for ${topic || question} in ${subject || 'general'} (grade: ${gradeLevel}, language: ${language})`);
     
-    // Use different edge functions based on content type
+    // Always use ai-lesson-generator for lessons to ensure full 10-15 chapters
     const functionName = contentType === 'lesson' ? 'ai-lesson-generator' : 'ai-edu-content';
     
-    console.log(`Calling edge function: ${functionName}`);
+    console.log(`Calling edge function: ${functionName}, force longer lessons with 10-15 chapters`);
     const { data, error } = await supabase.functions.invoke(functionName, {
       body: {
         contentType,
@@ -39,7 +38,8 @@ export async function getAIEducationContent({
         question,
         includeImages,
         imageStyle,
-        language
+        language,
+        forceLongerLessons: true  // Flag to ensure 10-15 chapters are generated
       }
     });
 
@@ -53,14 +53,26 @@ export async function getAIEducationContent({
     }
     
     console.log(`Successfully received ${contentType} content`);
+    console.log(`Content data:`, JSON.stringify(data?.content).substring(0, 200) + '...');
     
-    // For lesson content, return the data directly as it's already processed by the edge function
+    // For lesson content from ai-lesson-generator, process and return all chapters
     if (contentType === 'lesson' && functionName === 'ai-lesson-generator') {
+      console.log(`Processing lesson from ai-lesson-generator, chapters:`, 
+                 data?.content?.chapters ? data.content.chapters.length : 'none');
+                 
+      // Convert chapters format to mainContent format if needed
+      if (data?.content?.chapters && !data.content.mainContent) {
+        console.log(`Converting ${data.content.chapters.length} chapters to mainContent format`);
+        data.content.mainContent = data.content.chapters;
+      }
+      
       return data;
     }
     
     // Process and normalize image data
     if (contentType === 'lesson' && data?.content?.mainContent) {
+      console.log(`Processing ${data.content.mainContent.length} chapters in mainContent`);
+      
       // Process lesson content to ensure images are properly formatted
       data.content.mainContent = data.content.mainContent.map((section: any) => {
         // Ensure each section has properly formatted images
@@ -70,11 +82,17 @@ export async function getAIEducationContent({
             section.image = {
               url: section.image,
               alt: `Image for ${section.heading}`,
-              caption: `Visual aid for ${section.heading}`
+              caption: `Visual aid for ${section.heading}`,
+              searchQuery: `${topic} ${section.heading} educational illustration`
             };
           } else if (section.image && !section.image.caption) {
             // Add caption if it's missing
             section.image.caption = section.image.alt || `Visual aid for ${section.heading}`;
+          }
+          
+          // Add searchQuery for better image searching if missing
+          if (!section.image.searchQuery) {
+            section.image.searchQuery = `${topic} ${section.heading} educational illustration`;
           }
           
           // Handle case where image might be missing
@@ -87,6 +105,9 @@ export async function getAIEducationContent({
         }
         return section;
       });
+      
+      // Log the number of chapters to verify we're preserving all of them
+      console.log(`Processed mainContent has ${data.content.mainContent.length} chapters`);
       
       // Process activity image if it exists
       if (data.content.activity && data.content.activity.image) {

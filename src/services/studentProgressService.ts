@@ -21,6 +21,7 @@ export interface LearningActivity {
   completed_at?: string;
   completed: boolean;
   last_interaction_at: string;
+  lesson_id?: string;
 }
 
 export interface Badge {
@@ -134,6 +135,7 @@ export interface ActivityRecordData {
   progress?: number;
   stars_earned?: number;
   recommendation_id?: string;
+  lesson_id?: string;
 }
 
 // Implementation of the studentProgressService
@@ -194,8 +196,8 @@ export const studentProgressService = {
             knowledgeGrowthChartData: Array.isArray(parsedData?.knowledgeGrowthChartData) ? 
               parsedData.knowledgeGrowthChartData : 
               [],
-            generatedAt: data[0].generated_at,
-            version: data[0].version
+            generatedAt: data[0].generated_at as string,
+            version: data[0].version as number
           };
           
           return formattedReport;
@@ -361,7 +363,7 @@ export const studentProgressService = {
     ];
 
     // Generate more chart data points (12 months of data)
-    const chartData = [];
+    const chartData: Array<{ date: string; score: number }> = [];
     const now = new Date();
     
     // Create 12 data points covering a year of progress
@@ -491,24 +493,24 @@ export const studentProgressService = {
   // Record activity
   async recordActivity(activityData: ActivityRecordData): Promise<boolean> {
     try {
-      // Define the activity record
+      const now = new Date().toISOString();
       const activity = {
-        student_id: activityData.student_id,
-        activity_type: activityData.activity_type,
-        subject: activityData.subject,
-        topic: activityData.topic,
-        progress: activityData.progress || 0,
-        stars_earned: activityData.stars_earned || 0,
-        completed: activityData.completed || false
+        student_id: activityData.student_id || '',
+        activity_type: activityData.activity_type || '',
+        subject: typeof activityData.subject === 'string' ? activityData.subject : '',
+        topic: typeof activityData.topic === 'string' ? activityData.topic : '',
+        progress: typeof activityData.progress === 'number' ? activityData.progress : 0,
+        stars_earned: typeof activityData.stars_earned === 'number' ? activityData.stars_earned : 0,
+        completed: activityData.completed ?? false,
+        started_at: now,
+        last_interaction_at: now,
+        lesson_id: activityData.lesson_id || null,
       };
-      
-      // If completed, add completed_at timestamp
       if (activity.completed) {
         Object.assign(activity, {
-          completed_at: new Date().toISOString()
+          completed_at: now
         });
       }
-      
       const { error } = await supabase
         .from('learning_activities')
         .insert([activity]);

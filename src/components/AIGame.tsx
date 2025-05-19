@@ -298,7 +298,7 @@ const AIGame: React.FC<AIGameProps> = ({
         
         {!gameCompleted ? (
           <Button onClick={handleCompleteGame} className="bg-eduPurple hover:bg-eduPurple-dark">
-            {t('game.completedPlaying')}
+            {t('game.finished')}
           </Button>
         ) : (
           <Button variant="outline" disabled className="flex items-center gap-2">

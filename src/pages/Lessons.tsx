@@ -220,13 +220,18 @@ const Lessons = () => {
       student = convertToStudent(selectedProfile);
     }
     
+    if (!student) {
+      navigate('/dashboard');
+      return;
+    }
+    
     navigate('/ai-learning', {
       state: {
         gradeLevel: selectedGradeLevel,
         subject: selectedSubject,
         topic: topic,
-        studentId: selectedProfile?.id,
-        studentName: selectedProfile?.name,
+        studentId: student.id,
+        studentName: student.name,
         autoStart: true
       }
     });
@@ -264,16 +269,7 @@ const Lessons = () => {
                   <Card 
                     key={index}
                     className="cursor-pointer hover:border-primary hover:shadow-md transition-all"
-                    onClick={() => navigate('/ai-learning', {
-                      state: {
-                        gradeLevel: selectedGradeLevel,
-                        subject: item.subject,
-                        topic: item.topic,
-                        studentId: selectedProfile?.id,
-                        studentName: selectedProfile?.name,
-                        autoStart: true
-                      }
-                    })}
+                    onClick={() => handleTopicSelect(item.topic)}
                   >
                     <CardContent className="p-4 flex items-center justify-between">
                       <div>

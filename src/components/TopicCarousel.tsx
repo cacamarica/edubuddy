@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { supabase } from '@/integrations/supabase/client';
 
 interface TopicCarouselProps {
   subjectName: string;
@@ -67,24 +68,20 @@ const TopicCarousel: React.FC<TopicCarouselProps> = ({
     }
   };
 
-  const handleCustomTopicSubmit = () => {
+  const handleCustomTopicSubmit = async () => {
     if (!customTopic.trim()) {
       toast.error(language === 'id' ? 'Topik tidak boleh kosong' : 'Topic cannot be empty');
       return;
     }
 
     const normalized = customTopic.toLowerCase();
-    
     // Check if the topic is appropriate and educational
     const isEducational = ALLOWED_TOPICS.some(allowedTopic => 
       normalized.includes(allowedTopic) || 
       allowedTopic.includes(normalized)
     );
-
-    // Check for inappropriate keywords
     const inappropriateKeywords = ['violence', 'adult', 'drug', 'weapon', 'gun'];
     const hasInappropriate = inappropriateKeywords.some(keyword => normalized.includes(keyword));
-
     if (!isEducational || hasInappropriate) {
       toast.error(
         language === 'id' 
@@ -94,8 +91,34 @@ const TopicCarousel: React.FC<TopicCarouselProps> = ({
       return;
     }
 
-    onSelectTopic(customTopic);
-    setShowDialog(false);
+    // Save the new topic in the database for this student and subject
+    try {
+      // Assume studentId is available via props or context (add as needed)
+      const studentId = window.localStorage.getItem('selectedStudentId'); // fallback if not passed
+      if (!studentId) {
+        toast.error(language === 'id' ? 'Profil siswa tidak ditemukan' : 'Student profile not found');
+        return;
+      }
+      // @ts-ignore: custom_topics may not be in the generated types
+      const { error } = await supabase
+        .from('custom_topics' as any)
+        .insert({
+          student_id: studentId,
+          subject: subjectName,
+          topic: customTopic,
+          grade_level: gradeLevel
+        });
+      if (error) {
+        toast.error(language === 'id' ? 'Gagal menyimpan topik' : 'Failed to save topic');
+        return;
+      }
+      // Add the new topic to the carousel
+      onSelectTopic(customTopic);
+      setShowDialog(false);
+      toast.success(language === 'id' ? 'Topik berhasil ditambahkan!' : 'Topic added successfully!');
+    } catch (err) {
+      toast.error(language === 'id' ? 'Gagal menyimpan topik' : 'Failed to save topic');
+    }
   };
   
   // Get current page items

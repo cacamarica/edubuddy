@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -23,6 +22,7 @@ export interface LearningContentProps {
   onQuizComplete: (score: number) => void;
   recommendationId?: string; // Add recommendationId to track source
   student?: any; // Allow passing student object
+  onComplete?: () => void; // Add onComplete prop
 }
 
 interface StudentInfo {
@@ -41,7 +41,8 @@ const LearningContent: React.FC<LearningContentProps> = ({
   onReset,
   onQuizComplete,
   recommendationId,
-  student
+  student,
+  onComplete
 }) => {
   const { language, t } = useLanguage();
   const { user } = useAuth();
@@ -50,7 +51,7 @@ const LearningContent: React.FC<LearningContentProps> = ({
   const [searchParams] = useSearchParams();
   
   // State for progress limitation and student info
-  const [showLimitedContentWarning, setShowLimitedContentWarning] = useState(false);
+  const [showLimitedFeatureAlert, setShowLimitedFeatureAlert] = useState(false);
   const [studentInfo, setStudentInfo] = useState<StudentInfo | null>(null);
   const [currentTabIndex, setCurrentTabIndex] = useState(0);
   const [lessonCompleted, setLessonCompleted] = useState(false);
@@ -92,7 +93,7 @@ const LearningContent: React.FC<LearningContentProps> = ({
   // Show warning if user is not logged in
   useEffect(() => {
     if (!user) {
-      setShowLimitedContentWarning(true);
+      setShowLimitedFeatureAlert(true);
     }
   }, [user]);
 
@@ -115,15 +116,18 @@ const LearningContent: React.FC<LearningContentProps> = ({
   // Track user progress
   const trackProgress = async (activityType: string) => {
     if (!studentId || !user) return;
-    
+    const now = new Date().toISOString();
     try {
       await supabase.from('learning_activities').insert([{
         student_id: studentId,
         activity_type: activityType,
-        subject: subject,
-        topic: topic,
+        subject: subject || '',
+        topic: topic || '',
         progress: activityType === "lesson_completed" ? 100 : 50,
-        completed: activityType.includes("completed")
+        completed: activityType.includes("completed"),
+        started_at: now,
+        last_interaction_at: now,
+        grade_level: effectiveGradeLevel || 'k-3'
       }]);
     } catch (error) {
       console.error("Error tracking progress:", error);
@@ -134,6 +138,10 @@ const LearningContent: React.FC<LearningContentProps> = ({
   const handleLessonComplete = () => {
     setLessonCompleted(true);
     trackProgress("lesson_completed");
+    // Notify parent component
+    if (onComplete) {
+      onComplete();
+    }
   };
 
   // Handle quiz completion
@@ -143,93 +151,86 @@ const LearningContent: React.FC<LearningContentProps> = ({
     onQuizComplete(score);
   };
   
+  // Only render content for the current tab
+  let content: React.ReactNode = null;
+  if (activeTab === 'lesson') {
+    content = (
+      <AILesson
+        subject={subject}
+        gradeLevel={effectiveGradeLevel}
+        topic={topic}
+        limitProgress={!user}
+        studentId={studentId}
+        recommendationId={recommendationId}
+        onComplete={handleLessonComplete}
+      />
+    );
+  } else if (activeTab === 'quiz') {
+    content = (
+      <AIQuiz
+        subject={subject}
+        gradeLevel={effectiveGradeLevel}
+        topic={topic}
+        onComplete={handleQuizComplete}
+        limitProgress={!user}
+        studentId={studentId}
+        recommendationId={recommendationId}
+      />
+    );
+  } else if (activeTab === 'game') {
+    content = (
+      <AIGame
+        subject={subject}
+        gradeLevel={effectiveGradeLevel}
+        topic={topic}
+        limitProgress={!user}
+        studentId={studentId}
+        recommendationId={recommendationId}
+      />
+    );
+  }
+
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-6 flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-display font-bold">
-            {t('learning.learningAbout')} {topic} <span className="text-muted-foreground">({subject})</span>
+            {t('learning.learningAbout') || 'Learning about'} {topic} <span className="text-muted-foreground">({subject})</span>
           </h2>
           {studentInfo && (
             <p className="text-sm text-eduPurple mt-1">
-              {t('topic.personalizedFor')} {studentInfo.name} ({studentInfo.age} {t('topic.years')}, {t('topic.grade')} {studentInfo.gradeLevel})
+              {t('topic.personalizedFor') || 'Personalized for'} {studentInfo.name} ({studentInfo.age} {t('topic.years') || 'years'}, {t('topic.grade') || 'Grade'} {studentInfo.gradeLevel})
             </p>
           )}
         </div>
-        <Button 
-          variant="primary" 
-          size="sm" 
-          onClick={onReset}
-        >
-          {t('learning.newTopic')}
-        </Button>
+        {/* Only show reset button if lesson has started or there's progress */}
+        {activeTab === 'lesson' && lessonCompleted && (
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={onReset}
+          >
+            {t('lesson.newLesson') || 'New Lesson'}
+          </Button>
+        )}
       </div>
       
-      {showLimitedContentWarning && (
+      {showLimitedFeatureAlert && (
         <Alert className="mb-4 bg-yellow-50 border-yellow-200">
           <AlertDescription className="flex items-center justify-between">
             <div>
-              <span className="font-medium text-yellow-800">{t('learning.limitedAccessWarning')}</span>
-              <p className="text-yellow-700">{t('learning.limitedAccessDescription')}</p>
+              <span className="font-medium text-yellow-800">{t('learning.limitedAccessWarning') || 'Limited Access'}</span>
+              <p className="text-yellow-700">{t('learning.limitedAccessDescription') || 'Sign in to save your progress and access all features.'}</p>
             </div>
             <Button variant="outline" onClick={() => navigate('/auth', { state: { action: 'signin' } })} className="flex items-center gap-2">
               <LogIn className="h-4 w-4" />
-              {t('auth.signIn')}
+              {t('auth.signIn') || 'Sign In'}
             </Button>
           </AlertDescription>
         </Alert>
       )}
       
-      <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="lesson" className="flex items-center gap-2">
-            <BookOpen className="h-4 w-4" />
-            <span className="hidden sm:inline">{t('lesson')}</span>
-          </TabsTrigger>
-          <TabsTrigger value="quiz" className={`flex items-center gap-2 ${!lessonCompleted ? 'opacity-80' : ''}`}>
-            <PencilRuler className="h-4 w-4" />
-            <span className="hidden sm:inline">{t('quiz')}</span>
-          </TabsTrigger>
-          <TabsTrigger value="game" className="flex items-center gap-2">
-            <Gamepad className="h-4 w-4" />
-            <span className="hidden sm:inline">{t('game')}</span>
-          </TabsTrigger>
-        </TabsList>
-        <div className="mt-6">
-          <TabsContent value="lesson">
-            <AILesson 
-              subject={subject} 
-              gradeLevel={effectiveGradeLevel} 
-              topic={topic}
-              limitProgress={!user}
-              studentId={studentId}
-              recommendationId={recommendationId}
-              onComplete={handleLessonComplete}
-            />
-          </TabsContent>
-          <TabsContent value="quiz">
-            <AIQuiz 
-              subject={subject} 
-              gradeLevel={effectiveGradeLevel} 
-              topic={topic}
-              onComplete={(score) => handleQuizComplete(score)}
-              limitProgress={!user}
-              studentId={studentId}
-              recommendationId={recommendationId}
-            />
-          </TabsContent>
-          <TabsContent value="game">
-            <AIGame 
-              subject={subject} 
-              gradeLevel={effectiveGradeLevel} 
-              topic={topic}
-              limitProgress={!user}
-              studentId={studentId}
-              recommendationId={recommendationId}
-            />
-          </TabsContent>
-        </div>
-      </Tabs>
+      {content}
     </div>
   );
 };

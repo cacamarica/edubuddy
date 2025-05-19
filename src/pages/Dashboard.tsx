@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -16,6 +16,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { useStudentProfile } from '@/contexts/StudentProfileContext';
 import { Student, StudentProfile as StudentProfileType, convertToStudent } from '@/types/learning';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 
 // Import our new enhanced components
 import EnhancedRecentActivities from '@/components/DashboardComponents/EnhancedRecentActivities';
@@ -89,6 +90,38 @@ const Dashboard = () => {
   const handleBackToDashboard = () => {
     setShowStudentProfile(false);
   };
+
+  useEffect(() => {
+    const fetchStudents = async () => {
+      if (!user) return; // Handle null user
+      try {
+        const { data: students } = await supabase
+          .from('students')
+          .select('*')
+          .eq('parent_id', user.id);
+        
+        if (students && students.length > 0) {
+          const firstStudent = students[0];
+          const studentProfile: StudentProfileType = {
+            id: firstStudent.id,
+            name: firstStudent.name,
+            age: firstStudent.age || 10,
+            gradeLevel: firstStudent.grade_level || 'k-3',
+            parentId: firstStudent.parent_id || user.id,
+            createdAt: firstStudent.created_at || new Date().toISOString(),
+            avatarUrl: firstStudent.avatar_url || undefined
+          };
+          setSelectedProfile(studentProfile);
+        }
+      } catch (error) {
+        console.error('Error fetching students:', error);
+      }
+    };
+
+    if (!selectedProfile) {
+      fetchStudents();
+    }
+  }, [user, selectedProfile]);
 
   return (
     <div className="min-h-screen flex flex-col">

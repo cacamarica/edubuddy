@@ -52,7 +52,7 @@ const AILearning = () => {
   
   const [currentStudent, setCurrentStudent] = useState<Student | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedTab, setSelectedTab] = useState('learn');
+  const [selectedTab, setSelectedTab] = useState('lesson');
   const [isShowingProfile, setIsShowingProfile] = useState(false);
   const [isLoadingStudents, setIsLoadingStudents] = useState(false);
   
@@ -66,6 +66,13 @@ const AILearning = () => {
   // Note: We're using the studentId from location.state, not currentStudent.id
   const studentId = location.state?.studentId;
   const studentName = location.state?.studentName || 'Student';
+  
+  // Redirect if studentId is missing
+  React.useEffect(() => {
+    if (!location.state?.studentId) {
+      navigate('/dashboard');
+    }
+  }, [location.state, navigate]);
   
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -161,8 +168,32 @@ const AILearning = () => {
           setCurrentStudent(defaultStudent);
         }
       } else if (isParent && !studentId) {
-        // For parent users without a selected student, show profile selector
-        setIsShowingProfile(true);
+        // For parent users without a selected student, fetch all students and select the first one
+        try {
+          const { data: students } = await supabase
+            .from('students')
+            .select('*')
+            .eq('parent_id', user.id);
+          
+          if (students && students.length > 0) {
+            const firstStudent = students[0];
+            const studentData: Student = {
+              id: firstStudent.id,
+              name: firstStudent.name,
+              age: firstStudent.age || 10,
+              grade_level: firstStudent.grade_level || 'k-3',
+              parent_id: firstStudent.parent_id || user.id,
+              created_at: firstStudent.created_at || new Date().toISOString(),
+              avatar_url: firstStudent.avatar_url || undefined
+            };
+            setCurrentStudent(studentData);
+          } else {
+            setIsShowingProfile(true);
+          }
+        } catch (error) {
+          console.error('Error fetching students:', error);
+          setIsShowingProfile(true);
+        }
       }
       
       setLoading(false);
@@ -173,6 +204,18 @@ const AILearning = () => {
   
   const handleStudentChange = (student: Student) => {
     setCurrentStudent(student);
+  };
+  
+  // Handler function to reset content
+  const handleResetContent = () => {
+    // Reset the content and reload
+    navigate(0);
+  };
+
+  // Handler for quiz completion
+  const handleQuizComplete = (score: number) => {
+    // Just a placeholder - in a real implementation this would update badges or stars
+    console.log(`Quiz completed with score: ${score}`);
   };
   
   if (!user) {
@@ -277,10 +320,10 @@ const AILearning = () => {
                       >
                         <TabsList className="border-b p-0 h-auto">
                           <TabsTrigger 
-                            value="learn" 
+                            value="lesson" 
                             className="rounded-none rounded-tl-lg data-[state=active]:shadow-none py-3"
                           >
-                            Learn
+                            Lesson
                           </TabsTrigger>
                           <TabsTrigger 
                             value="quiz" 
@@ -289,44 +332,25 @@ const AILearning = () => {
                             Quiz
                           </TabsTrigger>
                           <TabsTrigger 
-                            value="practice" 
+                            value="game" 
                             className="rounded-none rounded-tr-lg data-[state=active]:shadow-none py-3"
                           >
                             Practice
                           </TabsTrigger>
                         </TabsList>
-                        
-                        <TabsContent value="learn" className="p-4">
+                        <div className="p-4">
                           <LearningContent
                             gradeLevel={gradeLevel}
                             subject={subject}
                             topic={topic}
-                            activeTab="lesson"
-                            onTabChange={() => {}}
-                            onReset={() => {}}
-                            onQuizComplete={() => {}}
+                            activeTab={selectedTab}
+                            onTabChange={setSelectedTab}
+                            onReset={() => handleResetContent()}
+                            onQuizComplete={(score) => handleQuizComplete(score)}
+                            recommendationId={location.state?.recommendationId}
+                            student={currentStudent}
                           />
-                        </TabsContent>
-                        
-                        <TabsContent value="quiz" className="p-4">
-                          <AIQuiz
-                            gradeLevel={gradeLevel}
-                            subject={subject}
-                            topic={topic}
-                            studentId={currentStudent.id}
-                            limitProgress={false}
-                          />
-                        </TabsContent>
-                        
-                        <TabsContent value="practice" className="p-4">
-                          <AIGame 
-                            gradeLevel={gradeLevel}
-                            subject={subject}
-                            topic={topic}
-                            studentId={currentStudent.id}
-                            limitProgress={false}
-                          />
-                        </TabsContent>
+                        </div>
                       </Tabs>
                     </>
                   )}
