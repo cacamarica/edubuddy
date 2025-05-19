@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import AILesson from '@/components/AILesson';
 import AIQuiz from '@/components/AIQuiz';
@@ -80,6 +80,35 @@ const AILearning = () => {
         return;
       }
       
+      // If we have a studentId from location state, fetch that student's data first
+      if (studentId) {
+        try {
+          const { data: profile } = await supabase
+            .from('students')
+            .select('*')
+            .eq('id', studentId)
+            .single();
+          
+          if (profile) {
+            const studentData: Student = {
+              id: profile.id,
+              name: profile.name,
+              age: profile.age || 10,
+              grade_level: profile.grade_level || gradeLevel,
+              parent_id: profile.parent_id || user.id,
+              created_at: profile.created_at || new Date().toISOString(),
+              avatar_url: profile.avatar_url || undefined
+            };
+            
+            setCurrentStudent(studentData);
+            setLoading(false);
+            return;
+          }
+        } catch (error) {
+          console.error('Error fetching student profile:', error);
+        }
+      }
+      
       if (isStudent) {
         // For student users, create their profile for the learning session
         try {
@@ -98,7 +127,7 @@ const AILearning = () => {
               grade_level: profile.grade_level || 'k-3',
               parent_id: profile.parent_id || '',
               created_at: profile.created_at || new Date().toISOString(),
-              avatar_url: profile.avatar_url
+              avatar_url: profile.avatar_url || undefined
             };
             
             setCurrentStudent(studentData);
@@ -131,31 +160,9 @@ const AILearning = () => {
           
           setCurrentStudent(defaultStudent);
         }
-      } else if (isParent && studentId) {
-        // For parent users, fetch the selected student profile
-        try {
-          const { data: profile } = await supabase
-            .from('students')
-            .select('*')
-            .eq('id', studentId)
-            .single();
-          
-          if (profile) {
-            const studentData: Student = {
-              id: profile.id,
-              name: profile.name,
-              age: profile.age || 10,
-              grade_level: profile.grade_level || 'k-3',
-              parent_id: profile.parent_id || user.id,
-              created_at: profile.created_at || new Date().toISOString(),
-              avatar_url: profile.avatar_url
-            };
-            
-            setCurrentStudent(studentData);
-          }
-        } catch (error) {
-          console.error('Error fetching student profile:', error);
-        }
+      } else if (isParent && !studentId) {
+        // For parent users without a selected student, show profile selector
+        setIsShowingProfile(true);
       }
       
       setLoading(false);
@@ -254,7 +261,7 @@ const AILearning = () => {
                           parent_id: student.parent_id || user.id,
                           created_at: student.created_at || new Date().toISOString(),
                           age: student.age,
-                          avatar_url: student.avatar_url
+                          avatar_url: student.avatar_url || undefined
                         })}
                       />
                     </div>
