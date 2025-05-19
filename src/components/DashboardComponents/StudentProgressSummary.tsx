@@ -25,7 +25,7 @@ const StudentProgressSummary: React.FC<StudentProgressSummaryProps> = ({ student
   const [activeTab, setActiveTab] = useState('overview');
   const { language } = useLanguage();
   const [showFullReport, setShowFullReport] = useState(false);
-  const [studentInfo, setStudentInfo] = useState<{ name: string, gradeLevel: string, age?: number } | null>(null);
+  const [studentInfo, setStudentInfo] = useState<{ name: string, gradeLevel: string, age?: number | undefined } | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [reportErrorMsg, setReportErrorMsg] = useState<string | null>(null);
   
@@ -256,7 +256,7 @@ const StudentProgressSummary: React.FC<StudentProgressSummaryProps> = ({ student
   
   // Helper function to generate fallback chart data when the service is unavailable
   const generateFallbackChartData = () => {
-    const data = [];
+    const data: Array<{date: string; score: number}> = [];
     const now = new Date();
     
     for (let i = 6; i >= 0; i--) {

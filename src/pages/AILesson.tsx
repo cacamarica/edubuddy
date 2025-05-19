@@ -12,6 +12,23 @@ import { aiEducationService } from '@/services/aiEducationService';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 
+// Extended interface to match the implementation
+interface ExtendedAILessonRequest {
+  subject: string;
+  topic: string;
+  gradeLevel: string;
+  studentId?: string;
+}
+
+interface ExtendedAILessonResponse {
+  title: string;
+  content: string;
+  recommendations?: string[];
+  summary?: string;
+  error?: string;
+  lessonId?: string;
+}
+
 const AILesson: React.FC = () => {
   const { selectedProfile } = useStudentProfile();
   const { t } = useLanguage();
@@ -34,7 +51,7 @@ const AILesson: React.FC = () => {
       });
       navigate('/student-profile');
     }
-  }, [selectedProfile, navigate, t]);
+  }, [selectedProfile, navigate, t, queryParams]);
 
   // Generate lesson content
   const handleGenerateLesson = async () => {
@@ -57,13 +74,13 @@ const AILesson: React.FC = () => {
         description: `${subject} - ${topic}`,
       });
       
-      // Generate the lesson using AI service
+      // Generate the lesson using AI service with extended interface
       const result = await aiEducationService.generateLesson({
         subject,
         topic,
         gradeLevel,
         studentId: selectedProfile?.id || 'guest',
-      });
+      } as ExtendedAILessonRequest);
       
       if (result.error) {
         toast.error(t('errors.lesson_generation_failed'), {

@@ -38,7 +38,31 @@ interface BadgeAwardParams {
   totalQuestions?: number;
 }
 
-export const badgeService = {  // Check and award badges based on achievements
+// Add the missing fetchStudentBadges function
+export async function fetchStudentBadges(studentId: string): Promise<StudentBadge[]> {
+  try {
+    const { data, error } = await supabase
+      .from('student_badges')
+      .select(`
+        *,
+        badges (*)
+      `)
+      .eq('student_id', studentId);
+      
+    if (error) {
+      console.error('Error fetching student badges:', error);
+      return [];
+    }
+    
+    return data as StudentBadge[];
+  } catch (error) {
+    console.error('Error in fetchStudentBadges:', error);
+    return [];
+  }
+}
+
+export const badgeService = {  
+  // Check and award badges based on achievements
   async checkAndAwardBadges(params: BadgeAwardParams): Promise<Badge | null> {
     try {
       const { studentId, badgeType, subject, topic, score, totalQuestions } = params;
