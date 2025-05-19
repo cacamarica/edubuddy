@@ -1,3 +1,4 @@
+
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
@@ -9,6 +10,7 @@ import Lessons from "./pages/Lessons";
 import Quiz from "./pages/Quiz";
 import Dashboard from "./pages/Dashboard";
 import AILearning from "./pages/AILearning";
+import AILesson from "./pages/AILesson"; // Import AILesson from pages directory
 import About from "./pages/About";
 import Auth from "./pages/Auth";
 import FAQ from "./pages/FAQ";
