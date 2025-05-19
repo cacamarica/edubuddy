@@ -53,7 +53,7 @@ const TopicCarousel: React.FC<TopicCarouselProps> = ({
   ];
   
   const itemsPerPage = 6;
-  const totalPages = Math.ceil((topicList.length + 1) / itemsPerPage); // +1 for custom topic button
+  const totalPages = Math.ceil(topicList.length / itemsPerPage);
   
   const handleNextPage = () => {
     if (currentPage < totalPages - 1) {
@@ -103,27 +103,6 @@ const TopicCarousel: React.FC<TopicCarouselProps> = ({
     currentPage * itemsPerPage, 
     (currentPage * itemsPerPage) + itemsPerPage
   );
-
-  // Topics with custom button
-  const displayItemsWithCustom = () => {
-    const items = [...currentPageItems];
-    
-    // Add custom topic button if we're on the first page and not at max capacity
-    if (currentPage === 0 && currentPageItems.length < itemsPerPage) {
-      // Already has space on the first page
-      return [...items, 'custom-topic-button'];
-    } 
-    else if (currentPage === totalPages - 1) {
-      // Check if we have space on the last page
-      const remaining = (topicList.length % itemsPerPage);
-      if (remaining > 0 && remaining < itemsPerPage) {
-        return [...items, 'custom-topic-button'];
-      }
-    }
-    return items;
-  };
-
-  const displayItems = displayItemsWithCustom();
   
   return (
     <div className="space-y-8">
@@ -146,67 +125,63 @@ const TopicCarousel: React.FC<TopicCarouselProps> = ({
             : `Select a topic you want to learn for ${gradeLevel}`}
         </p>
       </div>
+
+      {/* Custom Topic Button - Now Outside Carousel */}
+      <Dialog open={showDialog} onOpenChange={setShowDialog}>
+        <DialogTrigger asChild>
+          <Button 
+            className="w-full mb-6 border-dashed border-2 border-eduPurple hover:border-primary bg-eduPastel-purple hover:bg-eduPastel-purple/80"
+            variant="outline"
+          >
+            <Plus className="h-5 w-5 mr-2 text-eduPurple" />
+            {language === 'id' ? 'Buat Topik Kustom' : 'Create Custom Topic'}
+          </Button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {language === 'id' ? 'Buat Topik Kustom' : 'Create Custom Topic'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="topic">
+                {language === 'id' ? 'Nama Topik' : 'Topic Name'}
+              </Label>
+              <Input 
+                id="topic"
+                placeholder={language === 'id' ? 'contoh: Fotosintesis' : 'example: Photosynthesis'}
+                value={customTopic}
+                onChange={(e) => setCustomTopic(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                {language === 'id' 
+                  ? 'Masukkan topik pendidikan yang sesuai untuk anak-anak' 
+                  : 'Enter appropriate educational topics for children'}
+              </p>
+            </div>
+            <Button 
+              onClick={handleCustomTopicSubmit} 
+              className="w-full bg-eduPurple hover:bg-eduPurple-dark"
+            >
+              {language === 'id' ? 'Buat dan Lanjutkan' : 'Create and Continue'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-        {displayItems.map((topic, index) => 
-          topic === 'custom-topic-button' ? (
-            <Dialog key="custom-topic" open={showDialog} onOpenChange={setShowDialog}>
-              <DialogTrigger asChild>
-                <Card className="cursor-pointer hover:shadow-md transition-all border-dashed border-2 hover:border-primary h-full">
-                  <CardContent className="p-6 flex items-center justify-center flex-col h-full">
-                    <div className="rounded-full bg-eduPastel-purple p-3 mb-3">
-                      <Plus className="h-6 w-6 text-eduPurple" />
-                    </div>
-                    <h3 className="text-lg font-medium text-center">
-                      {language === 'id' ? 'Buat Topik Kustom' : 'Create Custom Topic'}
-                    </h3>
-                  </CardContent>
-                </Card>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>
-                    {language === 'id' ? 'Buat Topik Kustom' : 'Create Custom Topic'}
-                  </DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="topic">
-                      {language === 'id' ? 'Nama Topik' : 'Topic Name'}
-                    </Label>
-                    <Input 
-                      id="topic"
-                      placeholder={language === 'id' ? 'contoh: Fotosintesis' : 'example: Photosynthesis'}
-                      value={customTopic}
-                      onChange={(e) => setCustomTopic(e.target.value)}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      {language === 'id' 
-                        ? 'Masukkan topik pendidikan yang sesuai untuk anak-anak' 
-                        : 'Enter appropriate educational topics for children'}
-                    </p>
-                  </div>
-                  <Button 
-                    onClick={handleCustomTopicSubmit} 
-                    className="w-full bg-eduPurple hover:bg-eduPurple-dark"
-                  >
-                    {language === 'id' ? 'Buat dan Lanjutkan' : 'Create and Continue'}
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          ) : (
-            <Card 
-              key={index} 
-              className="cursor-pointer hover:shadow-md transition-all"
-              onClick={() => onSelectTopic(topic)}
-            >
-              <CardContent className="p-6">
-                <h3 className="text-lg font-medium">{topic}</h3>
-              </CardContent>
-            </Card>
-          )
-        )}
+        {currentPageItems.map((topic, index) => (
+          <Card 
+            key={index} 
+            className="cursor-pointer hover:shadow-md transition-all"
+            onClick={() => onSelectTopic(topic)}
+          >
+            <CardContent className="p-6">
+              <h3 className="text-lg font-medium">{topic}</h3>
+            </CardContent>
+          </Card>
+        ))}
       </div>
       
       {totalPages > 1 && (
