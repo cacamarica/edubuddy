@@ -123,8 +123,18 @@ const QuizResults: React.FC = () => {
         
         if (!hasPerfectScoreBadge) {
           // Award the badge to the student
-          // (This part would ideally be handled by a dedicated badge service function)
-          toast.success(language === 'id' ? 'Selamat! Anda mendapatkan lencana karena mendapatkan skor sempurna!' : 'Congratulations! You earned a badge for getting a perfect score!');
+          badgeService.awardBadge({
+            studentId: studentId,
+            name: 'Perfect Quiz Score',
+            description: language === 'id' ? 
+              'Mendapatkan skor sempurna dalam kuis!' : 
+              'Achieved a perfect score on a quiz!',
+            type: 'achievement',
+            imageUrl: 'https://api.dicebear.com/7.x/fun-emoji/svg?seed=perfect-score'
+          });
+          toast.success(language === 'id' ? 
+            'Selamat! Anda mendapatkan lencana karena mendapatkan skor sempurna!' : 
+            'Congratulations! You earned a badge for getting a perfect score!');
         }
       });
     }

@@ -5,9 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useForm } from 'react-hook-form';
-import { ChevronLeft, Plus, Pencil, Trash2, User, UserPlus, Mail, Lock, Shield, ChevronRight } from 'lucide-react';
+import { ChevronLeft, Plus, Pencil, Trash2, User, UserPlus, Mail, Lock, Shield } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -82,7 +82,7 @@ const ManageStudentProfilesPage = () => {
         console.error('Error fetching students:', error);
         toast.error(language === 'id' ? 'Gagal memuat data siswa' : 'Failed to load student data');
       } else if (data) {
-        setStudents(data);
+        setStudents(data as Student[]);
         setTotalPages(Math.ceil(data.length / ITEMS_PER_PAGE));
       }
     } catch (error) {
@@ -819,4 +819,4 @@ const ManageStudentProfilesPage = () => {
   );
 };
 
-export default ManageStudentProfilesPage; 
+export default ManageStudentProfilesPage;

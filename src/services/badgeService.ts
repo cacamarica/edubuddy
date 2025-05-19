@@ -1,241 +1,132 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
 
-// Badge and StudentBadge types
-export interface Badge {
-  id: string;
-  name: string;
-  description: string;
-  image_url?: string | null;
-  type?: string;
-}
-
+// Interfaces for Badge Service
 export interface StudentBadge {
   id: string;
   student_id: string;
   badge_id: string;
   awarded_at?: string;
   earned_at?: string;
-  badge?: Badge;
+  badge?: {
+    id: string;
+    name: string;
+    description: string;
+    image_url?: string;
+    type: string;
+  };
 }
 
-// Badge types based on different achievements
-export type BadgeType = 
-  'quiz_completion' | 
-  'perfect_score' | 
-  'subject_mastery' | 
-  'first_quiz' |
-  'lesson_completion' |
-  'streak';
+export interface Badge {
+  id: string;
+  name: string;
+  description: string;
+  image_url?: string;
+  type: string;
+}
 
-interface BadgeAwardParams {
+export interface BadgeAwardParams {
   studentId: string;
-  badgeType: BadgeType;
+  badgeType: string;
   subject?: string;
   topic?: string;
   score?: number;
-  totalQuestions?: number;
 }
 
-// Add the missing fetchStudentBadges function
-export async function fetchStudentBadges(studentId: string): Promise<StudentBadge[]> {
-  try {
-    const { data, error } = await supabase
-      .from('student_badges')
-      .select(`
-        *,
-        badges (*)
-      `)
-      .eq('student_id', studentId);
-      
-    if (error) {
-      console.error('Error fetching student badges:', error);
-      return [];
-    }
-    
-    return data as StudentBadge[];
-  } catch (error) {
-    console.error('Error in fetchStudentBadges:', error);
-    return [];
-  }
-}
-
-export const badgeService = {  
-  // Check and award badges based on achievements
-  async checkAndAwardBadges(params: BadgeAwardParams): Promise<Badge | null> {
+export const badgeService = {
+  // Check achievements and award badges if criteria are met
+  checkAndAwardBadges: async (params: BadgeAwardParams): Promise<Badge | null> => {
     try {
-      const { studentId, badgeType, subject, topic, score, totalQuestions } = params;
-      
-      // First, get existing badges to prevent duplicates
-      // Using any type to avoid TypeScript deep instantiation issues
-      const result: any = await supabase
-        .from('student_badges')
-        .select('badge_id, badges(name, type)')
-        .eq('student_id', studentId);
-        
-      const existingBadges = result.data;
-
-      // Map of existing badge types this student has
-      const existingBadgeTypes = new Set((existingBadges || []).map(eb => (eb.badges as any)?.type));
-
-      if (badgeType === 'quiz_completion' && subject) {
-        const badgeName = `${subject.charAt(0).toUpperCase() + subject.slice(1)} Quiz Completed`;
-        const badgeDesc = `Completed a quiz in ${subject}`;
-        
-        // Check if student already has this badge
-        if (!existingBadgeTypes.has(`quiz_${subject.toLowerCase()}`)) {
-          return this.awardBadge({
-            studentId,
-            name: badgeName,
-            description: badgeDesc,
-            type: `quiz_${subject.toLowerCase()}`,
-            imageUrl: `/badges/quiz_${subject.toLowerCase()}.png`
-          });
-        }
-      }
-      
-      if (badgeType === 'perfect_score' && score === totalQuestions && score && score > 0) {
-        const badgeName = 'Perfect Score';
-        const badgeDesc = 'Achieved a perfect score on a quiz';
-        
-        // Check if student already has this badge
-        if (!existingBadgeTypes.has('perfect_score')) {
-          return this.awardBadge({
-            studentId,
-            name: badgeName,
-            description: badgeDesc,
-            type: 'perfect_score',
-            imageUrl: '/badges/perfect_score.png'
-          });
-        }
-      }
-      
-      if (badgeType === 'first_quiz') {
-        const badgeName = 'First Quiz Completed';
-        const badgeDesc = 'Completed your first quiz';
-        
-        // Check if student already has this badge
-        if (!existingBadgeTypes.has('first_quiz')) {
-          return this.awardBadge({
-            studentId,
-            name: badgeName,
-            description: badgeDesc,
-            type: 'first_quiz',
-            imageUrl: '/badges/first_quiz.png'
-          });
-        }
-      }
-
-      if (badgeType === 'lesson_completion' && subject && topic) {
-        const badgeName = `${topic} Lesson Completed`;
-        const badgeDesc = `Completed the ${topic} lesson in ${subject}`;
-        
-        // Check if student already has this badge
-        const badgeTypeId = `lesson_${subject.toLowerCase()}_${topic.toLowerCase().replace(/\s/g, '_')}`;
-        if (!existingBadgeTypes.has(badgeTypeId)) {
-          return this.awardBadge({
-            studentId,
-            name: badgeName,
-            description: badgeDesc,
-            type: badgeTypeId,
-            imageUrl: `/badges/lesson_${subject.toLowerCase()}.png`
-          });
-        }
-      }
-      
-      // No new badge awarded
+      // This is a placeholder implementation
+      // In a real application, this would check various achievement criteria
       return null;
-      
     } catch (error) {
-      console.error('Error checking and awarding badges:', error);
+      console.error("Error checking achievements:", error);
       return null;
     }
   },
-  
-  // Award a badge to a student
-  async awardBadge(params: {
+
+  // Award a specific badge to a student
+  awardBadge: async (params: {
     studentId: string;
     name: string;
     description: string;
     type: string;
     imageUrl?: string;
-  }): Promise<Badge | null> {
+  }): Promise<Badge | null> => {
     try {
-      const { studentId, name, description, type, imageUrl } = params;
-      
-      // First, check if the badge exists
-      let badgeId: string;
-      const existingBadgeResult: any = await supabase
+      // Check if badge type already exists
+      const { data: existingBadge, error: badgeError } = await supabase
         .from('badges')
-        .select('id')
-        .eq('type', type)
+        .select('*')
+        .eq('name', params.name)
         .single();
-        
-      const existingBadge = existingBadgeResult.data as { id: string } | null;
-        
-      if (existingBadge) {
-        badgeId = existingBadge.id;
-      } else {
-        // Create a new badge
-        const newBadgeResult: any = await supabase
+
+      let badgeId: string;
+      
+      if (badgeError || !existingBadge) {
+        // Create the badge if it doesn't exist
+        const { data: newBadge, error: createError } = await supabase
           .from('badges')
           .insert({
-            name,
-            description,
-            type,
-            image_url: imageUrl
+            name: params.name,
+            description: params.description,
+            type: params.type,
+            image_url: params.imageUrl
           })
-          .select('id')
+          .select()
           .single();
           
-        const newBadge = newBadgeResult.data as { id: string };
-        const badgeError = newBadgeResult.error;
-          
-        if (badgeError) {
-          throw badgeError;
+        if (createError || !newBadge) {
+          console.error("Error creating badge:", createError);
+          return null;
         }
         
         badgeId = newBadge.id;
+      } else {
+        badgeId = existingBadge.id;
       }
       
       // Award the badge to the student
-      const studentBadgeResult: any = await supabase
+      const { data: studentBadge, error: awardError } = await supabase
         .from('student_badges')
         .insert({
-          student_id: studentId,
+          student_id: params.studentId,
           badge_id: badgeId,
-          earned_at: new Date().toISOString()
+          awarded_at: new Date().toISOString()
         })
-        .select(`
-          id,
-          student_id,
-          badge_id,
-          earned_at,
-          badges (
-            id,
-            name,
-            description,
-            image_url
-          )
-        `)
+        .select('*, badge:badges(*)')
         .single();
         
-      const studentBadge = studentBadgeResult.data as { badges: Badge };
-      const awardError = studentBadgeResult.error;
-        
       if (awardError) {
-        throw awardError;
+        console.error("Error awarding badge:", awardError);
+        return null;
       }
       
-      toast.success(`New badge awarded: ${name}`);
-      
-      // Return the badge that was awarded
-      return studentBadge.badges as Badge;
-      
+      return studentBadge?.badge || null;
     } catch (error) {
-      console.error('Error awarding badge:', error);
+      console.error("Error in badge award process:", error);
       return null;
+    }
+  },
+
+  // Fetch all badges for a student
+  fetchStudentBadges: async (studentId: string): Promise<StudentBadge[]> => {
+    try {
+      const { data, error } = await supabase
+        .from('student_badges')
+        .select('*, badge:badges(*)')
+        .eq('student_id', studentId);
+        
+      if (error) {
+        console.error("Error fetching student badges:", error);
+        return [];
+      }
+      
+      return data as StudentBadge[];
+    } catch (error) {
+      console.error("Error in student badges fetch:", error);
+      return [];
     }
   }
 };

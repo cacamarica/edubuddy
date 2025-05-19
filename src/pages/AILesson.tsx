@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Card, CardContent } from "@/components/ui/card";
@@ -94,8 +93,10 @@ const AILesson: React.FC = () => {
         });
         
         // Store the lesson ID and redirect to the lesson viewer
-        setLessonId(result.lessonId);
-        navigate(`/lessons?id=${result.lessonId}`);
+        if (result.lessonId) {
+          setLessonId(result.lessonId);
+          navigate(`/lessons?id=${result.lessonId}`);
+        }
       }
     } catch (error: any) {
       console.error("Lesson generation error:", error);

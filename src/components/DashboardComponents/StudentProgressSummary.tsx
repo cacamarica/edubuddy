@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,6 +18,19 @@ interface StudentProgressSummaryProps {
   studentId: string;
 }
 
+// Define a type for the student info
+interface StudentInfo {
+  name: string;
+  gradeLevel: string;
+  age?: number;
+}
+
+// Define a type for chart data
+interface ChartDataPoint {
+  date: string;
+  score: number;
+}
+
 const StudentProgressSummary: React.FC<StudentProgressSummaryProps> = ({ studentId }) => {
   const [subjectProgress, setSubjectProgress] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -25,7 +39,7 @@ const StudentProgressSummary: React.FC<StudentProgressSummaryProps> = ({ student
   const [activeTab, setActiveTab] = useState('overview');
   const { language } = useLanguage();
   const [showFullReport, setShowFullReport] = useState(false);
-  const [studentInfo, setStudentInfo] = useState<{ name: string, gradeLevel: string, age?: number | undefined } | null>(null);
+  const [studentInfo, setStudentInfo] = useState<StudentInfo | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [reportErrorMsg, setReportErrorMsg] = useState<string | null>(null);
   
@@ -47,7 +61,7 @@ const StudentProgressSummary: React.FC<StudentProgressSummaryProps> = ({ student
           setStudentInfo({
             name: data.name,
             gradeLevel: data.grade_level,
-            age: data.age
+            age: data.age || undefined
           });
         }
       } catch (error) {
@@ -256,7 +270,7 @@ const StudentProgressSummary: React.FC<StudentProgressSummaryProps> = ({ student
   
   // Helper function to generate fallback chart data when the service is unavailable
   const generateFallbackChartData = () => {
-    const data: Array<{date: string; score: number}> = [];
+    const data: ChartDataPoint[] = [];
     const now = new Date();
     
     for (let i = 6; i >= 0; i--) {
