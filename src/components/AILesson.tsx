@@ -260,7 +260,8 @@ const AILesson: React.FC<AILessonProps> = ({
               lesson_id: lessonId,
               progress: 100,
               completed: true,
-              last_interaction_at: new Date()
+              // Convert Date to ISO string format for Supabase
+              last_interaction_at: new Date().toISOString() 
             })
             .then(({ error }) => {
               if (error) console.error('Error recording learning activity:', error);

@@ -97,15 +97,15 @@ const LearningContentWrapper = ({
     
     // Record in supabase if we have a student ID
     if (studentId) {
-      supabase.from('learning_activities').insert([{
+      supabase.from('learning_activities').insert({
         student_id: studentId,
         activity_type: 'learning_path_completed',
         subject: subject,
         topic: topic,
         progress: 100,
         completed: true,
-        last_interaction_at: new Date()
-      }]).then(({ error }) => {
+        last_interaction_at: new Date().toISOString() // Convert Date to ISO string
+      }).then(({ error }) => {
         if (error) {
           console.error('Error recording learning activity:', error);
           toast.error(language === 'id' 
