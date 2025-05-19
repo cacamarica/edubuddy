@@ -220,6 +220,22 @@ const App = () => {
                     <AILearning />
                   </ErrorBoundary>
                 } />
+                <Route path="/ai-lesson" element={
+                  <ErrorBoundary fallback={
+                    <div className="flex h-screen flex-col items-center justify-center p-4 text-center">
+                      <h2 className="mb-4 text-2xl font-bold text-red-600">AI Lesson Error</h2>
+                      <p className="mb-4">We encountered an issue loading the AI lesson content.</p>
+                      <button 
+                        onClick={() => window.location.reload()}
+                        className="rounded bg-eduPurple px-4 py-2 text-white hover:bg-eduPurple/80"
+                      >
+                        Try Again
+                      </button>
+                    </div>
+                  }>
+                    <AILesson />
+                  </ErrorBoundary>
+                } />
                 <Route path="/about" element={<About />} />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/faq" element={<FAQ />} />
