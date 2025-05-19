@@ -30,6 +30,12 @@ const PaginatedBadges: React.FC<PaginatedBadgesProps> = ({ badges, isLoading, pa
     setCurrentPage(prev => Math.min(prev + 1, totalPages));
   };
   
+  // Helper function to format dates safely
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return '';
+    return new Date(dateString).toLocaleDateString();
+  };
+  
   if (isLoading) {
     return (
       <div className="flex justify-center py-8">
@@ -66,8 +72,8 @@ const PaginatedBadges: React.FC<PaginatedBadgesProps> = ({ badges, isLoading, pa
               <CardTitle className="text-base font-semibold">{badge.badge?.name || 'Unknown Badge'}</CardTitle>
               <CardDescription className="text-xs">
                 {language === 'id' 
-                  ? `Diperoleh pada: ${new Date(badge.awarded_at).toLocaleDateString()}` 
-                  : `Earned on: ${new Date(badge.awarded_at).toLocaleDateString()}`}
+                  ? `Diperoleh pada: ${formatDate(badge.awarded_at)}` 
+                  : `Earned on: ${formatDate(badge.awarded_at)}`}
               </CardDescription>
             </CardHeader>
             <CardContent className="pb-2">

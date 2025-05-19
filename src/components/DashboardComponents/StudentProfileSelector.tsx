@@ -6,13 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Spinner } from '@/components/ui/spinner';
 import { useAuth } from '@/contexts/AuthContext';
-
-interface Student {
-  id: string;
-  name: string;
-  age: number;
-  grade_level: string;
-}
+import { Student } from '@/types/learning';
 
 interface StudentProfileSelectorProps {
   onStudentChange: (studentId: string) => void;
@@ -44,12 +38,23 @@ const StudentProfileSelector: React.FC<StudentProfileSelectorProps> = ({
         if (error) {
           console.error('Error fetching students:', error);
         } else if (data) {
-          setStudents(data);
+          // Convert database records to Student type
+          const fetchedStudents: Student[] = data.map(item => ({
+            id: item.id,
+            name: item.name,
+            grade_level: item.grade_level,
+            parent_id: item.parent_id,
+            created_at: item.created_at,
+            avatar_url: item.avatar_url,
+            age: item.age
+          }));
+          
+          setStudents(fetchedStudents);
           
           // If no initial student is selected, select the first one
-          if (!initialStudentId && data.length > 0) {
-            setSelectedStudentId(data[0].id);
-            onStudentChange(data[0].id);
+          if (!initialStudentId && fetchedStudents.length > 0) {
+            setSelectedStudentId(fetchedStudents[0].id);
+            onStudentChange(fetchedStudents[0].id);
           }
         }
       } catch (error) {

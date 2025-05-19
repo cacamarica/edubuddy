@@ -4,10 +4,10 @@ export interface Student {
   id: string;
   name: string;
   grade_level: string;
-  age?: number;
+  age?: number | null; // Changed to allow null
   parent_id: string;
   created_at: string;
-  avatar_url?: string;
+  avatar_url?: string | null; // Changed to allow null
 }
 
 export interface StudentProfile {
@@ -16,12 +16,12 @@ export interface StudentProfile {
   gradeLevel: string;
   parentId: string;
   createdAt: string;
-  avatarUrl?: string;
-  age?: number;
+  avatarUrl?: string | null; // Changed to allow null
+  age?: number | null; // Changed to allow null
   grade_level?: string;
   parent_id?: string;
   created_at?: string;
-  avatar_url?: string;
+  avatar_url?: string | null; // Changed to allow null
 }
 
 // Helper function to convert between formats
@@ -57,4 +57,21 @@ export interface Subject {
   color: string;
   textColor: string;
   icon: string;
+}
+
+// Define interfaces for quiz history
+export interface QuizAttempt {
+  id: string;
+  quiz_title?: string;
+  question_text: string;
+  student_answer?: string;
+  correct_answer: string;
+  is_correct: boolean;
+  attempted_at: string;
+}
+
+export interface TopicQuizHistory {
+  topic: string;
+  topicName?: string;
+  attempts: QuizAttempt[];
 }

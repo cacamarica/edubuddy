@@ -13,7 +13,7 @@ interface StudentInfo {
   id: string;
   name: string;
   gradeLevel: 'k-3' | '4-6' | '7-9';
-  age: number;
+  age?: number | null; // Updated to allow null
 }
 
 interface RecentActivity {
@@ -52,7 +52,7 @@ const Header = () => {
             id: students[0].id,
             name: students[0].name,
             gradeLevel: students[0].grade_level as 'k-3' | '4-6' | '7-9',
-            age: students[0].age
+            age: students[0].age // This can now be null
           });
           
           // Fetch most recent learning activity

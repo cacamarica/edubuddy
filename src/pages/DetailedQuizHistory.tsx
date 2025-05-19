@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +10,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { studentProgressService } from '@/services/studentProgressService';
 import { Spinner } from '@/components/ui/spinner';
 import { toast } from 'sonner';
+import { TopicQuizHistory } from '@/types/learning';
 
 interface QuizHistoryProps {
   studentId?: string;
@@ -19,7 +21,7 @@ interface QuizHistoryProps {
 const DetailedQuizHistory: React.FC<QuizHistoryProps> = () => {
   const location = useLocation();
   const { studentId, gradeLevel, subject } = location.state || {};
-  const [quizHistory, setQuizHistory] = useState([]);
+  const [quizHistory, setQuizHistory] = useState<TopicQuizHistory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { language } = useLanguage();
 
@@ -34,7 +36,7 @@ const DetailedQuizHistory: React.FC<QuizHistoryProps> = () => {
             gradeLevel,
             subject
           );
-          setQuizHistory(data);
+          setQuizHistory(data as TopicQuizHistory[]);
         } catch (error) {
           console.error('Error fetching quiz history:', error);
           toast.error('Failed to load quiz history');
