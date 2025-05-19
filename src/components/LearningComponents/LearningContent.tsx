@@ -52,6 +52,9 @@ const LearningContent: React.FC<LearningContentProps> = ({
   // State for progress limitation and student info
   const [showLimitedContentWarning, setShowLimitedContentWarning] = useState(false);
   const [studentInfo, setStudentInfo] = useState<StudentInfo | null>(null);
+  const [currentTabIndex, setCurrentTabIndex] = useState(0);
+  const [lessonCompleted, setLessonCompleted] = useState(false);
+  const [quizCompleted, setQuizCompleted] = useState(false);
   
   // Get student ID from URL or state
   const getStudentId = () => {
@@ -97,6 +100,49 @@ const LearningContent: React.FC<LearningContentProps> = ({
   const effectiveGradeLevel = studentInfo?.gradeLevel || gradeLevel;
   const studentId = studentInfo?.id || (student ? student.id : '');
   
+  // Handle tab changes and track progress
+  const handleTabChange = (value: string) => {
+    onTabChange(value);
+    if (value === "quiz" && !quizCompleted) {
+      // Track that user has moved to quiz
+      trackProgress("quiz_viewed");
+    } else if (value === "game") {
+      // Track that user has moved to game
+      trackProgress("game_viewed");
+    }
+  };
+
+  // Track user progress
+  const trackProgress = async (activityType: string) => {
+    if (!studentId || !user) return;
+    
+    try {
+      await supabase.from('learning_activities').insert([{
+        student_id: studentId,
+        activity_type: activityType,
+        subject: subject,
+        topic: topic,
+        progress: activityType === "lesson_completed" ? 100 : 50,
+        completed: activityType.includes("completed")
+      }]);
+    } catch (error) {
+      console.error("Error tracking progress:", error);
+    }
+  };
+
+  // Handle lesson completion
+  const handleLessonComplete = () => {
+    setLessonCompleted(true);
+    trackProgress("lesson_completed");
+  };
+
+  // Handle quiz completion
+  const handleQuizComplete = (score: number) => {
+    setQuizCompleted(true);
+    trackProgress("quiz_completed");
+    onQuizComplete(score);
+  };
+  
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-6 flex justify-between items-center">
@@ -134,13 +180,13 @@ const LearningContent: React.FC<LearningContentProps> = ({
         </Alert>
       )}
       
-      <Tabs value={activeTab} onValueChange={onTabChange}>
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="lesson" className="flex items-center gap-2">
             <BookOpen className="h-4 w-4" />
             <span className="hidden sm:inline">{t('lesson')}</span>
           </TabsTrigger>
-          <TabsTrigger value="quiz" className="flex items-center gap-2">
+          <TabsTrigger value="quiz" className={`flex items-center gap-2 ${!lessonCompleted ? 'opacity-80' : ''}`}>
             <PencilRuler className="h-4 w-4" />
             <span className="hidden sm:inline">{t('quiz')}</span>
           </TabsTrigger>
@@ -158,6 +204,7 @@ const LearningContent: React.FC<LearningContentProps> = ({
               limitProgress={!user}
               studentId={studentId}
               recommendationId={recommendationId}
+              onComplete={handleLessonComplete}
             />
           </TabsContent>
           <TabsContent value="quiz">
@@ -165,7 +212,7 @@ const LearningContent: React.FC<LearningContentProps> = ({
               subject={subject} 
               gradeLevel={effectiveGradeLevel} 
               topic={topic}
-              onComplete={(score) => onQuizComplete(score)}
+              onComplete={(score) => handleQuizComplete(score)}
               limitProgress={!user}
               studentId={studentId}
               recommendationId={recommendationId}

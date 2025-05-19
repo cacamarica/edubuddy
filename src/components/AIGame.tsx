@@ -1,270 +1,310 @@
-import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { getAIEducationContent } from '@/services/aiEducationService';
-import { Gamepad, Award, LogIn } from 'lucide-react';
-import { toast } from 'sonner';
+
+import React, { useState, useEffect, useCallback } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useAuth } from '@/contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
+import { Gamepad, Refresh, Award } from 'lucide-react';
+import { getAIEducationContent } from '@/services/aiEducationService';
+import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface AIGameProps {
   subject: string;
   gradeLevel: 'k-3' | '4-6' | '7-9';
   topic: string;
-  onComplete?: () => void;
   limitProgress?: boolean;
-  studentId?: string; // Added studentId prop to the interface
-  recommendationId?: string; // Added recommendationId prop to track recommendation source
+  studentId?: string;
+  studentName?: string;
+  autoStart?: boolean;
+  recommendationId?: string;
 }
 
-interface GameContent {
+interface GameData {
   title: string;
   objective: string;
-  instructions: string[];
+  instructions: string;
   materials?: string[];
   variations?: {
     easier?: string;
     harder?: string;
   };
+  image?: {
+    url: string;
+    alt: string;
+    caption?: string;
+  };
 }
 
-const AIGame = ({ subject, gradeLevel, topic, onComplete, limitProgress = false, studentId, recommendationId }: AIGameProps) => {
-  const [isLoading, setIsLoading] = useState(false);
-  const [gameContent, setGameContent] = useState<GameContent | null>(null);
-  const [gameStarted, setGameStarted] = useState(false);
-  const { t, language } = useLanguage();
-  const { user } = useAuth();
-  const navigate = useNavigate();
+const AIGame: React.FC<AIGameProps> = ({
+  subject,
+  gradeLevel,
+  topic,
+  limitProgress = false,
+  studentId,
+  studentName,
+  autoStart = false,
+  recommendationId
+}) => {
+  const { language, t } = useLanguage();
+  const [loading, setLoading] = useState(true);
+  const [gameData, setGameData] = useState<GameData | null>(null);
+  const [gameStarted, setGameStarted] = useState(autoStart);
+  const [gameCompleted, setGameCompleted] = useState(false);
+  const [interactionCount, setInteractionCount] = useState(0);
+  const [showLimitedFeatureAlert, setShowLimitedFeatureAlert] = useState(limitProgress);
 
-  const generateGame = async () => {
-    setIsLoading(true);
+  // Fetch game content
+  const fetchGameContent = useCallback(async () => {
+    setLoading(true);
     try {
       const result = await getAIEducationContent({
         contentType: 'game',
         subject,
         gradeLevel,
         topic,
-        // Add language parameter to get content in the selected language
-        language: language as 'en' | 'id'
+        language
       });
       
-      setGameContent(result.content);
-    } catch (error) {
-      console.error("Failed to generate game:", error);
-      toast.error(language === 'id' ? 
-        "Oops! Kami tidak dapat membuat permainan saat ini. Silakan coba lagi!" : 
-        "Oops! We couldn't create your game right now. Please try again!");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleStartGame = async () => {
-    setGameStarted(true);
-    
-    // Track that the game was started, particularly if it's from a recommendation
-    if (user && studentId && recommendationId) {
-      try {
-        // Import supabase
-        const { supabase } = await import('@/integrations/supabase/client');
-        
-        // Record that the game was started from a recommendation
-        await supabase.from('learning_activities').insert([{
-          student_id: studentId,
-          activity_type: 'game',
-          subject,
-          topic,
-          started_at: new Date().toISOString(),
-          last_interaction_at: new Date().toISOString(),
-          completed: false,
-          progress: 0,
-          recommendation_id: recommendationId
-        }]);
-        
-        // Mark the recommendation as acted upon
-        await supabase
+      if (result?.content) {
+        // Format the game data properly
+        setGameData({
+          title: result.content.title || `${topic} Game`,
+          objective: result.content.objective || '',
+          instructions: result.content.instructions || '',
+          materials: result.content.materials,
+          variations: result.content.variations,
+          image: result.content.image || {
+            url: `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(topic)}-game&backgroundColor=ffdfbf,ffd5dc,c0aede,d1d4f9,b6e3f4`,
+            alt: `Game illustration for ${topic}`
+          }
+        });
+      }
+      
+      // Mark recommendation as acted on if it exists
+      if (recommendationId) {
+        supabase
           .from('ai_recommendations')
-          .update({
-            acted_on: true,
-            read: true,
-            last_accessed_at: new Date().toISOString()
-          })
-          .eq('id', recommendationId)
-          .eq('student_id', studentId);
-      } catch (error) {
-        console.error('Error tracking game start:', error);
-        // Non-critical error, don't show to user
+          .update({ acted_on: true })
+          .eq('id', recommendationId);
       }
+    } catch (error) {
+      console.error('Error fetching game content:', error);
+    } finally {
+      setLoading(false);
     }
-    
-    toast.success(
-      language === 'id' ? 'Permainan dimulai!' : 'Game started!',
-      { position: "bottom-right", duration: 3000 }
-    );
-  };
+  }, [subject, gradeLevel, topic, language, recommendationId]);
 
-  const handleCompleteGame = async () => {
-    if (onComplete) {
-      onComplete();
+  // Load initial content
+  useEffect(() => {
+    fetchGameContent();
+  }, [fetchGameContent]);
+
+  // Track game interactions
+  const trackInteraction = useCallback(() => {
+    setInteractionCount(prev => prev + 1);
+    
+    // Record game interaction in supabase
+    if (studentId && interactionCount === 0) {
+      supabase.from('learning_activities').insert([{
+        student_id: studentId,
+        activity_type: 'game',
+        subject: subject,
+        topic: topic,
+        progress: 25,
+        completed: false
+      }]);
     }
     
-    // Mark the game as completed if the user is logged in
-    if (user && studentId) {
-      try {
-        // Import supabase
-        const { supabase } = await import('@/integrations/supabase/client');
-        
-        // Create a summary of the game completion
-        const summary = `Completed educational game about ${topic} in ${subject}. Game objective: ${gameContent?.objective}`;
-        
-        // Record the game completion
-        await supabase.from('learning_activities').insert([{
+    // Mark as completed after several interactions
+    if (interactionCount >= 3 && !gameCompleted) {
+      setGameCompleted(true);
+      
+      if (studentId) {
+        supabase.from('learning_activities').insert([{
           student_id: studentId,
-          activity_type: 'game',
-          subject,
-          topic,
-          completed: true,
+          activity_type: 'game_completed',
+          subject: subject,
+          topic: topic,
           progress: 100,
-          stars_earned: 3, // Standard reward for games
-          completed_at: new Date().toISOString(),
-          last_interaction_at: new Date().toISOString(),
-          recommendation_id: recommendationId,
-          summary: summary // Store game summary
+          completed: true
         }]);
-        
-        toast.success(
-          language === 'id' ? 'Permainan selesai! Anda mendapatkan 3 bintang!' : 'Game completed! You earned 3 stars!',
-          { position: "bottom-right", duration: 3000 }
-        );
-      } catch (error) {
-        console.error('Error recording game completion:', error);
       }
     }
-    
-    // Reset for a new game
-    setGameContent(null);
-    setGameStarted(false);
+  }, [interactionCount, gameCompleted, studentId, subject, topic]);
+
+  // Start the game
+  const handleStartGame = () => {
+    setGameStarted(true);
+    trackInteraction();
   };
 
-  if (isLoading) {
+  // Handle completion button click
+  const handleCompleteGame = () => {
+    setGameCompleted(true);
+    trackInteraction();
+  };
+
+  // Show loading state
+  if (loading) {
     return (
-      <Card>
-        <CardContent className="pt-6 flex flex-col items-center justify-center h-64">
-          <div className="animate-spin w-12 h-12 border-4 border-eduPurple border-t-transparent rounded-full mb-4"></div>
-          <p className="text-center font-display text-lg">{t('game.creating')}</p>
-          <p className="text-center text-muted-foreground">{t('game.moment')}</p>
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        <Skeleton className="h-8 w-3/4" />
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-64 w-full" />
+      </div>
     );
   }
 
-  if (!gameContent) {
+  // Show limited features alert
+  if (showLimitedFeatureAlert) {
+    return (
+      <Alert className="mb-4 bg-yellow-50 border-yellow-200">
+        <AlertDescription>
+          <div className="flex flex-col gap-4">
+            <div>
+              <h3 className="font-semibold text-lg mb-2">{t('game.limitedFeature')}</h3>
+              <p>{t('game.signInToPlay')}</p>
+            </div>
+            <div>
+              <Button
+                onClick={() => setShowLimitedFeatureAlert(false)}
+                variant="default"
+                className="bg-eduPurple hover:bg-eduPurple-dark"
+              >
+                {t('common.tryAnyway')}
+              </Button>
+            </div>
+          </div>
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  // Show introduction if game not started
+  if (!gameStarted) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl md:text-2xl font-display">{t('game.title')} {topic}!</CardTitle>
+          <CardTitle className="text-2xl font-display">
+            {gameData?.title || `${topic} ${t('game.title')}`}
+          </CardTitle>
           <CardDescription>
             {t('game.description')} {topic} {t('game.in')} {subject}
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          {limitProgress && !user && (
-            <div className="bg-eduPastel-purple p-4 rounded-lg mb-4">
-              <h3 className="font-semibold font-display text-lg mb-2">
-                {language === 'id' ? 'Akses Terbatas' : 'Limited Access'}
-              </h3>
-              <p className="mb-4">
-                {language === 'id' 
-                  ? 'Masuk untuk mengakses semua fitur permainan!' 
-                  : 'Sign in to access all game features!'}
-              </p>
-              <Button 
-                onClick={() => navigate('/auth', { state: { action: 'signin' } })}
-                variant="outline"
-                className="flex items-center gap-2"
-              >
-                <LogIn className="h-4 w-4" />
-                {language === 'id' ? 'Masuk Sekarang' : 'Sign In Now'}
-              </Button>
+        <CardContent className="space-y-4">
+          {gameData?.image && (
+            <div className="flex justify-center my-4">
+              <img
+                src={gameData.image.url}
+                alt={gameData.image.alt || "Game illustration"}
+                className="rounded-md max-h-40 object-contain"
+              />
             </div>
           )}
-          <Button onClick={generateGame} className="bg-eduPurple hover:bg-eduPurple-dark">
-            <Gamepad className="mr-2 h-4 w-4" />
-            {t('game.create')}
-          </Button>
+          
+          {gameData?.objective && (
+            <div>
+              <h3 className="font-semibold mb-1">{t('game.objective')}</h3>
+              <p>{gameData.objective}</p>
+            </div>
+          )}
         </CardContent>
+        <CardFooter className="flex justify-center">
+          <Button onClick={handleStartGame} className="bg-eduPurple hover:bg-eduPurple-dark">
+            <Gamepad className="mr-2 h-4 w-4" />
+            {t('game.start')}
+          </Button>
+        </CardFooter>
       </Card>
     );
   }
 
+  // Show game content
   return (
-    <Card className={gameStarted ? "border-eduPurple" : ""}>
-      <CardHeader className={gameStarted ? "bg-eduPastel-purple" : ""}>
-        <CardTitle className="text-xl md:text-2xl font-display">{gameContent.title}</CardTitle>
-        <CardDescription>{gameContent.objective}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div>
-          <h3 className="font-semibold font-display text-lg mb-2">{t('game.howToPlay')}</h3>
-          <ol className="list-decimal pl-5 space-y-2">
-            {gameContent.instructions.map((instruction, i) => (
-              <li key={i}>{instruction}</li>
-            ))}
-          </ol>
-        </div>
-
-        {gameContent.materials && gameContent.materials.length > 0 && (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
           <div>
-            <h3 className="font-semibold font-display text-lg mb-2">{t('game.materials')}</h3>
+            <CardTitle className="text-2xl font-display">
+              {gameData?.title || `${topic} ${t('game.title')}`}
+            </CardTitle>
+            <CardDescription>
+              {t('game.forSubject')} {subject}
+            </CardDescription>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={fetchGameContent}
+            className="h-8 w-8"
+            title={t('game.newGame')}
+          >
+            <Refresh className="h-4 w-4" />
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {gameData?.image && (
+          <div className="flex justify-center my-4">
+            <img
+              src={gameData.image.url}
+              alt={gameData.image.alt || "Game illustration"}
+              className="rounded-md max-h-60 object-contain"
+            />
+          </div>
+        )}
+        
+        <div>
+          <h3 className="font-semibold text-lg mb-2">{t('game.howToPlay')}</h3>
+          <div className="bg-gray-50 p-4 rounded-md text-gray-800">
+            <p className="whitespace-pre-wrap">{gameData?.instructions}</p>
+          </div>
+        </div>
+        
+        {gameData?.materials && gameData.materials.length > 0 && (
+          <div>
+            <h3 className="font-semibold text-lg mb-2">{t('game.materials')}</h3>
             <ul className="list-disc pl-5 space-y-1">
-              {gameContent.materials.map((material, i) => (
-                <li key={i}>{material}</li>
+              {gameData.materials.map((material, index) => (
+                <li key={index}>{material}</li>
               ))}
             </ul>
           </div>
         )}
-
-        {gameContent.variations && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-            {gameContent.variations.easier && (
-              <div className="bg-eduPastel-blue p-3 rounded-lg">
-                <h4 className="font-semibold">{t('game.easier')}</h4>
-                <p>{gameContent.variations.easier}</p>
+        
+        {gameData?.variations && (
+          <div>
+            <h3 className="font-semibold text-lg mb-2">{t('game.variations')}</h3>
+            {gameData.variations.easier && (
+              <div className="mb-2">
+                <h4 className="font-medium">{t('game.easier')}:</h4>
+                <p>{gameData.variations.easier}</p>
               </div>
             )}
-            {gameContent.variations.harder && (
-              <div className="bg-eduPastel-peach p-3 rounded-lg">
-                <h4 className="font-semibold">{t('game.harder')}</h4>
-                <p>{gameContent.variations.harder}</p>
+            {gameData.variations.harder && (
+              <div>
+                <h4 className="font-medium">{t('game.harder')}:</h4>
+                <p>{gameData.variations.harder}</p>
               </div>
             )}
           </div>
         )}
       </CardContent>
-      <CardContent className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg mt-4">
-        <p className="text-yellow-800 font-medium">
-          {language === 'id' 
-            ? 'Beberapa fitur permainan terbatas. Masuk untuk akses penuh.' 
-            : 'Some game features are limited. Sign in for full access.'}
-        </p>
-      </CardContent>
-      <CardFooter className="flex justify-center">
-        {!gameStarted ? (
-          <Button 
-            onClick={handleStartGame} 
-            className="bg-eduPurple hover:bg-eduPurple-dark"
-          >
-            <Gamepad className="mr-2 h-4 w-4" />
-            {t('game.start')}
+      <CardFooter className="flex justify-between">
+        <Button variant="outline" onClick={trackInteraction}>
+          {t('game.gotIt')}
+        </Button>
+        
+        {!gameCompleted ? (
+          <Button onClick={handleCompleteGame} className="bg-eduPurple hover:bg-eduPurple-dark">
+            {t('game.completedPlaying')}
           </Button>
         ) : (
-          <Button 
-            onClick={handleCompleteGame}
-            className="bg-green-600 hover:bg-green-700"
-          >
-            <Award className="mr-2 h-4 w-4" />
-            {t('game.finished')}
+          <Button variant="outline" disabled className="flex items-center gap-2">
+            <Award className="h-4 w-4" />
+            {t('game.completed')}
           </Button>
         )}
       </CardFooter>

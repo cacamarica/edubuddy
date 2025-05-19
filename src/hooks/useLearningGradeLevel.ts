@@ -115,6 +115,7 @@ const useLearningGradeLevel = (initialGradeLevel: 'k-3' | '4-6' | '7-9' = 'k-3')
     gradeLevel,
     setGradeLevel,
     subjectOptions: subjectOptions[gradeLevel],
+    topicSuggestions,
     getTopicSuggestionsForSubject,
     updateGradeLevelFromStudent,
   };
