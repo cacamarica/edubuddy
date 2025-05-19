@@ -84,7 +84,7 @@ const LessonContent: React.FC<LessonContentProps> = ({
             {t('lesson.previous')}
           </Button>
         ) : (
-          <div></div> {/* Empty div for spacing */}
+          <div></div> /* Empty div for spacing */
         )}
         <Button onClick={onNext} className="bg-eduPurple hover:bg-eduPurple-dark flex items-center gap-2">
           {t('lesson.continue')}
