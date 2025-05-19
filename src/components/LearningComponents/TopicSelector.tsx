@@ -98,7 +98,7 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
     fetchStudentInfo();
   }, [studentId, language]);
 
-  // Validate if topic is educational/school-related
+  // Enhanced validation to be more permissive but still child-appropriate
   const validateTopic = (topic: string) => {
     if (!topic.trim()) {
       setIsValidTopic(false);
@@ -110,11 +110,11 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
     
     const normalizedTopic = topic.toLowerCase().trim();
     
-    // Check if the topic contains any of the allowed educational topics
+    // Check if the topic contains any of the allowed educational topics - be more permissive
     const isEducational = ALLOWED_TOPICS.some(allowedTopic => 
       normalizedTopic.includes(allowedTopic) || 
       allowedTopic.includes(normalizedTopic)
-    );
+    ) || normalizedTopic.length >= 3; // More permissive - most educational terms are valid
     
     // Allow suggested topics automatically
     const isSuggested = topicSuggestions.some(suggestion => 
@@ -122,13 +122,14 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
       normalizedTopic.includes(suggestion.toLowerCase())
     );
     
-    // Check if specific non-educational keywords are present
-    const nonEducationalKeywords = ['game', 'movie', 'entertainment', 'social media', 'dating', 'gambling'];
+    // Check if specific non-educational or inappropriate keywords are present
+    const nonEducationalKeywords = ['game', 'movie', 'entertainment', 'social media', 'dating', 
+      'gambling', 'weapon', 'gun', 'violence', 'adult', 'drug'];
     const hasNonEducationalKeyword = nonEducationalKeywords.some(keyword => 
       normalizedTopic.includes(keyword)
     );
     
-    const isValid = isEducational || isSuggested || !hasNonEducationalKeyword;
+    const isValid = (isEducational || isSuggested) && !hasNonEducationalKeyword;
     
     setIsValidTopic(isValid);
     

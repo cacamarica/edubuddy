@@ -1,154 +1,239 @@
-
-import React from 'react';
-import { ChevronLeft } from 'lucide-react';
+import React, { useState } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { toast } from 'sonner';
+import { useLanguage } from '@/contexts/LanguageContext';
 
-export interface TopicCarouselProps {
-  gradeLevel: 'k-3' | '4-6' | '7-9';
+interface TopicCarouselProps {
   subjectName: string;
   topicList: string[];
   onSelectTopic: (topic: string) => void;
   onBackClick: () => void;
-  currentGrade?: 'k-3' | '4-6' | '7-9';
+  gradeLevel: 'k-3' | '4-6' | '7-9';
+  currentGrade?: string;
 }
 
 const TopicCarousel: React.FC<TopicCarouselProps> = ({
-  gradeLevel,
   subjectName,
   topicList,
   onSelectTopic,
   onBackClick,
-  currentGrade,
+  gradeLevel,
+  currentGrade
 }) => {
-  const subjectDisplayName = subjectName.charAt(0).toUpperCase() + subjectName.slice(1);
-  const displayGrade = currentGrade || gradeLevel;
+  const { language } = useLanguage();
+  const [currentPage, setCurrentPage] = useState(0);
+  const [customTopic, setCustomTopic] = useState('');
+  const [showDialog, setShowDialog] = useState(false);
   
-  // Get appropriate subject color based on subject
-  const getSubjectColor = (subject: string) => {
-    switch (subject.toLowerCase()) {
-      case 'math':
-      case 'mathematics':
-      case 'algebra':
-      case 'geometry':
-        return 'bg-blue-100 border-blue-300 text-blue-800';
-      case 'science':
-        return 'bg-green-100 border-green-300 text-green-800';
-      case 'reading':
-      case 'language arts':
-      case 'english':
-        return 'bg-purple-100 border-purple-300 text-purple-800';
-      case 'history':
-      case 'social studies':
-        return 'bg-amber-100 border-amber-300 text-amber-800';
-      case 'art':
-      case 'music':
-        return 'bg-pink-100 border-pink-300 text-pink-800';
-      default:
-        return 'bg-gray-100 border-gray-300 text-gray-800';
+  // Predefined allowed educational topics
+  const ALLOWED_TOPICS = [
+    // Math topics
+    'algebra', 'geometry', 'calculus', 'arithmetic', 'statistics', 'trigonometry', 'numbers', 
+    'fractions', 'decimals', 'percentages', 'counting', 'multiplication', 'division', 'addition', 'subtraction',
+    
+    // Science topics
+    'biology', 'chemistry', 'physics', 'astronomy', 'earth science', 'animals', 'plants',
+    'human body', 'ecosystems', 'weather', 'elements', 'electricity', 'energy', 'forces', 'motion',
+    
+    // English/Language topics
+    'grammar', 'vocabulary', 'spelling', 'reading', 'writing', 'literature', 'poetry', 'fiction',
+    'essays', 'storytelling', 'alphabets', 'phonics', 'verbs', 'nouns', 'adjectives',
+    
+    // Social Studies topics
+    'history', 'geography', 'civics', 'economics', 'culture', 'maps', 'countries',
+    'continents', 'oceans', 'people', 'communities', 'government', 'landmarks',
+    
+    // Other academic subjects
+    'music', 'art', 'physical education', 'health', 'technology', 'computer science', 'coding'
+  ];
+  
+  const itemsPerPage = 6;
+  const totalPages = Math.ceil((topicList.length + 1) / itemsPerPage); // +1 for custom topic button
+  
+  const handleNextPage = () => {
+    if (currentPage < totalPages - 1) {
+      setCurrentPage(prevPage => prevPage + 1);
     }
   };
   
-  // Get grade level label
-  const getGradeLevelLabel = (grade: string) => {
-    switch(grade) {
-      case 'k-3': return 'K-3rd Grade';
-      case '4-6': return '4-6th Grade';
-      case '7-9': return '7-9th Grade';
-      default: return 'All Grades';
+  const handlePreviousPage = () => {
+    if (currentPage > 0) {
+      setCurrentPage(prevPage => prevPage - 1);
     }
+  };
+
+  const handleCustomTopicSubmit = () => {
+    if (!customTopic.trim()) {
+      toast.error(language === 'id' ? 'Topik tidak boleh kosong' : 'Topic cannot be empty');
+      return;
+    }
+
+    const normalized = customTopic.toLowerCase();
+    
+    // Check if the topic is appropriate and educational
+    const isEducational = ALLOWED_TOPICS.some(allowedTopic => 
+      normalized.includes(allowedTopic) || 
+      allowedTopic.includes(normalized)
+    );
+
+    // Check for inappropriate keywords
+    const inappropriateKeywords = ['violence', 'adult', 'drug', 'weapon', 'gun'];
+    const hasInappropriate = inappropriateKeywords.some(keyword => normalized.includes(keyword));
+
+    if (!isEducational || hasInappropriate) {
+      toast.error(
+        language === 'id' 
+          ? 'Mohon masukkan topik pendidikan yang sesuai' 
+          : 'Please enter an appropriate educational topic'
+      );
+      return;
+    }
+
+    onSelectTopic(customTopic);
+    setShowDialog(false);
   };
   
-  // Get appropriate icon for subject
-  const getSubjectIcon = (subject: string) => {
-    switch (subject.toLowerCase()) {
-      case 'math':
-      case 'mathematics':
-      case 'algebra':
-      case 'geometry':
-        return '🔢';
-      case 'science':
-        return '🔬';
-      case 'reading':
-      case 'language arts':
-      case 'english':
-        return '📚';
-      case 'history':
-      case 'social studies':
-        return '🏛️';
-      case 'art':
-        return '🎨';
-      case 'music':
-        return '🎵';
-      case 'technology':
-      case 'computer science':
-      case 'beginning computer':
-        return '💻';
-      case 'health':
-      case 'physical education':
-        return '🏃';
-      case 'geography':
-        return '🌍';
-      case 'foreign languages':
-        return '🗣️';
-      default:
-        return '📝';
+  // Get current page items
+  const currentPageItems = topicList.slice(
+    currentPage * itemsPerPage, 
+    (currentPage * itemsPerPage) + itemsPerPage
+  );
+
+  // Topics with custom button
+  const displayItemsWithCustom = () => {
+    const items = [...currentPageItems];
+    
+    // Add custom topic button if we're on the first page and not at max capacity
+    if (currentPage === 0 && currentPageItems.length < itemsPerPage) {
+      // Already has space on the first page
+      return [...items, 'custom-topic-button'];
+    } 
+    else if (currentPage === totalPages - 1) {
+      // Check if we have space on the last page
+      const remaining = (topicList.length % itemsPerPage);
+      if (remaining > 0 && remaining < itemsPerPage) {
+        return [...items, 'custom-topic-button'];
+      }
     }
+    return items;
   };
+
+  const displayItems = displayItemsWithCustom();
   
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div className="flex items-center space-x-2">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="flex items-center space-x-1"
-            onClick={onBackClick}
-          >
-            <ChevronLeft size={16} />
-            <span>Back to Subjects</span>
-          </Button>
-        </div>
-        <div className="flex flex-col md:items-end">
-          <h2 className="text-xl font-medium">
-            <span className="inline-block mr-2">{getSubjectIcon(subjectName)}</span>
-            {subjectDisplayName} Topics
-          </h2>
-          <Badge variant="outline" className="mt-1">
-            {getGradeLevelLabel(displayGrade)}
-          </Badge>
-        </div>
+    <div className="space-y-8">
+      <div>
+        <Button 
+          variant="ghost" 
+          onClick={onBackClick} 
+          className="mb-4 flex items-center"
+        >
+          <ChevronLeft className="mr-1 h-4 w-4" />
+          {language === 'id' ? 'Kembali' : 'Back'}
+        </Button>
+        
+        <h2 className="text-2xl font-bold">
+          {language === 'id' ? `Topik di ${subjectName}` : `Topics in ${subjectName}`}
+        </h2>
+        <p className="text-muted-foreground">
+          {language === 'id' 
+            ? `Pilih topik yang ingin kamu pelajari untuk ${gradeLevel}` 
+            : `Select a topic you want to learn for ${gradeLevel}`}
+        </p>
       </div>
       
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-        {topicList.map((topic) => (
-          <Card 
-            key={topic} 
-            className="cursor-pointer hover:border-primary hover:shadow-md transition-all"
-            onClick={() => onSelectTopic(topic)}
-          >
-            <CardHeader className={`pb-2 border-b ${getSubjectColor(subjectName)}`}>
-              <CardTitle className="text-lg">{topic}</CardTitle>
-              <CardDescription>
-                {subjectDisplayName} - {getGradeLevelLabel(displayGrade)}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="pt-4">
-              <Button className="w-full bg-eduPurple hover:bg-eduPurple-dark">Start Learning</Button>
-            </CardContent>
-          </Card>
-        ))}
+        {displayItems.map((topic, index) => 
+          topic === 'custom-topic-button' ? (
+            <Dialog key="custom-topic" open={showDialog} onOpenChange={setShowDialog}>
+              <DialogTrigger asChild>
+                <Card className="cursor-pointer hover:shadow-md transition-all border-dashed border-2 hover:border-primary h-full">
+                  <CardContent className="p-6 flex items-center justify-center flex-col h-full">
+                    <div className="rounded-full bg-eduPastel-purple p-3 mb-3">
+                      <Plus className="h-6 w-6 text-eduPurple" />
+                    </div>
+                    <h3 className="text-lg font-medium text-center">
+                      {language === 'id' ? 'Buat Topik Kustom' : 'Create Custom Topic'}
+                    </h3>
+                  </CardContent>
+                </Card>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>
+                    {language === 'id' ? 'Buat Topik Kustom' : 'Create Custom Topic'}
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="topic">
+                      {language === 'id' ? 'Nama Topik' : 'Topic Name'}
+                    </Label>
+                    <Input 
+                      id="topic"
+                      placeholder={language === 'id' ? 'contoh: Fotosintesis' : 'example: Photosynthesis'}
+                      value={customTopic}
+                      onChange={(e) => setCustomTopic(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {language === 'id' 
+                        ? 'Masukkan topik pendidikan yang sesuai untuk anak-anak' 
+                        : 'Enter appropriate educational topics for children'}
+                    </p>
+                  </div>
+                  <Button 
+                    onClick={handleCustomTopicSubmit} 
+                    className="w-full bg-eduPurple hover:bg-eduPurple-dark"
+                  >
+                    {language === 'id' ? 'Buat dan Lanjutkan' : 'Create and Continue'}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          ) : (
+            <Card 
+              key={index} 
+              className="cursor-pointer hover:shadow-md transition-all"
+              onClick={() => onSelectTopic(topic)}
+            >
+              <CardContent className="p-6">
+                <h3 className="text-lg font-medium">{topic}</h3>
+              </CardContent>
+            </Card>
+          )
+        )}
       </div>
       
-      {topicList.length === 0 && (
-        <div className="text-center p-8 border rounded-lg">
-          <h3 className="text-xl font-medium mb-2">No Topics Available</h3>
-          <p className="text-gray-500">
-            No topics found for {subjectDisplayName} in {getGradeLevelLabel(displayGrade)}. 
-            Try selecting a different subject or grade level.
-          </p>
+      {totalPages > 1 && (
+        <div className="flex justify-between items-center mt-6">
+          <Button 
+            variant="outline" 
+            onClick={handlePreviousPage}
+            disabled={currentPage === 0}
+          >
+            <ChevronLeft className="mr-1 h-4 w-4" />
+            {language === 'id' ? 'Sebelumnya' : 'Previous'}
+          </Button>
+          
+          <span className="text-sm">
+            {language === 'id' 
+              ? `Halaman ${currentPage + 1} dari ${totalPages}` 
+              : `Page ${currentPage + 1} of ${totalPages}`}
+          </span>
+          
+          <Button 
+            variant="outline" 
+            onClick={handleNextPage}
+            disabled={currentPage >= totalPages - 1}
+          >
+            {language === 'id' ? 'Berikutnya' : 'Next'}
+            <ChevronRight className="ml-1 h-4 w-4" />
+          </Button>
         </div>
       )}
     </div>
