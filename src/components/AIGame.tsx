@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { Gamepad, Refresh, Award } from 'lucide-react';
+import { Gamepad, RefreshCw, Award } from 'lucide-react';
 import { getAIEducationContent } from '@/services/aiEducationService';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -241,7 +240,7 @@ const AIGame: React.FC<AIGameProps> = ({
             className="h-8 w-8"
             title={t('game.newGame')}
           >
-            <Refresh className="h-4 w-4" />
+            <RefreshCw className="h-4 w-4" />
           </Button>
         </div>
       </CardHeader>

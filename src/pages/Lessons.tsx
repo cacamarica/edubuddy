@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import GradeSelector from '@/components/GradeSelector';
@@ -8,6 +7,8 @@ import { Student, StudentProfile, convertToStudent } from '@/types/learning';
 import { useStudentProfile } from '@/contexts/StudentProfileContext';
 import useLearningGradeLevel from '@/hooks/useLearningGradeLevel';
 import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
 // Define Subject interface
 interface Subject {
@@ -296,10 +297,10 @@ const Lessons = () => {
                   subject={subject.name}
                   gradeLevel={selectedGradeLevel}
                   onClick={() => handleSubjectSelect(subject.id)}
-                  icon={subject.icon}
                   description={subject.description}
                   color={subject.color}
                   textColor={subject.textColor}
+                  iconText={subject.icon}
                 />
               ))}
             </div>
