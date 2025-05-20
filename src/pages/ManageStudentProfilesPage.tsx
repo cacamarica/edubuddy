@@ -163,8 +163,8 @@ const ManageStudentProfilesPage = () => {
       const studentData = {
         name: data.name,
         grade_level: data.grade_level,
-        age: data.age,
-        avatar_url: data.avatar_url || null,
+        age: data.age || undefined,
+        avatar_url: data.avatar_url || undefined,
         parent_id: user.id
       };
       
@@ -267,7 +267,7 @@ const ManageStudentProfilesPage = () => {
   );
   
   const renderPaginationLinks = () => {
-    const pages = [];
+    const pages: React.ReactNode[] = [];
     
     // Add first page
     if (currentPage > 2) {

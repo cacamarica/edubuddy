@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Spinner } from '@/components/ui/spinner';
 import PaginatedBadges from './PaginatedBadges';
-import { fetchStudentBadges, StudentBadge } from '@/services/badgeService';
+import { badgeService, StudentBadge } from '@/services/badgeService';
 
 interface StudentAchievementsProps {
   studentId: string;
@@ -21,7 +21,7 @@ const StudentAchievements: React.FC<StudentAchievementsProps> = ({ studentId }) 
       
       setIsLoadingBadges(true);
       try {
-        const data = await fetchStudentBadges(studentId);
+        const data = await badgeService.fetchStudentBadges(studentId);
         setBadges(data);
       } catch (error) {
         console.error("Error fetching badges:", error);

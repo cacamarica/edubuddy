@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -70,21 +69,21 @@ const QuizResults: React.FC = () => {
     }
   }, [correctAnswers, totalQuestions, launch]);
   
+  const checkCompletion = async () => {
+    setIsLoading(true);
+    try {
+      const quizScores = await studentProgressService.getQuizScores(studentId);
+      const completed = quizScores.some(score => score.subject === subject && score.topic === topic);
+      setHasCompletedQuiz(completed);
+    } catch (error) {
+      console.error("Error checking quiz completion:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
   useEffect(() => {
     // Check if the student has completed this quiz before
-    const checkCompletion = async () => {
-      setIsLoading(true);
-      try {
-        const quizScores = await studentProgressService.getQuizScores(studentId);
-        const completed = quizScores.some(score => score.subject === subject && score.topic === topic);
-        setHasCompletedQuiz(completed);
-      } catch (error) {
-        console.error("Error checking quiz completion:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
     checkCompletion();
   }, [studentId, subject, topic]);
   

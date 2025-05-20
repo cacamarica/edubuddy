@@ -103,7 +103,15 @@ export const badgeService = {
         return null;
       }
       
-      return studentBadge?.badge || null;
+      // Make sure we handle the type conversion correctly for the badge
+      const badge = studentBadge?.badge;
+      return badge ? {
+        id: badge.id,
+        name: badge.name,
+        description: badge.description,
+        image_url: badge.image_url || undefined,
+        type: badge.type || 'achievement' // Provide a default type if missing
+      } : null;
     } catch (error) {
       console.error("Error in badge award process:", error);
       return null;
@@ -123,10 +131,28 @@ export const badgeService = {
         return [];
       }
       
-      return data as StudentBadge[];
+      // Transform the data to ensure it matches the StudentBadge type
+      return (data || []).map(item => ({
+        id: item.id,
+        student_id: item.student_id,
+        badge_id: item.badge_id,
+        earned_at: item.earned_at,
+        awarded_at: item.awarded_at,
+        badge: item.badge ? {
+          id: item.badge.id,
+          name: item.badge.name,
+          description: item.badge.description,
+          image_url: item.badge.image_url,
+          // Use a default type if it's missing in the database
+          type: item.badge.type || 'achievement'
+        } : undefined
+      })) as StudentBadge[];
     } catch (error) {
       console.error("Error in student badges fetch:", error);
       return [];
     }
   }
 };
+
+// Export the individual functions for direct imports
+export const { fetchStudentBadges, awardBadge, checkAndAwardBadges } = badgeService;

@@ -1,5 +1,6 @@
+
 import React, { useEffect, useState } from 'react';
-import { fetchStudentBadges, StudentBadge } from '@/services/badgeService';
+import { badgeService, StudentBadge } from '@/services/badgeService';
 import { studentProgressService } from '@/services/studentProgressService';
 import { Card, CardContent } from '@/components/ui/card';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -34,4 +35,4 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ parentId }) => {
   );
 };
 
-export default ParentDashboard; 
+export default ParentDashboard;

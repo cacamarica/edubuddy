@@ -1,5 +1,6 @@
+
 import React, { useEffect, useState } from 'react';
-import { fetchStudentBadges, StudentBadge } from '@/services/badgeService';
+import { badgeService, StudentBadge } from '@/services/badgeService';
 import { studentProgressService } from '@/services/studentProgressService';
 import { Card, CardContent } from '@/components/ui/card';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -15,10 +16,10 @@ const ProgressTracker: React.FC<ProgressTrackerProps> = ({ studentId }) => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const badges = await fetchStudentBadges(studentId);
-      setBadges(badges);
-      const progress = await studentProgressService.getSubjectProgress(studentId);
-      setProgress(progress);
+      const fetchedBadges = await badgeService.fetchStudentBadges(studentId);
+      setBadges(fetchedBadges);
+      const progressData = await studentProgressService.getSubjectProgress(studentId);
+      setProgress(progressData);
     };
     fetchData();
   }, [studentId]);
@@ -36,4 +37,4 @@ const ProgressTracker: React.FC<ProgressTrackerProps> = ({ studentId }) => {
   );
 };
 
-export default ProgressTracker; 
+export default ProgressTracker;
