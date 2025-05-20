@@ -113,8 +113,8 @@ const ManageStudentProfilesPage = () => {
     setEditingStudent(student);
     setValue('name', student.name);
     setValue('grade_level', student.grade_level);
-    setValue('age', student.age);
-    setValue('avatar_url', student.avatar_url);
+    setValue('age', student.age === null ? undefined : student.age);
+    setValue('avatar_url', student.avatar_url === null ? undefined : student.avatar_url);
     setShowEditDialog(true);
   };
   
