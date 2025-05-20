@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -160,14 +159,14 @@ const ManageStudentProfilesPage = () => {
     setIsSubmitting(true);
     
     try {
-      // Process student data - Fix null/undefined issues
+      // Process student data properly handling null/undefined
       const studentData = {
         name: data.name,
         grade_level: data.grade_level,
-        // Convert null to undefined, preserve actual values
-        age: data.age === null ? undefined : (typeof data.age === 'number' ? data.age : undefined),
-        // Convert null to undefined, preserve actual string values
-        avatar_url: data.avatar_url === null ? undefined : (typeof data.avatar_url === 'string' ? data.avatar_url : undefined),
+        // Ensure age is either a number or undefined, never null
+        age: data.age === null || data.age === undefined ? undefined : Number(data.age),
+        // Ensure avatar_url is either a string or undefined, never null
+        avatar_url: data.avatar_url === null || data.avatar_url === undefined ? undefined : String(data.avatar_url),
         parent_id: user.id
       };
       
