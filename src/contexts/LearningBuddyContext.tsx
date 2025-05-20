@@ -30,7 +30,7 @@ interface LearningBuddyContextType {
 const LearningBuddyContext = createContext<LearningBuddyContextType | undefined>(undefined);
 
 // Provider component
-export const LearningBuddyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const LearningBuddyProvider = ({ children }: { children: React.ReactNode }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -40,14 +40,21 @@ export const LearningBuddyProvider: React.FC<{ children: React.ReactNode }> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { language } = useLanguage();
 
+  // Clear messages when profile changes to adapt context to new student
+  useEffect(() => {
+    if (selectedProfile) {
+      clearMessages();
+    }
+  }, [selectedProfile?.id]);
+
   // Send a welcome message when first opened
   useEffect(() => {
     if (isOpen && messages.length === 0) {
-      // Create initial welcome message
+      // Create initial welcome message with a more personal, friendly tone
       const welcomeMessage: ChatMessage = {
         id: generateId(),
         role: 'assistant',
-        content: `Hello! I'm your Learning Buddy. ${selectedProfile?.gradeLevel ? `I'm here to help with your ${selectedProfile.gradeLevel} level studies.` : 'I can help you learn new things!'} What would you like to learn about today?`,
+        content: `Hi ${selectedProfile?.name || 'there'}! I'm your Learning Buddy, and I'm so excited to chat with you today! ${selectedProfile?.gradeLevel ? `I'm here to help with all your ${formatGradeLevel(selectedProfile.gradeLevel)} studies and questions.` : 'I can help you learn new things and explore any topics you\'re curious about!'} What would you like to learn about today? I'm all ears!`,
         timestamp: new Date(),
       };
       setMessages([welcomeMessage]);
@@ -106,6 +113,25 @@ export const LearningBuddyProvider: React.FC<{ children: React.ReactNode }> = ({
     );
   };
 
+  // Format grade level to more readable text
+  const formatGradeLevel = (gradeLevel: string): string => {
+    console.log('Formatting grade level:', gradeLevel); // Debug log to check the input
+    switch (gradeLevel) {
+      case 'k-3':
+        return 'Kindergarten to Grade 3';
+      case '4-6':
+        return 'Grade 4 to 6';
+      case '7-9':
+        return 'Grade 7 to 9';
+      default:
+        // If grade level contains k-3, 4-6, or 7-9 as part of a longer string, extract and handle it
+        if (gradeLevel.includes('k-3')) return 'Kindergarten to Grade 3';
+        if (gradeLevel.includes('4-6')) return 'Grade 4 to 6';
+        if (gradeLevel.includes('7-9')) return 'Grade 7 to 9';
+        return gradeLevel || 'school';
+    }
+  };
+
   // Send message to OpenAI
   const sendMessage = async (message: string) => {
     if (!message.trim()) return;
@@ -141,21 +167,41 @@ export const LearningBuddyProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       // Construct prompt based on student profile
       const studentLevel = selectedProfile?.gradeLevel || 'elementary';
+      const formattedStudentLevel = formatGradeLevel(studentLevel);
       const studentName = selectedProfile?.name || 'the student';
       const studentAge = selectedProfile?.age || 'appropriate';
 
-      // Basic system prompt template that tells the AI to act as a teacher
-      const systemPrompt = `You are a helpful and encouraging learning assistant for ${studentName}, a ${studentLevel} level student around ${studentAge} years old. 
-      Respond in a way that is educational, clear, and appropriate for their grade level.
+      // Enhanced system prompt for a more personalized and friendly learning buddy
+      const systemPrompt = `You are ${studentName}'s personal Learning Buddy, a warm, friendly, and encouraging educational companion. 
+      Your relationship with ${studentName} is special - you're not just a teacher, but a trusted friend who genuinely cares about their learning journey.
+      
+      About ${studentName}:
+      - Grade level: ${formattedStudentLevel}
+      - Age: ${studentAge !== 'appropriate' ? studentAge : 'school age'} years old
+      
+      Your personality:
+      - Warm, enthusiastic and caring like a best friend
+      - Patient and understanding when ${studentName} doesn't understand something
+      - Excited about ${studentName}'s interests and progress
+      - Speak directly to ${studentName} using "you" and their name frequently
+      - Use a conversational, friendly tone with occasional playful expressions
+      - Be encouraging with specific praise when they show curiosity or effort
+      
+      Educational approach:
+      - Adapt your explanations perfectly for ${formattedStudentLevel} understanding
+      - Connect new concepts to things ${studentName} might experience in daily life
+      - Ask occasional gentle questions to check understanding
+      - When explaining complex topics, use relatable analogies and stories
+      - Be genuinely excited about learning together
+      
       Format your responses with appropriate structure using:
       - Headings with #
       - Subheadings with ##
       - Lists with -
       - Short, clear paragraphs
-      - Occasional emojis for engagement 🔍 📚 ✏️
-      - Simple explanations of complex topics
+      - Occasional emojis for engagement
       
-      Keep answers concise but comprehensive. Be enthusiastic and supportive!`;
+      Keep your responses friendly but concise. Show your personality and make ${studentName} feel like they're talking to a caring friend who's excited to learn together!`;
 
       // Create the conversation history for context
       const conversation = messages.map(msg => ({
@@ -248,27 +294,16 @@ export const LearningBuddyProvider: React.FC<{ children: React.ReactNode }> = ({
       };
 
       setMessages(prev => [...prev, aiResponse]);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error sending message to OpenAI:', error);
       
-      // Determine if this is an API key issue
-      const isApiKeyError = error.message && (
-        error.message.includes('API key') || 
-        error.message.includes('authentication') || 
-        error.message.includes('401')
-      );
-      
-      // Add appropriate error message
+      // Add error message to chat
       const errorMessage: ChatMessage = {
         id: generateId(),
         role: 'assistant',
-        content: isApiKeyError
-          ? (language === 'id'
-              ? "Ada masalah dengan kunci API OpenAI Anda. Silakan periksa bahwa kunci tersebut valid dan belum kedaluwarsa."
-              : "There's an issue with your OpenAI API key. Please check that it's valid and hasn't expired.")
-          : (language === 'id'
-              ? "Maaf, saya mengalami kesulitan terhubung ke basis pengetahuan saya. Silakan coba lagi nanti."
-              : "I'm sorry, I'm having trouble connecting to my knowledge base. Please try again later."),
+        content: language === 'id'
+          ? "Maaf, saya mengalami masalah dalam memproses pesan Anda. Silakan coba lagi nanti."
+          : "Sorry, I'm having trouble processing your message. Please try again later.",
         timestamp: new Date(),
       };
       
@@ -278,39 +313,36 @@ export const LearningBuddyProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  // Clear all messages
   const clearMessages = () => {
     setMessages([]);
   };
 
-  // Toggle chat open/closed
   const toggleOpen = () => {
     setIsOpen(prev => !prev);
-    if (!isOpen) {
+    // When chat is closed, also ensure it's minimized
+    if (isOpen) {
       setIsExpanded(false);
     }
   };
 
-  // Toggle expanded/collapsed
   const toggleExpanded = () => {
     setIsExpanded(prev => !prev);
   };
 
   return (
-    <LearningBuddyContext.Provider
-      value={{
-        messages,
-        isOpen,
-        isExpanded,
-        isLoading,
-        toggleOpen,
-        toggleExpanded,
-        sendMessage,
-        clearMessages,
+    <LearningBuddyContext.Provider 
+      value={{ 
+        messages, 
+        isOpen, 
+        isExpanded, 
+        isLoading, 
+        toggleOpen, 
+        toggleExpanded, 
+        sendMessage, 
+        clearMessages 
       }}
     >
       {children}
-      <div ref={messagesEndRef} />
     </LearningBuddyContext.Provider>
   );
 };

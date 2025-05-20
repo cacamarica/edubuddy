@@ -67,16 +67,36 @@ const Dashboard = () => {
     return 'k-3'; // Default fallback
   };
 
-  const handleStudentChange = (studentId: string) => {
+  const handleStudentChange = async (studentId: string) => {
     if (studentId) {
-      if (selectedProfile) {
-        setSelectedProfile({ 
-          id: studentId, 
-          name: selectedProfile.name || 'Selected Student',
-          gradeLevel: selectedProfile.gradeLevel || 'k-3',
-          parentId: selectedProfile.parentId || '',
-          createdAt: selectedProfile.createdAt || new Date().toISOString()
-        });
+      try {
+        // Fetch the complete student data from Supabase to ensure we have accurate data
+        const { data: studentData, error } = await supabase
+          .from('students')
+          .select('*')
+          .eq('id', studentId)
+          .single();
+          
+        if (error) {
+          console.error('Error fetching student data:', error);
+          return;
+        }
+        
+        if (studentData) {
+          // Convert database format to StudentProfile format with correct grade level
+          const studentProfile: StudentProfileType = {
+            id: studentData.id,
+            name: studentData.name,
+            age: studentData.age || 10,
+            gradeLevel: studentData.grade_level, // This ensures we use the correct grade from the database
+            parentId: studentData.parent_id || user?.id || '',
+            createdAt: studentData.created_at || new Date().toISOString(),
+            avatarUrl: studentData.avatar_url || undefined
+          };
+          setSelectedProfile(studentProfile);
+        }
+      } catch (error) {
+        console.error('Error in student profile fetch:', error);
       }
     } else {
       setSelectedProfile(null);

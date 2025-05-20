@@ -1,0 +1,27 @@
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { Spinner } from "@/components/ui/spinner";
+import Index from "../pages/Index";
+import NotFound from "../pages/NotFound";
+import Lessons from "../pages/Lessons";
+import Quiz from "../pages/Quiz";
+import Dashboard from "../pages/Dashboard";
+import AILearning from "../pages/AILearning";
+import AILesson from "../pages/AILesson"; // Import AILesson from pages directory
+import About from "../pages/About";
+import Auth from "../pages/Auth";
+import FAQ from "../pages/FAQ";
+import AccountSettings from "../pages/AccountSettings";
+import StudentProfilePage from "../pages/StudentProfilePage";
+import ManageStudentProfilesPage from "../pages/ManageStudentProfilesPage";
+import Subjects from "../pages/Subjects";
+import { StudentProfileProvider } from '@/contexts/StudentProfileContext';
+import { LearningBuddyProvider } from '@/contexts/LearningBuddyContext';
+import LearningBuddy from '@/components/LearningBuddy';
+import ToastContainer from '@/components/ToastContainer';
+import DetailedQuizHistoryPage from "../pages/DetailedQuizHistory";
+import ErrorBoundary from "@/components/ErrorBoundary";
+import { fixStudentProfilesMappings } from "@/utils/databaseMigration";
+import { useEffect } from "react"; 

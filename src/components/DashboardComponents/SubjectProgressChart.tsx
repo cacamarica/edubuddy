@@ -2,6 +2,7 @@ import React from 'react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { Spinner } from '@/components/ui/spinner';
 import { Book, Calculator, Beaker, Globe, PenTool, Puzzle, Brain, BookOpen } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface SubjectProgressChartProps {
   subjectProgress: any[];
@@ -63,72 +64,90 @@ const SubjectProgressChart: React.FC<SubjectProgressChartProps> = ({ subjectProg
   }));
 
   return (
-    <div className="w-full">
+    <div className="w-full space-y-5">
       {chartData.length > 0 ? (
-        <div style={{ width: '100%', height: 400 }} className="mb-8">
-          <ResponsiveContainer>
-            <BarChart
-              data={chartData}
-              margin={{
-                top: 20,
-                right: 30,
-                left: 20,
-                bottom: 5,
-              }}
-            >
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="subject" />
-              <YAxis domain={[0, 100]} />
-              <Tooltip formatter={(value) => `${value}%`} />
-              <Legend />
-              <Bar 
-                dataKey="progress" 
-                fill="#8884d8" 
-                name={language === 'id' ? 'Kemajuan (%)' : 'Progress (%)'}
-                label={{ position: 'top', formatter: (value: number) => `${value}%` }}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>{language === 'id' ? 'Grafik Kemajuan' : 'Progress Chart'}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div style={{ width: '100%', height: 400 }}>
+              <ResponsiveContainer>
+                <BarChart
+                  data={chartData}
+                  margin={{
+                    top: 20,
+                    right: 30,
+                    left: 20,
+                    bottom: 5,
+                  }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="subject" />
+                  <YAxis domain={[0, 100]} />
+                  <Tooltip formatter={(value) => `${value}%`} />
+                  <Legend />
+                  <Bar 
+                    dataKey="progress" 
+                    fill="#8884d8" 
+                    name={language === 'id' ? 'Kemajuan (%)' : 'Progress (%)'}
+                    label={{ position: 'top', formatter: (value: number) => `${value}%` }}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
       ) : (
-        <div className="flex justify-center items-center h-40">
-          <p className="text-muted-foreground">
-            {language === 'id' ? 'Belum ada data kemajuan mata pelajaran.' : 'No subject progress data yet.'}
-          </p>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>{language === 'id' ? 'Grafik Kemajuan' : 'Progress Chart'}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex justify-center items-center h-40">
+              <p className="text-muted-foreground">
+                {language === 'id' ? 'Belum ada data kemajuan mata pelajaran.' : 'No subject progress data yet.'}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       )}
       
       {/* List View of Subject Progress with Icons */}
-      <div className="mt-8">
-        <h4 className="font-semibold text-lg mb-4">
-          {language === 'id' ? 'Detail Kemajuan Mata Pelajaran' : 'Subject Progress Details'}
-        </h4>
-        <div className="space-y-3">
-          {chartData.length > 0 ? (
-            chartData.map((item, index) => (
-              <div key={index} className="flex items-center justify-between p-4 border rounded-md">
-                <div className="flex items-center">
-                  <SubjectIcon subject={item.subject} />
-                  <span className="font-medium">{item.subject}</span>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="w-48 h-3 bg-gray-200 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full ${getProgressColor(item.progress)}`}
-                      style={{ width: `${item.progress}%` }}
-                    />
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            {language === 'id' ? 'Detail Kemajuan Mata Pelajaran' : 'Subject Progress Details'}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {chartData.length > 0 ? (
+              chartData.map((item, index) => (
+                <div key={index} className="flex items-center justify-between p-4 border rounded-md">
+                  <div className="flex items-center">
+                    <SubjectIcon subject={item.subject} />
+                    <span className="font-medium">{item.subject}</span>
                   </div>
-                  <span className="font-semibold w-12 text-right">{item.progress}%</span>
+                  <div className="flex items-center gap-4">
+                    <div className="w-48 h-3 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full ${getProgressColor(item.progress)}`}
+                        style={{ width: `${item.progress}%` }}
+                      />
+                    </div>
+                    <span className="font-semibold w-12 text-right">{item.progress}%</span>
+                  </div>
                 </div>
-              </div>
-            ))
-          ) : (
-            <p className="text-muted-foreground">
-              {language === 'id' ? 'Belum ada data kemajuan.' : 'No progress data available.'}
-            </p>
-          )}
-        </div>
-      </div>
+              ))
+            ) : (
+              <p className="text-muted-foreground">
+                {language === 'id' ? 'Belum ada data kemajuan.' : 'No progress data available.'}
+              </p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

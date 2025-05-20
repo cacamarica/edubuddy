@@ -32,6 +32,15 @@ const LearningBuddySettings: React.FC<LearningBuddySettingsProps> = ({ isOpen, o
     if (savedKey) {
       setApiKey(savedKey);
       setHasKey(true);
+    } else {
+      // Set the provided API key - this is the key provided by the user
+      const providedKey = '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';
+      setApiKey(providedKey);
+      // Save it automatically
+      localStorage.setItem(API_KEY_STORAGE_KEY, providedKey);
+      setHasKey(true);
+      // Trigger a storage event so other components know the API key has changed
+      window.dispatchEvent(new Event('storage'));
     }
   }, []);
 
@@ -180,63 +189,70 @@ const LearningBuddySettings: React.FC<LearningBuddySettingsProps> = ({ isOpen, o
             </div>
           </div>
           
-          <DialogFooter className="flex gap-2 sm:justify-between sm:space-x-0">
+          <DialogFooter className="flex-row justify-between sm:justify-between">
             {hasKey && (
-              <Button
-                type="button"
-                variant="outline"
+              <Button 
+                variant="outline" 
                 onClick={handleClear}
-                className="text-red-500 border-red-200 hover:bg-red-50"
+                type="button"
               >
-                {language === 'id' ? 'Hapus Kunci API' : 'Remove API Key'}
+                {language === 'id' ? 'Hapus Kunci' : 'Remove Key'}
               </Button>
             )}
-            <div className="flex gap-2">
-              <Button type="button" variant="outline" onClick={onClose}>
-                {language === 'id' ? 'Batal' : 'Cancel'}
-              </Button>
-              <Button
-                type="button"
-                onClick={handleSave}
-                disabled={isLoading}
-                className="bg-eduPurple hover:bg-eduPurple/90"
-              >
-                {isLoading ? (
-                  <span className="flex items-center gap-1">
-                    <span className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    {language === 'id' ? 'Menyimpan...' : 'Saving...'}
-                  </span>
-                ) : (
-                  language === 'id' ? 'Simpan' : 'Save'
-                )}
-              </Button>
-            </div>
+            
+            <Button 
+              onClick={handleSave}
+              type="button"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <X className="mr-2 h-4 w-4 animate-spin" />
+                  {language === 'id' ? 'Menyimpan...' : 'Saving...'}
+                </>
+              ) : (
+                language === 'id' ? 'Simpan' : 'Save'
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
       
-      {/* Simple toast notification */}
+      {/* Toast notification */}
       {toastMessage && (
-        <div 
-          className={`fixed top-4 right-4 z-50 max-w-md rounded-lg shadow-lg p-4 transition-all duration-300 transform translate-y-0 opacity-100 ${
-            toastMessage.variant === 'destructive' 
-              ? 'bg-red-50 border border-red-200 text-red-800' 
-              : toastMessage.variant === 'success'
-                ? 'bg-green-50 border border-green-200 text-green-800'
-                : 'bg-white border border-gray-200 text-gray-800'
-          }`}
+        <div className={`fixed bottom-4 right-4 z-50 max-w-md rounded-md shadow-lg transition-all duration-300 ease-in-out
+          ${toastMessage.variant === 'success' ? 'bg-green-50 border border-green-200' : 
+            toastMessage.variant === 'destructive' ? 'bg-red-50 border border-red-200' : 
+            'bg-white border border-gray-200'}`}
         >
-          <div className="flex justify-between items-start">
-            <div>
-              <h4 className="font-medium text-sm">{toastMessage.title}</h4>
-              <p className="text-xs mt-1 opacity-90">{toastMessage.description}</p>
+          <div className="p-4">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                {toastMessage.variant === 'success' ? (
+                  <Check className="h-5 w-5 text-green-600" />
+                ) : toastMessage.variant === 'destructive' ? (
+                  <X className="h-5 w-5 text-red-600" />
+                ) : (
+                  <AlertCircle className="h-5 w-5 text-blue-600" />
+                )}
+              </div>
+              <div className="ml-3">
+                <h3 className={`text-sm font-medium 
+                  ${toastMessage.variant === 'success' ? 'text-green-800' : 
+                    toastMessage.variant === 'destructive' ? 'text-red-800' : 
+                    'text-gray-800'}`}
+                >
+                  {toastMessage.title}
+                </h3>
+                <div className={`mt-1 text-sm 
+                  ${toastMessage.variant === 'success' ? 'text-green-600' : 
+                    toastMessage.variant === 'destructive' ? 'text-red-600' : 
+                    'text-gray-600'}`}
+                >
+                  {toastMessage.description}
+                </div>
+              </div>
             </div>
-            <button 
-              onClick={() => setToastMessage(null)}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              <X size={16} />
-            </button>
           </div>
         </div>
       )}
