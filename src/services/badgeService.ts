@@ -144,7 +144,7 @@ export const badgeService = {
           description: item.badge.description,
           image_url: item.badge.image_url || undefined,
           // Use a default type if it's missing in the database
-          type: item.badge.type || 'achievement'
+          type: (item.badge as any).type || 'achievement'
         } : undefined
       })) as StudentBadge[];
     } catch (error) {

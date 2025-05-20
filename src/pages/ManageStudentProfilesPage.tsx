@@ -159,7 +159,7 @@ const ManageStudentProfilesPage = () => {
     setIsSubmitting(true);
     
     try {
-      // Process student data
+      // Process student data - Fix null/undefined issues
       const studentData = {
         name: data.name,
         grade_level: data.grade_level,
@@ -267,7 +267,7 @@ const ManageStudentProfilesPage = () => {
   );
   
   const renderPaginationLinks = () => {
-    const pages: JSX.Element[] = []; // Type annotation added
+    const pages: JSX.Element[] = []; 
     
     // Add first page
     if (currentPage > 2) {
@@ -623,7 +623,7 @@ const ManageStudentProfilesPage = () => {
                       </div>
                       {errors.password && showAccountForm && (
                         <p className="text-destructive text-sm">
-                          {language === 'id' 
+                          {language === 'id'
                             ? 'Kata sandi minimal 6 karakter' 
                             : 'Password must be at least 6 characters'}
                         </p>
