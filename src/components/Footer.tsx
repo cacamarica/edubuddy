@@ -1,6 +1,5 @@
-
 import { Link } from 'react-router-dom';
-import { BookOpen, HelpCircle, Mail, User, Settings } from 'lucide-react';
+import { BookOpen, HelpCircle, Mail, User, ChartBarIcon, Cog } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -61,11 +60,6 @@ const Footer = () => {
                   {language === 'id' ? 'Permainan' : 'Games'}
                 </Link>
               </li>
-              <li>
-                <Link to="/about" className="text-muted-foreground hover:text-eduPurple transition-colors">
-                  {language === 'id' ? 'Tentang Kami' : 'About Us'}
-                </Link>
-              </li>
             </ul>
           </div>
           
@@ -81,7 +75,7 @@ const Footer = () => {
                 </Link>
               </li>
               <li>
-                <Link to="/dashboard" className="text-muted-foreground hover:text-eduPurple transition-colors">
+                <Link to="/dashboard?tab=progress" className="text-muted-foreground hover:text-eduPurple transition-colors">
                   {language === 'id' ? 'Pantau Kemajuan' : 'Track Progress'}
                 </Link>
               </li>
@@ -95,7 +89,7 @@ const Footer = () => {
             </ul>
           </div>
           
-          {/* Contact */}
+          {/* Help & Support */}
           <div className="col-span-1">
             <h3 className="text-lg font-display font-bold mb-4">
               {language === 'id' ? 'Bantuan & Dukungan' : 'Help & Support'}
@@ -119,14 +113,6 @@ const Footer = () => {
                   {language === 'id' ? 'Tentang Kami' : 'About Us'}
                 </Link>
               </li>
-              {user && (
-                <li className="flex items-center gap-2">
-                  <Settings className="h-4 w-4 text-eduPurple" />
-                  <Link to="/account-settings" className="text-muted-foreground hover:text-eduPurple transition-colors">
-                    {language === 'id' ? 'Pengaturan Akun' : 'Account Settings'}
-                  </Link>
-                </li>
-              )}
             </ul>
           </div>
         </div>

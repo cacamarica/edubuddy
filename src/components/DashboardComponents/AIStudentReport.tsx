@@ -3,12 +3,13 @@ import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { AISummaryReport } from '@/services/studentProgressService';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
-import { ChevronDown, ChevronUp, AlertCircle, CalendarDays, RefreshCw } from 'lucide-react';
+import { ChevronDown, ChevronUp, AlertCircle, CalendarDays, RefreshCw, BookOpen } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useNavigate } from 'react-router-dom';
 
 interface AIStudentReportProps {
   report: AISummaryReport | null;
@@ -66,6 +67,7 @@ const formatDateForChart = (dateString?: string, granularity: Granularity = 'dai
 
 const AIStudentReport: React.FC<AIStudentReportProps> = ({ report, isExpanded, toggleExpanded, isLoading, studentRealAge }) => {
   const { language } = useLanguage();
+  const navigate = useNavigate();
   // Default to 'daily' granularity
   const [granularity, setGranularity] = useState<Granularity>('daily');
   // Clear date range by default to show all available data
@@ -262,8 +264,43 @@ const AIStudentReport: React.FC<AIStudentReportProps> = ({ report, isExpanded, t
         </Button>
       </div>
 
+      {/* Message when there's no expanded data available */}
+      {isExpanded && 
+        (!report.strengths?.length && !report.areasForImprovement?.length && !report.activityAnalysis && (!report.knowledgeGrowthChartData || report.knowledgeGrowthChartData.length === 0)) && (
+        <div className="pt-2 space-y-4 border-t">
+          <Alert variant="default" className="my-4 bg-yellow-50 text-yellow-800 border-yellow-200">
+            <div className="flex items-start">
+              <AlertCircle className="h-4 w-4 mt-0.5 mr-2 flex-shrink-0" />
+              <div>
+                <p className="font-medium mb-1">
+                  {language === 'id' ? 'Belum Ada Data Detail' : 'No Detailed Data Available'}
+                </p>
+                <p className="text-sm">
+                  {language === 'id' 
+                    ? 'Selesaikan lebih banyak aktivitas pembelajaran untuk membuka laporan detail dan wawasan personalisasi.'
+                    : 'Complete more learning activities to unlock detailed reports and personalized insights.'}
+                </p>
+                <div className="mt-3">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="bg-white hover:bg-white/90"
+                    onClick={() => {
+                      navigate('/lessons');
+                    }}
+                  >
+                    <BookOpen className="h-3.5 w-3.5 mr-1" />
+                    {language === 'id' ? 'Jelajahi Pelajaran' : 'Explore Lessons'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </Alert>
+        </div>
+      )}
+
       {/* Expanded Content - Only Visible when Expanded */}
-      {isExpanded && (
+      {isExpanded && (report.strengths?.length > 0 || report.areasForImprovement?.length > 0 || report.activityAnalysis || (report.knowledgeGrowthChartData && report.knowledgeGrowthChartData.length > 0)) && (
         <div className="pt-2 space-y-4 border-t">
           {report.strengths && report.strengths.length > 0 ? (
             <div>

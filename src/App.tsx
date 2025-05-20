@@ -1,4 +1,3 @@
-
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
@@ -19,6 +18,9 @@ import StudentProfilePage from "./pages/StudentProfilePage";
 import ManageStudentProfilesPage from "./pages/ManageStudentProfilesPage";
 import Subjects from "./pages/Subjects";
 import { StudentProfileProvider } from '@/contexts/StudentProfileContext';
+import { LearningBuddyProvider } from '@/contexts/LearningBuddyContext';
+import LearningBuddy from '@/components/LearningBuddy';
+import ToastContainer from '@/components/ToastContainer';
 import DetailedQuizHistoryPage from "./pages/DetailedQuizHistory";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { fixStudentProfilesMappings } from "@/utils/databaseMigration";
@@ -133,133 +135,137 @@ const App = () => {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <StudentProfileProvider>
-          <ErrorBoundary fallback={ 
-            <div className="flex h-screen flex-col items-center justify-center p-4 text-center">
-              <h2 className="mb-4 text-2xl font-bold text-red-600">Application Error</h2>
-              <p className="mb-4">Sorry, something went wrong with the application.</p>
-              <button 
-                onClick={() => window.location.reload()}
-                className="rounded bg-eduPurple px-4 py-2 text-white hover:bg-eduPurple/80"
-              >
-                Refresh Page
-              </button>
-            </div>
-          }>
-            <BrowserRouter>
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/lessons" element={
-                  <ErrorBoundary fallback={
-                    <div className="flex h-screen flex-col items-center justify-center p-4 text-center">
-                      <h2 className="mb-4 text-2xl font-bold text-red-600">Lessons Error</h2>
-                      <p className="mb-4">We encountered an issue loading the lessons.</p>
-                      <button 
-                        onClick={() => window.location.reload()}
-                        className="rounded bg-eduPurple px-4 py-2 text-white hover:bg-eduPurple/80"
-                      >
-                        Try Again
-                      </button>
-                    </div>
-                  }>
-                    <Lessons />
-                  </ErrorBoundary>
-                } />
-                <Route path="/subjects" element={
-                  <ErrorBoundary fallback={
-                    <div className="flex h-screen flex-col items-center justify-center p-4 text-center">
-                      <h2 className="mb-4 text-2xl font-bold text-red-600">Subjects Error</h2>
-                      <p className="mb-4">We encountered an issue loading the subjects.</p>
-                      <button 
-                        onClick={() => window.location.reload()}
-                        className="rounded bg-eduPurple px-4 py-2 text-white hover:bg-eduPurple/80"
-                      >
-                        Try Again
-                      </button>
-                    </div>
-                  }>
-                    <Subjects />
-                  </ErrorBoundary>
-                } />
-                <Route path="/quiz" element={
-                  <ErrorBoundary fallback={
-                    <div className="flex h-screen flex-col items-center justify-center p-4 text-center">
-                      <h2 className="mb-4 text-2xl font-bold text-red-600">Quiz Error</h2>
-                      <p className="mb-4">We encountered an issue loading the quiz.</p>
-                      <button 
-                        onClick={() => window.location.reload()}
-                        className="rounded bg-eduPurple px-4 py-2 text-white hover:bg-eduPurple/80"
-                      >
-                        Try Again
-                      </button>
-                    </div>
-                  }>
-                    <Quiz />
-                  </ErrorBoundary>
-                } />
-                <Route path="/dashboard" element={
-                  <ParentOnlyRoute>
-                    <Dashboard />
-                  </ParentOnlyRoute>
-                } />
-                <Route path="/student-profile" element={
-                  <ProtectedRoute>
-                    <StudentProfilePage />
-                  </ProtectedRoute>
-                } />
-                <Route path="/ai-learning" element={
-                  <ErrorBoundary fallback={
-                    <div className="flex h-screen flex-col items-center justify-center p-4 text-center">
-                      <h2 className="mb-4 text-2xl font-bold text-red-600">AI Learning Error</h2>
-                      <p className="mb-4">We encountered an issue loading the AI learning content.</p>
-                      <button 
-                        onClick={() => window.location.reload()}
-                        className="rounded bg-eduPurple px-4 py-2 text-white hover:bg-eduPurple/80"
-                      >
-                        Try Again
-                      </button>
-                    </div>
-                  }>
-                    <AILearning />
-                  </ErrorBoundary>
-                } />
-                <Route path="/ai-lesson" element={
-                  <ErrorBoundary fallback={
-                    <div className="flex h-screen flex-col items-center justify-center p-4 text-center">
-                      <h2 className="mb-4 text-2xl font-bold text-red-600">AI Lesson Error</h2>
-                      <p className="mb-4">We encountered an issue loading the AI lesson content.</p>
-                      <button 
-                        onClick={() => window.location.reload()}
-                        className="rounded bg-eduPurple px-4 py-2 text-white hover:bg-eduPurple/80"
-                      >
-                        Try Again
-                      </button>
-                    </div>
-                  }>
-                    <AILesson />
-                  </ErrorBoundary>
-                } />
-                <Route path="/about" element={<About />} />
-                <Route path="/auth" element={<Auth />} />
-                <Route path="/faq" element={<FAQ />} />
-                <Route path="/account-settings" element={
-                  <ProtectedRoute>
-                    <AccountSettings />
-                  </ProtectedRoute>
-                } />
-                <Route path="/student/:studentId/quiz-history/:topicId" element={
-                  <ProtectedRoute>
-                    <DetailedQuizHistoryPage />
-                  </ProtectedRoute>
-                } />
-                <Route path="/manage-student-profiles" element={
-                  <ProtectedRoute>
-                    <ManageStudentProfilesPage />
-                  </ProtectedRoute>
-                } />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
-          </ErrorBoundary>
+          <LearningBuddyProvider>
+            <ErrorBoundary fallback={ 
+              <div className="flex h-screen flex-col items-center justify-center p-4 text-center">
+                <h2 className="mb-4 text-2xl font-bold text-red-600">Application Error</h2>
+                <p className="mb-4">Sorry, something went wrong with the application.</p>
+                <button 
+                  onClick={() => window.location.reload()}
+                  className="rounded bg-eduPurple px-4 py-2 text-white hover:bg-eduPurple/80"
+                >
+                  Refresh Page
+                </button>
+              </div>
+            }>
+              <BrowserRouter>
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/lessons" element={
+                    <ErrorBoundary fallback={
+                      <div className="flex h-screen flex-col items-center justify-center p-4 text-center">
+                        <h2 className="mb-4 text-2xl font-bold text-red-600">Lessons Error</h2>
+                        <p className="mb-4">We encountered an issue loading the lessons.</p>
+                        <button 
+                          onClick={() => window.location.reload()}
+                          className="rounded bg-eduPurple px-4 py-2 text-white hover:bg-eduPurple/80"
+                        >
+                          Try Again
+                        </button>
+                      </div>
+                    }>
+                      <Lessons />
+                    </ErrorBoundary>
+                  } />
+                  <Route path="/subjects" element={
+                    <ErrorBoundary fallback={
+                      <div className="flex h-screen flex-col items-center justify-center p-4 text-center">
+                        <h2 className="mb-4 text-2xl font-bold text-red-600">Subjects Error</h2>
+                        <p className="mb-4">We encountered an issue loading the subjects.</p>
+                        <button 
+                          onClick={() => window.location.reload()}
+                          className="rounded bg-eduPurple px-4 py-2 text-white hover:bg-eduPurple/80"
+                        >
+                          Try Again
+                        </button>
+                      </div>
+                    }>
+                      <Subjects />
+                    </ErrorBoundary>
+                  } />
+                  <Route path="/quiz" element={
+                    <ErrorBoundary fallback={
+                      <div className="flex h-screen flex-col items-center justify-center p-4 text-center">
+                        <h2 className="mb-4 text-2xl font-bold text-red-600">Quiz Error</h2>
+                        <p className="mb-4">We encountered an issue loading the quiz.</p>
+                        <button 
+                          onClick={() => window.location.reload()}
+                          className="rounded bg-eduPurple px-4 py-2 text-white hover:bg-eduPurple/80"
+                        >
+                          Try Again
+                        </button>
+                      </div>
+                    }>
+                      <Quiz />
+                    </ErrorBoundary>
+                  } />
+                  <Route path="/dashboard" element={
+                    <ParentOnlyRoute>
+                      <Dashboard />
+                    </ParentOnlyRoute>
+                  } />
+                  <Route path="/student-profile" element={
+                    <ProtectedRoute>
+                      <StudentProfilePage />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/ai-learning" element={
+                    <ErrorBoundary fallback={
+                      <div className="flex h-screen flex-col items-center justify-center p-4 text-center">
+                        <h2 className="mb-4 text-2xl font-bold text-red-600">AI Learning Error</h2>
+                        <p className="mb-4">We encountered an issue loading the AI learning content.</p>
+                        <button 
+                          onClick={() => window.location.reload()}
+                          className="rounded bg-eduPurple px-4 py-2 text-white hover:bg-eduPurple/80"
+                        >
+                          Try Again
+                        </button>
+                      </div>
+                    }>
+                      <AILearning />
+                    </ErrorBoundary>
+                  } />
+                  <Route path="/ai-lesson" element={
+                    <ErrorBoundary fallback={
+                      <div className="flex h-screen flex-col items-center justify-center p-4 text-center">
+                        <h2 className="mb-4 text-2xl font-bold text-red-600">AI Lesson Error</h2>
+                        <p className="mb-4">We encountered an issue loading the AI lesson content.</p>
+                        <button 
+                          onClick={() => window.location.reload()}
+                          className="rounded bg-eduPurple px-4 py-2 text-white hover:bg-eduPurple/80"
+                        >
+                          Try Again
+                        </button>
+                      </div>
+                    }>
+                      <AILesson />
+                    </ErrorBoundary>
+                  } />
+                  <Route path="/about" element={<About />} />
+                  <Route path="/auth" element={<Auth />} />
+                  <Route path="/faq" element={<FAQ />} />
+                  <Route path="/account-settings" element={
+                    <ProtectedRoute>
+                      <AccountSettings />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/student/:studentId/quiz-history/:topicId" element={
+                    <ProtectedRoute>
+                      <DetailedQuizHistoryPage />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/manage-student-profiles" element={
+                    <ProtectedRoute>
+                      <ManageStudentProfilesPage />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+                <LearningBuddy />
+                <ToastContainer />
+              </BrowserRouter>
+            </ErrorBoundary>
+          </LearningBuddyProvider>
         </StudentProfileProvider>
       </TooltipProvider>
     </QueryClientProvider>
