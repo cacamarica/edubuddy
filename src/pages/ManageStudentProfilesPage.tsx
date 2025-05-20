@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -163,8 +164,10 @@ const ManageStudentProfilesPage = () => {
       const studentData = {
         name: data.name,
         grade_level: data.grade_level,
-        age: data.age === null ? undefined : data.age, // Convert null to undefined
-        avatar_url: data.avatar_url === null ? undefined : data.avatar_url, // Convert null to undefined
+        // Convert null to undefined, preserve actual values
+        age: data.age === null ? undefined : (typeof data.age === 'number' ? data.age : undefined),
+        // Convert null to undefined, preserve actual string values
+        avatar_url: data.avatar_url === null ? undefined : (typeof data.avatar_url === 'string' ? data.avatar_url : undefined),
         parent_id: user.id
       };
       
