@@ -105,12 +105,13 @@ export const badgeService = {
       
       // Make sure we handle the type conversion correctly for the badge
       const badge = studentBadge?.badge;
+      // Add a default type since it's missing from the database
       return badge ? {
         id: badge.id,
         name: badge.name,
         description: badge.description,
         image_url: badge.image_url || undefined,
-        type: badge.type || 'achievement' // Provide a default type if missing
+        type: 'achievement' // Provide a default type as it's missing in the database
       } : null;
     } catch (error) {
       console.error("Error in badge award process:", error);
@@ -137,14 +138,14 @@ export const badgeService = {
         student_id: item.student_id,
         badge_id: item.badge_id,
         earned_at: item.earned_at,
-        awarded_at: item.earned_at, // Using earned_at as a fallback for awarded_at
+        awarded_at: item.earned_at, // Using earned_at as awarded_at
         badge: item.badge ? {
           id: item.badge.id,
           name: item.badge.name,
           description: item.badge.description,
           image_url: item.badge.image_url || undefined,
-          // Use a default type if it's missing in the database
-          type: (item.badge as any).type || 'achievement'
+          // Add default type since it's missing from the database
+          type: 'achievement'
         } : undefined
       })) as StudentBadge[];
     } catch (error) {

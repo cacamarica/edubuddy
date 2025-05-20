@@ -163,8 +163,8 @@ const ManageStudentProfilesPage = () => {
       const studentData = {
         name: data.name,
         grade_level: data.grade_level,
-        age: data.age || undefined, // Convert null to undefined
-        avatar_url: data.avatar_url || undefined, // Convert null to undefined
+        age: data.age === null ? undefined : data.age, // Convert null to undefined
+        avatar_url: data.avatar_url === null ? undefined : data.avatar_url, // Convert null to undefined
         parent_id: user.id
       };
       
