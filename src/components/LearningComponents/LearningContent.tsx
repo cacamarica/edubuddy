@@ -230,7 +230,42 @@ const LearningContent: React.FC<LearningContentProps> = ({
         </Alert>
       )}
       
-      {content}
+      <Tabs 
+        defaultValue={activeTab} 
+        value={activeTab} 
+        onValueChange={handleTabChange}
+        className="mb-6"
+      >
+        <div className="border-b mb-4">
+          <TabsList className="w-full rounded-none bg-transparent h-auto p-0 justify-start mb-[-1px]">
+            <TabsTrigger 
+              value="lesson" 
+              className="flex items-center gap-2 px-5 py-3 rounded-t-lg border-b-2 border-transparent data-[state=active]:border-eduPurple data-[state=active]:bg-white data-[state=active]:shadow-none data-[state=active]:text-eduPurple mb-[-1px]"
+            >
+              <BookOpen className="h-4 w-4" />
+              {t('learning.tabLesson') || 'Lesson'}
+            </TabsTrigger>
+            <TabsTrigger 
+              value="quiz" 
+              className="flex items-center gap-2 px-5 py-3 rounded-t-lg border-b-2 border-transparent data-[state=active]:border-eduPurple data-[state=active]:bg-white data-[state=active]:shadow-none data-[state=active]:text-eduPurple mb-[-1px]"
+            >
+              <PencilRuler className="h-4 w-4" />
+              {t('learning.tabQuiz') || 'Quiz'}
+            </TabsTrigger>
+            <TabsTrigger 
+              value="game" 
+              className="flex items-center gap-2 px-5 py-3 rounded-t-lg border-b-2 border-transparent data-[state=active]:border-eduPurple data-[state=active]:bg-white data-[state=active]:shadow-none data-[state=active]:text-eduPurple mb-[-1px]"
+            >
+              <Gamepad className="h-4 w-4" />
+              {t('learning.tabGame') || 'Game'}
+            </TabsTrigger>
+          </TabsList>
+        </div>
+        
+        <TabsContent value={activeTab} className="m-0 p-0">
+          {content}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

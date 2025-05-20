@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getAIEducationContent } from '@/services/aiEducationService';
 import LessonContent from '@/components/LessonContent';
@@ -6,11 +6,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
-import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2, Brain, CircleHelp, MessageCircle, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useStudentProfile } from '@/contexts/StudentProfileContext';
+import { useLearningBuddy } from '@/contexts/LearningBuddyContext';
 import { normalizeLessonContent } from '@/utils/lessonUtils';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface AILessonProps {
   subject: string;
@@ -33,6 +35,7 @@ const AILesson: React.FC<AILessonProps> = ({
 }) => {
   const { language, t } = useLanguage();
   const { selectedProfile } = useStudentProfile();
+  const { sendMessage, toggleOpen } = useLearningBuddy(); // Add Learning Buddy context
   const [loading, setLoading] = useState(true);
   const [lessonContent, setLessonContent] = useState<any>(null);
   const [currentChapter, setCurrentChapter] = useState(0);
@@ -42,6 +45,11 @@ const AILesson: React.FC<AILessonProps> = ({
   const [lessonId, setLessonId] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [loadingProgress, setLoadingProgress] = useState(0);
+  
+  // Track which concepts the user has interacted with
+  const [discussedConcepts, setDiscussedConcepts] = useState<string[]>([]);
+  const [showInteractionSuggestions, setShowInteractionSuggestions] = useState(false);
+  const interactionTimerRef = useRef<any>(null);
   
   // Get the effective student ID (from props or context)
   const effectiveStudentId = studentId || selectedProfile?.id;
@@ -98,28 +106,37 @@ const AILesson: React.FC<AILessonProps> = ({
         { id: notificationId }
       );
       
-      const result = await getAIEducationContent({
-        contentType: 'lesson',
-        subject,
-        gradeLevel,
-        topic,
-        language: language === 'id' ? 'id' : 'en'
-      });
-      
-      setLoadingProgress(60); // AI response received
-      toast.info(
-        language === 'id' 
-          ? 'Memproses konten pembelajaran...' 
-          : 'Processing learning content...', 
-        { id: notificationId }
-      );
-      
-      console.log('[AI] Raw response:', result);
-      const normalized = normalizeLessonContent(result?.content);
-      console.log('[AI] Normalized response:', normalized);
-      
-      setLoadingProgress(70); // Normalization complete
-      if (normalized) {
+      try {
+        const result = await getAIEducationContent({
+          contentType: 'lesson',
+          subject,
+          gradeLevel,
+          topic,
+          language: language === 'id' ? 'id' : 'en'
+        });
+        
+        setLoadingProgress(60); // AI response received
+        toast.info(
+          language === 'id' 
+            ? 'Memproses konten pembelajaran...' 
+            : 'Processing learning content...', 
+          { id: notificationId }
+        );
+        
+        console.log('[AI] Raw response:', result);
+        
+        if (!result || !result.content) {
+          throw new Error('No content received from AI service');
+        }
+        
+        const normalized = normalizeLessonContent(result?.content);
+        console.log('[AI] Normalized response:', normalized);
+        
+        if (!normalized) {
+          throw new Error('Failed to normalize AI content');
+        }
+        
+        setLoadingProgress(70); // Normalization complete
         setLessonContent(normalized);
         // Save to DB
         if (effectiveStudentId) {
@@ -214,18 +231,22 @@ const AILesson: React.FC<AILessonProps> = ({
           }
           setLoadingProgress(90); // DB save complete
         }
-      } else if (retryCount < 2) {
-        toast.info(language === 'id' 
-          ? `Mencoba lagi (${retryCount + 1}/3)...` 
-          : `Retrying (${retryCount + 1}/3)...`);
-        console.log('[AI] Retry attempt', retryCount + 1);
-        setRetryCount(retryCount + 1);
-        await fetchLessonContent(true);
-        return;
-      } else {
-        toast.error(language === 'id' 
-          ? 'Gagal memuat pelajaran setelah beberapa percobaan' 
-          : 'Failed to load lesson after several attempts');
+      } catch (aiError) {
+        console.error('[AI] Error during content generation:', aiError);
+        if (retryCount < 2) {
+          toast.info(language === 'id' 
+            ? `Mencoba lagi (${retryCount + 1}/3)...` 
+            : `Retrying (${retryCount + 1}/3)...`);
+          console.log('[AI] Retry attempt', retryCount + 1);
+          setRetryCount(retryCount + 1);
+          await fetchLessonContent(true);
+          return;
+        } else {
+          toast.error(language === 'id' 
+            ? 'Gagal memuat pelajaran setelah beberapa percobaan' 
+            : 'Failed to load lesson after several attempts');
+          throw aiError; // Re-throw to handle in the outer catch
+        }
       }
       
       setLoadingProgress(100); // Complete
@@ -238,18 +259,19 @@ const AILesson: React.FC<AILessonProps> = ({
       
     } catch (error) {
       console.error('[AI/DB] Error fetching lesson content:', error);
-      if (retryCount < 2) {
-        toast.info(language === 'id' 
-          ? `Mencoba lagi karena kesalahan (${retryCount + 1}/3)...` 
-          : `Retrying due to error (${retryCount + 1}/3)...`);
-        setRetryCount(retryCount + 1);
-        await fetchLessonContent(true);
-        return;
-      } else {
-        toast.error(language === 'id'
-          ? 'Terjadi kesalahan saat memuat pelajaran'
-          : 'Error occurred while loading the lesson');
-      }
+      
+      // Clear any loading state
+      setLoadingProgress(0);
+      setLoading(false);
+      setLoadingNewContent(false);
+      
+      // Show a more user-friendly error
+      toast.error(language === 'id'
+        ? 'Terjadi kesalahan saat memuat pelajaran. Silakan coba lagi.'
+        : 'Error occurred while loading the lesson. Please try again.');
+      
+      // Return without setting lesson content - the UI will show error state
+      return;
     } finally {
       setLoading(false);
       setLoadingNewContent(false);
@@ -362,34 +384,176 @@ const AILesson: React.FC<AILessonProps> = ({
     }
   };
 
-  // Show loading state
+  // Function to extract key concepts from current chapter
+  const extractKeyConcepts = useCallback(() => {
+    if (!lessonContent || !lessonContent.mainContent || lessonContent.mainContent.length === 0) {
+      return [];
+    }
+    
+    const currentContent = lessonContent.mainContent[currentChapter];
+    if (!currentContent) return [];
+    
+    // Extract concepts using a simple approach (could be improved with NLP)
+    const content = currentContent.content || '';
+    
+    // Find terms that might be important based on formatting indicators like bold or headers
+    const boldTerms = (content.match(/\*\*([^*]+)\*\*/g) || [])
+      .map(term => term.replace(/\*\*/g, ''));
+    
+    // Find terms from headings
+    const headingTerms = (content.match(/#{1,3} ([^\n]+)/g) || [])
+      .map(term => term.replace(/^#{1,3} /, ''));
+    
+    // Combine all potential concepts and filter out duplicates
+    const allConcepts = [...boldTerms, ...headingTerms]
+      .filter(term => term.length > 3) // Filter out very short terms
+      .map(term => term.trim())
+      .filter((term, index, self) => self.indexOf(term) === index); // Remove duplicates
+    
+    // Take a maximum of 3 concepts
+    return allConcepts.slice(0, 3);
+  }, [lessonContent, currentChapter]);
+
+  // Generate suggested questions based on current chapter
+  const getSuggestedQuestions = useCallback(() => {
+    const concepts = extractKeyConcepts();
+    if (concepts.length === 0) return [];
+    
+    // Generate a question for each concept
+    return concepts.map(concept => {
+      // Vary the question formats
+      const questionFormats = [
+        `Can you explain "${concept}" in simpler terms?`,
+        `Why is "${concept}" important in ${subject}?`,
+        `How does "${concept}" relate to ${topic}?`,
+        `Can you give me an example of "${concept}"?`,
+        `What would happen if "${concept}" didn't exist?`
+      ];
+      
+      // Select a random question format
+      const randomIndex = Math.floor(Math.random() * questionFormats.length);
+      return questionFormats[randomIndex];
+    });
+  }, [extractKeyConcepts, subject, topic]);
+
+  // Handle asking Learning Buddy a question
+  const handleAskBuddy = (question: string) => {
+    toggleOpen(); // Open the Learning Buddy panel
+    
+    // Add a slight delay to ensure the buddy is open
+    setTimeout(() => {
+      sendMessage(question);
+      
+      // Extract the concept from the question and add to discussed concepts
+      const conceptMatch = question.match(/"([^"]+)"/);
+      if (conceptMatch && conceptMatch[1]) {
+        setDiscussedConcepts(prev => [...prev, conceptMatch[1]]);
+      }
+    }, 300);
+  };
+  
+  // Set up a timer to suggest interactions after a period of inactivity
+  useEffect(() => {
+    if (lessonContent && lessonStarted && !loading) {
+      // Clear any existing timer
+      if (interactionTimerRef.current) {
+        clearTimeout(interactionTimerRef.current);
+      }
+      
+      // Set new timer to show suggestions after 45 seconds of reading
+      interactionTimerRef.current = setTimeout(() => {
+        setShowInteractionSuggestions(true);
+      }, 45000);
+      
+      // Clean up on unmount or when chapter changes
+      return () => {
+        if (interactionTimerRef.current) {
+          clearTimeout(interactionTimerRef.current);
+        }
+      };
+    }
+  }, [lessonContent, lessonStarted, loading, currentChapter]);
+  
+  // Hide suggestions when user interacts with the lesson
+  const hideInteractionSuggestions = () => {
+    setShowInteractionSuggestions(false);
+    
+    // Reset the timer for future suggestions
+    if (interactionTimerRef.current) {
+      clearTimeout(interactionTimerRef.current);
+    }
+    
+    interactionTimerRef.current = setTimeout(() => {
+      setShowInteractionSuggestions(true);
+    }, 60000); // Longer timeout after dismissal
+  };
+
+  // Show loading state with more informative UI
   if (loading || !lessonContent) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[300px] space-y-4 p-6 bg-white rounded-lg shadow-md">
-        <Loader2 className="animate-spin h-12 w-12 text-eduPurple mb-4" />
-        <div className="text-lg font-medium text-center">
-          {t('lesson.loadingLesson') || 'Loading your personalized lesson...'}
+      <div className="w-full bg-white p-6 rounded-lg shadow-md">
+        <div className="flex flex-col items-center justify-center min-h-[300px] space-y-4">
+          <Loader2 className="animate-spin h-12 w-12 text-eduPurple mb-4" />
+          <div className="text-lg font-medium text-center">
+            {t('lesson.loadingLesson') || 'Loading your personalized lesson...'}
+          </div>
+          <p className="text-muted-foreground text-center max-w-sm">
+            {t('lesson.aiGenerating') || 'Our AI is creating an engaging learning experience just for you!'}
+          </p>
+          
+          {loadingProgress > 0 && (
+            <div className="w-full max-w-md space-y-2">
+              <Progress value={loadingProgress} className="h-2 bg-muted" />
+              <p className="text-xs text-muted-foreground text-center">
+                {loadingProgress}% {getLoadingStageText(loadingProgress)}
+              </p>
+            </div>
+          )}
         </div>
-        <p className="text-muted-foreground text-center mb-2">
-          {t('lesson.aiGenerating') || 'Our AI is creating an engaging learning experience just for you!'}
-        </p>
-        <div className="w-full max-w-md space-y-3">
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-3/4 mx-auto" />
-          <Skeleton className="h-4 w-5/6 mx-auto" />
-        </div>
-        <Progress className="w-full max-w-md" value={loadingProgress} />
       </div>
     );
   }
 
-  // Defensive: If lessonContent or mainContent is missing, show error UI
-  if (!lessonContent || !lessonContent.mainContent || !Array.isArray(lessonContent.mainContent)) {
+  // A helper function to get appropriate loading stage text based on progress
+  function getLoadingStageText(progress: number): string {
+    if (language === 'id') {
+      if (progress < 20) return 'Memulai...';
+      if (progress < 40) return 'Memeriksa konten tersimpan...';
+      if (progress < 60) return 'Meminta AI untuk membuat konten...';
+      if (progress < 80) return 'Memproses konten pembelajaran...';
+      if (progress < 100) return 'Hampir selesai...';
+      return 'Selesai!';
+    } else {
+      if (progress < 20) return 'Starting...';
+      if (progress < 40) return 'Checking saved content...';
+      if (progress < 60) return 'Requesting AI to generate content...';
+      if (progress < 80) return 'Processing learning content...';
+      if (progress < 100) return 'Almost done...';
+      return 'Complete!';
+    }
+  }
+
+  // Defensive: If lessonContent or mainContent is missing, show an improved error UI
+  if (!lessonContent?.mainContent || !Array.isArray(lessonContent.mainContent) || lessonContent.mainContent.length === 0) {
     return (
-      <div className="bg-white p-6 rounded-lg shadow-md text-center">
-        <h2 className="text-xl font-bold text-red-600 mb-2">{t('lesson.errorLoadingLesson') || 'Error loading lesson'}</h2>
-        <p className="mb-4">{t('lesson.noLessonContent') || 'Lesson content is unavailable or corrupted. Please try again later.'}</p>
-        <Button onClick={() => fetchLessonContent(true)}>{t('lesson.retry') || 'Retry'}</Button>
+      <div className="w-full bg-white p-6 rounded-lg shadow-md">
+        <div className="flex flex-col items-center text-center py-8">
+          <div className="bg-red-50 p-4 rounded-full mb-4">
+            <AlertCircle className="h-12 w-12 text-red-500" />
+          </div>
+          <h2 className="text-xl font-bold text-red-600 mb-2">
+            {t('lesson.errorLoadingLesson') || 'Error loading lesson'}
+          </h2>
+          <p className="text-gray-600 mb-6 max-w-md">
+            {t('lesson.noLessonContent') || 'We encountered an issue loading the AI learning content. This might be due to high demand or a temporary connectivity issue.'}
+          </p>
+          <Button 
+            onClick={() => fetchLessonContent(true)}
+            className="bg-eduPurple hover:bg-eduPurple-dark"
+          >
+            {t('lesson.retry') || 'Try Again'}
+          </Button>
+        </div>
       </div>
     );
   }
@@ -493,16 +657,121 @@ const AILesson: React.FC<AILessonProps> = ({
             </div>
           </div>
         ) : (
-          <LessonContent 
-            chapter={lessonContent.mainContent[currentChapter]}
-            subject={subject}
-            topic={topic}
-            onNext={handleNextChapter}
-            onPrevious={handlePreviousChapter}
-            showPrevious={currentChapter > 0}
-            chapterIndex={currentChapter}
-            totalChapters={lessonContent.mainContent.length}
-          />
+          <div>
+            {/* Progress bar */}
+            <div className="mb-6">
+              <div className="flex justify-between text-sm text-muted-foreground mb-2">
+                <span>
+                  {t('lesson.chapter') || 'Chapter'} {currentChapter + 1}/{lessonContent.mainContent?.length || 0}
+                </span>
+                <span>
+                  {Math.round(progress)}%
+                </span>
+              </div>
+              <Progress value={progress} className="h-2" />
+            </div>
+            
+            {/* Chapter content */}
+            <div>
+              <h2 className="text-xl font-bold mb-4">
+                {lessonContent.mainContent?.[currentChapter]?.title || ''}
+              </h2>
+              
+              <div className="prose max-w-none mb-6">
+                <LessonContent content={lessonContent.mainContent?.[currentChapter]?.content || ''} />
+              </div>
+              
+              {/* Learning Buddy integration */}
+              {showInteractionSuggestions && getSuggestedQuestions().length > 0 && (
+                <div className="mt-2 mb-6 p-4 bg-eduPurple/5 border border-eduPurple/10 rounded-lg relative">
+                  <button 
+                    className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
+                    onClick={hideInteractionSuggestions}
+                  >
+                    <span className="sr-only">Close</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                  
+                  <div className="flex items-start gap-3">
+                    <div className="bg-eduPurple/10 p-2 rounded-full flex-shrink-0">
+                      <Brain className="h-5 w-5 text-eduPurple" />
+                    </div>
+                    
+                    <div>
+                      <h4 className="font-semibold text-eduPurple mb-2">Ask your Learning Buddy</h4>
+                      <p className="text-sm mb-3">Have questions about this topic? Your Learning Buddy can help explain!</p>
+                      
+                      <div className="space-y-2">
+                        {getSuggestedQuestions().map((question, index) => (
+                          <Button 
+                            key={index}
+                            variant="outline" 
+                            size="sm"
+                            className="mr-2 mb-2 border-eduPurple/20 hover:bg-eduPurple/5 text-left"
+                            onClick={() => handleAskBuddy(question)}
+                          >
+                            <MessageCircle className="h-3 w-3 mr-2 flex-shrink-0" /> 
+                            <span className="truncate">{question}</span>
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Navigation buttons */}
+              <div className="mt-8 flex justify-between">
+                <Button
+                  variant="outline"
+                  onClick={handlePreviousChapter}
+                  disabled={currentChapter === 0}
+                  className="flex items-center"
+                >
+                  <ChevronLeft className="h-4 w-4 mr-2" />
+                  {t('lesson.previous') || 'Previous'}
+                </Button>
+                
+                <div className="flex items-center gap-2">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="rounded-full"
+                          onClick={() => {
+                            toggleOpen();
+                            setTimeout(() => {
+                              sendMessage(`Can you summarize what I'm learning about "${lessonContent.mainContent?.[currentChapter]?.title}" in ${subject}?`);
+                            }, 300);
+                          }}
+                        >
+                          <Brain className="h-5 w-5 text-eduPurple" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Ask your Learning Buddy</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  
+                  <Button
+                    onClick={handleNextChapter}
+                    disabled={currentChapter >= (lessonContent.mainContent?.length || 0) - 1}
+                    className="flex items-center"
+                  >
+                    {currentChapter >= (lessonContent.mainContent?.length || 0) - 1
+                      ? (language === 'id' ? 'Selesaikan Pelajaran' : 'Complete Lesson')
+                      : (language === 'id' ? 'Berikutnya' : 'Next')}
+                    <ChevronRight className="h-4 w-4 ml-2" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>

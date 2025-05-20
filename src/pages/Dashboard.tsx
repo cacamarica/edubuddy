@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
-import { Users, ChevronLeft, Settings } from 'lucide-react';
+import { Users, ChevronLeft, Settings, Search } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import Header from '@/components/Header';
@@ -18,7 +18,7 @@ import { Student, StudentProfile as StudentProfileType, convertToStudent } from 
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 
-// Import our new enhanced components
+// Import our enhanced components
 import EnhancedRecentActivities from '@/components/DashboardComponents/EnhancedRecentActivities';
 import EnhancedAIRecommendations from '@/components/DashboardComponents/EnhancedAIRecommendations';
 import StudentProgressSummary from '@/components/DashboardComponents/StudentProgressSummary';
@@ -180,54 +180,63 @@ const Dashboard = () => {
           </div>
         ) : (
           <div className="space-y-6">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-2">
-              <h1 className="text-2xl font-bold">
-                {language === 'id' ? 'Dasbor' : 'Dashboard'}
-              </h1>
-              <div className="flex flex-wrap gap-3">
-                <Button 
-                  onClick={handleNavigateToStudentProfiles}
-                  className="flex items-center gap-2"
-                >
-                  <Users className="h-4 w-4" />
-                  {language === 'id' ? 'Profil Siswa' : 'Student Profiles'}
-                </Button>
+            {/* Dashboard Header */}
+            <div className="space-y-4">
+              <div className="flex flex-col md:flex-row justify-between items-center">
+                <h1 className="text-2xl font-bold">
+                  {language === 'id' ? 'Dasbor' : 'Dashboard'}
+                </h1>
                 
-                <Button 
-                  variant="outline"
-                  onClick={() => window.location.href = '/account-settings'}
-                  className="flex items-center gap-2"
-                >
-                  <Settings className="h-4 w-4" />
-                  {language === 'id' ? 'Pengaturan Akun' : 'Account Settings'}
-                </Button>
+                <div className="flex space-x-2">
+                  <Button 
+                    onClick={handleNavigateToStudentProfiles}
+                    size="sm"
+                    className="flex items-center"
+                  >
+                    <Users className="h-4 w-4 mr-2" />
+                    <span>{language === 'id' ? 'Profil Siswa' : 'Student Profiles'}</span>
+                  </Button>
+                  
+                  <Button 
+                    variant="outline"
+                    onClick={() => window.location.href = '/account-settings'}
+                    size="sm"
+                    className="flex items-center"
+                  >
+                    <Settings className="h-4 w-4 mr-2" />
+                    <span>{language === 'id' ? 'Pengaturan Akun' : 'Account Settings'}</span>
+                  </Button>
+                </div>
               </div>
-            </div>
-            
-            <div className="mb-4">
-              <h2 className="text-xl font-semibold mb-2">
-                {language === 'id' ? 'Pilih Siswa' : 'Select Student'}
-              </h2>
-              <div className="max-w-md">
-                <StudentProfileSelector 
-                  onStudentChange={handleStudentChange}
-                  initialStudentId={currentStudentId}
-                />
-              </div>
+              
+              {/* Student Selector */}
+              <Card className="border rounded-lg shadow-sm">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base font-medium">
+                    {language === 'id' ? 'Pilih Siswa' : 'Select Student'}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <StudentProfileSelector 
+                    onStudentChange={handleStudentChange}
+                    initialStudentId={currentStudentId}
+                  />
+                </CardContent>
+              </Card>
             </div>
             
             <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="space-y-4">
-              <TabsList>
-                <TabsTrigger value="overview">
+              <TabsList className="w-full flex sm:w-auto justify-between sm:justify-start">
+                <TabsTrigger value="overview" className="flex-1 sm:flex-initial">
                   {language === 'id' ? 'Ikhtisar' : 'Overview'}
                 </TabsTrigger>
-                <TabsTrigger value="activities">
+                <TabsTrigger value="activities" className="flex-1 sm:flex-initial">
                   {language === 'id' ? 'Aktivitas' : 'Activities'}
                 </TabsTrigger>
-                <TabsTrigger value="achievements">
+                <TabsTrigger value="achievements" className="flex-1 sm:flex-initial">
                   {language === 'id' ? 'Pencapaian' : 'Achievements'}
                 </TabsTrigger>
-                <TabsTrigger value="recommendations">
+                <TabsTrigger value="recommendations" className="flex-1 sm:flex-initial">
                   {language === 'id' ? 'Rekomendasi' : 'Recommendations'}
                 </TabsTrigger>
               </TabsList>
@@ -263,12 +272,7 @@ const Dashboard = () => {
               {/* Activities Tab Content */}
               <TabsContent value="activities">
                 <div className="border rounded-lg bg-card text-card-foreground shadow">
-                  <div className="flex flex-col space-y-1.5 p-6 pb-2">
-                    <h3 className="font-semibold text-lg leading-none tracking-tight">
-                      {language === 'id' ? 'Semua Aktivitas' : 'All Activities'}
-                    </h3>
-                  </div>
-                  <div className="p-6 pt-0">
+                  <div className="p-6">
                     {isLoading ? (
                       <div className="flex justify-center py-8">
                         <Spinner />
@@ -280,9 +284,7 @@ const Dashboard = () => {
                           : 'Select a student to view activities'}
                       </div>
                     ) : (
-                      <div className="activities-wrapper">
-                        <EnhancedRecentActivities studentId={currentStudentId} />
-                      </div>
+                      <EnhancedRecentActivities studentId={currentStudentId} />
                     )}
                   </div>
                 </div>
@@ -290,41 +292,25 @@ const Dashboard = () => {
 
               {/* Achievements Tab Content */}
               <TabsContent value="achievements">
-                <div className="border rounded-lg bg-card text-card-foreground shadow">
-                  <div className="flex flex-col space-y-1.5 p-6 pb-2">
-                    <h3 className="font-semibold text-lg leading-none tracking-tight">
-                      {language === 'id' ? 'Pencapaian' : 'Achievements'}
-                    </h3>
+                {isLoading ? (
+                  <div className="flex justify-center py-8">
+                    <Spinner />
                   </div>
-                  <div className="p-6 pt-0">
-                    {isLoading ? (
-                      <div className="flex justify-center py-8">
-                        <Spinner />
-                      </div>
-                    ) : !currentStudentId ? (
-                      <div className="text-center py-8 text-muted-foreground">
-                        {language === 'id' 
-                          ? 'Pilih siswa untuk melihat pencapaian' 
-                          : 'Select a student to view achievements'}
-                      </div>
-                    ) : (
-                      <div className="achievements-wrapper">
-                        <StudentAchievements studentId={currentStudentId} />
-                      </div>
-                    )}
+                ) : !currentStudentId ? (
+                  <div className="text-center py-8 text-muted-foreground border rounded-lg bg-card p-6">
+                    {language === 'id' 
+                      ? 'Pilih siswa untuk melihat pencapaian' 
+                      : 'Select a student to view achievements'}
                   </div>
-                </div>
+                ) : (
+                  <StudentAchievements studentId={currentStudentId} />
+                )}
               </TabsContent>
               
               {/* Recommendations Tab Content */}
               <TabsContent value="recommendations">
                 <div className="border rounded-lg bg-card text-card-foreground shadow">
-                  <div className="flex flex-col space-y-1.5 p-6 pb-2">
-                    <h3 className="font-semibold text-lg leading-none tracking-tight">
-                      {language === 'id' ? 'Rekomendasi AI' : 'AI Recommendations'}
-                    </h3>
-                  </div>
-                  <div className="p-6 pt-0">
+                  <div className="p-6">
                     {!currentStudentId ? (
                       <div className="text-center py-8 text-muted-foreground">
                         {language === 'id' 
@@ -332,12 +318,10 @@ const Dashboard = () => {
                           : 'Select a student to view recommendations'}
                       </div>
                     ) : (
-                      <div className="recommendations-wrapper">
-                        <EnhancedAIRecommendations 
-                          studentId={currentStudentId} 
-                          gradeLevel={getValidGradeLevel(selectedProfile?.gradeLevel)} 
-                        />
-                      </div>
+                      <EnhancedAIRecommendations 
+                        studentId={currentStudentId} 
+                        gradeLevel={getValidGradeLevel(selectedProfile?.gradeLevel)} 
+                      />
                     )}
                   </div>
                 </div>
