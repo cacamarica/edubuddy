@@ -163,10 +163,10 @@ const ManageStudentProfilesPage = () => {
       const studentData = {
         name: data.name,
         grade_level: data.grade_level,
-        // Ensure age is either a number or undefined, never null
-        age: data.age === null || data.age === undefined ? undefined : Number(data.age),
-        // Ensure avatar_url is either a string or undefined, never null
-        avatar_url: data.avatar_url === null || data.avatar_url === undefined ? undefined : String(data.avatar_url),
+        // Convert null to undefined, make sure it's a number or undefined only
+        age: data.age === null ? undefined : data.age,
+        // Convert null to undefined, make sure it's a string or undefined only
+        avatar_url: data.avatar_url === null ? undefined : data.avatar_url,
         parent_id: user.id
       };
       
