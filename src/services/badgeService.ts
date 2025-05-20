@@ -137,12 +137,12 @@ export const badgeService = {
         student_id: item.student_id,
         badge_id: item.badge_id,
         earned_at: item.earned_at,
-        awarded_at: item.awarded_at,
+        awarded_at: item.earned_at, // Using earned_at as a fallback for awarded_at
         badge: item.badge ? {
           id: item.badge.id,
           name: item.badge.name,
           description: item.badge.description,
-          image_url: item.badge.image_url,
+          image_url: item.badge.image_url || undefined,
           // Use a default type if it's missing in the database
           type: item.badge.type || 'achievement'
         } : undefined

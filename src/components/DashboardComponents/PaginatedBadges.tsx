@@ -1,44 +1,51 @@
 
-import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { StudentBadge } from '@/services/badgeService';
+import React from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import Badge from '@/components/Badge';
+import { StudentBadge } from '@/services/badgeService';
 import { Spinner } from '@/components/ui/spinner';
+import { format } from 'date-fns';
+import { enUS, id } from 'date-fns/locale';
 
 interface PaginatedBadgesProps {
   badges: StudentBadge[];
-  isLoading: boolean;
-  pageSize?: number;
+  isLoading?: boolean;
+  itemsPerPage?: number;
 }
 
-const PaginatedBadges: React.FC<PaginatedBadgesProps> = ({ badges, isLoading, pageSize = 4 }) => {
-  const [currentPage, setCurrentPage] = useState(1);
+const PaginatedBadges: React.FC<PaginatedBadgesProps> = ({
+  badges = [],
+  isLoading = false,
+  itemsPerPage = 8
+}) => {
   const { language } = useLanguage();
+  const [currentPage, setCurrentPage] = React.useState(1);
   
-  const totalPages = Math.ceil(badges.length / pageSize);
-  const startIndex = (currentPage - 1) * pageSize;
-  const endIndex = startIndex + pageSize;
-  const currentBadges = badges.slice(startIndex, endIndex);
+  // Calculate total pages
+  const totalPages = Math.ceil(badges.length / itemsPerPage);
   
-  const handlePreviousPage = () => {
-    setCurrentPage(prev => Math.max(prev - 1, 1));
-  };
+  // Get current badges
+  const indexOfLastBadge = currentPage * itemsPerPage;
+  const indexOfFirstBadge = indexOfLastBadge - itemsPerPage;
+  const currentBadges = badges.slice(indexOfFirstBadge, indexOfLastBadge);
   
-  const handleNextPage = () => {
-    setCurrentPage(prev => Math.min(prev + 1, totalPages));
-  };
-  
-  // Helper function to format dates safely
+  // Format date based on language
   const formatDate = (dateString?: string) => {
     if (!dateString) return '';
+    
     try {
-      return new Date(dateString).toLocaleDateString();
+      const date = new Date(dateString);
+      return format(date, 'PPP', {
+        locale: language === 'id' ? id : enUS
+      });
     } catch (error) {
-      console.error("Error formatting date:", error);
-      return '';
+      return dateString;
     }
+  };
+  
+  // Handle page changes
+  const handlePageChange = (pageNumber: number) => {
+    setCurrentPage(pageNumber);
   };
   
   if (isLoading) {
@@ -51,68 +58,49 @@ const PaginatedBadges: React.FC<PaginatedBadgesProps> = ({ badges, isLoading, pa
   
   if (badges.length === 0) {
     return (
-      <Card>
-        <CardContent className="flex flex-col items-center justify-center py-8">
-          <p className="text-muted-foreground text-center">
-            {language === 'id' 
-              ? 'Anda belum mendapatkan lencana apapun.' 
-              : 'You haven\'t earned any badges yet.'}
-          </p>
-          <p className="text-sm text-muted-foreground text-center mt-2">
-            {language === 'id' 
-              ? 'Selesaikan pelajaran dan kuis untuk mendapatkan lencana!' 
-              : 'Complete lessons and quizzes to earn badges!'}
-          </p>
-        </CardContent>
-      </Card>
+      <div className="text-center py-8">
+        <p className="text-muted-foreground">
+          {language === 'id' ? 'Belum ada badge yang diperoleh' : 'No badges earned yet'}
+        </p>
+      </div>
     );
   }
   
   return (
-    <div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 place-items-center">
         {currentBadges.map((badge) => (
-          <Card key={badge.id} className="overflow-hidden">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-semibold">{badge.badge?.name || 'Unknown Badge'}</CardTitle>
-              <CardDescription className="text-xs">
-                {language === 'id' 
-                  ? `Diperoleh pada: ${formatDate(badge.awarded_at || badge.earned_at)}` 
-                  : `Earned on: ${formatDate(badge.awarded_at || badge.earned_at)}`}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="pb-2">
-              <p className="text-sm">{badge.badge?.description || 'No description available'}</p>
-            </CardContent>
-          </Card>
+          <div key={badge.id} className="flex flex-col items-center text-center space-y-1">
+            <Badge 
+              type={badge.badge?.type === 'star' ? 'star' : 
+                    badge.badge?.type === 'check' ? 'check' :
+                    badge.badge?.type === 'trophy' ? 'trophy' : 'award'}
+              name={badge.badge?.name || ''}
+              imageUrl={badge.badge?.image_url}
+            />
+            <p className="text-xs text-muted-foreground">
+              {formatDate(badge.earned_at || badge.awarded_at)}
+            </p>
+          </div>
         ))}
       </div>
       
+      {/* Simple pagination */}
       {totalPages > 1 && (
-        <div className="flex justify-between items-center mt-4">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handlePreviousPage}
-            disabled={currentPage === 1}
-          >
-            <ChevronLeft className="h-4 w-4 mr-2" />
-            {language === 'id' ? 'Sebelumnya' : 'Previous'}
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            {language === 'id' 
-              ? `Halaman ${currentPage} dari ${totalPages}` 
-              : `Page ${currentPage} of ${totalPages}`}
-          </span>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleNextPage}
-            disabled={currentPage === totalPages}
-          >
-            {language === 'id' ? 'Berikutnya' : 'Next'}
-            <ChevronRight className="h-4 w-4 ml-2" />
-          </Button>
+        <div className="flex justify-center gap-1 mt-4">
+          {Array.from({ length: totalPages }, (_, index) => (
+            <button
+              key={index + 1}
+              onClick={() => handlePageChange(index + 1)}
+              className={`px-3 py-1 rounded ${
+                currentPage === index + 1 
+                  ? 'bg-primary text-primary-foreground' 
+                  : 'bg-muted hover:bg-muted/80'
+              }`}
+            >
+              {index + 1}
+            </button>
+          ))}
         </div>
       )}
     </div>
