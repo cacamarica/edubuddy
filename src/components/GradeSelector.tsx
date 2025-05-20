@@ -91,9 +91,9 @@ const GradeSelector: React.FC<GradeSelectorProps> = ({ selectedGradeLevel, onGra
     const Icon = group.icon;
     
     return (
-      <div className="group">
+      <div className="group h-full">
         <Card 
-          className={`h-full border-2 transition-all duration-300 ${isSelected ? `${group.borderColor} shadow-lg` : 'border-transparent hover:border-gray-200'} overflow-hidden`}
+          className={`flex flex-col h-full border-2 transition-all duration-300 ${isSelected ? `${group.borderColor} shadow-lg` : 'border-transparent hover:border-gray-200'} overflow-hidden`}
           onClick={() => onGradeChange(group.id as 'k-3' | '4-6' | '7-9')}
         >
           <div className={`absolute top-0 left-0 w-1 h-full ${isSelected ? group.borderColor : 'bg-transparent'}`}></div>
@@ -119,7 +119,7 @@ const GradeSelector: React.FC<GradeSelectorProps> = ({ selectedGradeLevel, onGra
             </CardDescription>
           </CardHeader>
           
-          <CardContent className={`pb-2 transition-colors duration-300 ${group.hoverColor}`}>
+          <CardContent className={`pb-2 transition-colors duration-300 ${group.hoverColor} flex-grow`}>
             <div className="space-y-4">
               <div>
                 <h4 className="text-sm font-medium mb-2">Popular Subjects</h4>
@@ -171,7 +171,7 @@ const GradeSelector: React.FC<GradeSelectorProps> = ({ selectedGradeLevel, onGra
             </div>
           </CardContent>
           
-          <CardFooter className={`transition-colors duration-300 ${group.hoverColor}`}>
+          <CardFooter className={`transition-colors duration-300 ${group.hoverColor} mt-auto`}>
             <Button 
               className="w-full group"
               onClick={(e) => {

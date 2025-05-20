@@ -9,6 +9,8 @@ import useLearningGradeLevel from '@/hooks/useLearningGradeLevel';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 
 // Define Subject interface
 interface Subject {
@@ -151,7 +153,7 @@ const getSubjects = (gradeLevel: 'k-3' | '4-6' | '7-9'): Subject[] => {
 const Lessons = () => {
   const [selectedGradeLevel, setSelectedGradeLevel] = useState<'k-3' | '4-6' | '7-9'>('k-3');
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
-  const [recentlyViewedTopics, setRecentlyViewedTopics] = useState<{subject: string, topic: string}[]>([]);
+  const [recentlyViewedTopics, setRecentlyViewedTopics] = useState<{subject: string, topic: string, id: string}[]>([]);
   const { selectedProfile } = useStudentProfile();
   const navigate = useNavigate();
   const location = useLocation();
@@ -182,7 +184,7 @@ const Lessons = () => {
     try {
       const { data } = await supabase
         .from('learning_activities')
-        .select('subject, topic, last_interaction_at')
+        .select('id, subject, topic, last_interaction_at')
         .eq('student_id', studentId)
         .order('last_interaction_at', { ascending: false })
         .limit(3);
@@ -193,6 +195,7 @@ const Lessons = () => {
         );
         
         setRecentlyViewedTopics(uniqueTopics.map(item => ({
+          id: item.id,
           subject: item.subject,
           topic: item.topic
         })));
@@ -247,71 +250,91 @@ const Lessons = () => {
     return getTopicSuggestionsForSubject(selectedSubject);
   };
 
+  const continueRecentActivity = (activity: {subject: string, topic: string}) => {
+    if (!selectedProfile) return;
+    
+    const student = convertToStudent(selectedProfile);
+    
+    navigate('/ai-learning', {
+      state: {
+        gradeLevel: selectedProfile.gradeLevel || 'k-3',
+        subject: activity.subject,
+        topic: activity.topic,
+        studentId: student.id,
+        studentName: student.name,
+        autoStart: true
+      }
+    });
+  };
+
   return (
-    <div className="container mx-auto px-4 py-6 max-w-5xl">
-      <h1 className="text-3xl font-bold mb-8">Lessons</h1>
-      
-      {!selectedSubject ? (
-        <>
-          <div className="mb-8">
-            <h2 className="text-xl font-medium mb-4">Select Grade Level</h2>
-            <GradeSelector 
-              selectedGradeLevel={selectedGradeLevel} 
-              onGradeChange={setSelectedGradeLevel}
-            />
-          </div>
-          
-          {recentlyViewedTopics.length > 0 && (
+    <div className="min-h-screen flex flex-col">
+      <Header />
+      <div className="container mx-auto px-4 py-8 flex-grow max-w-5xl">
+        <h1 className="text-3xl font-bold mb-8">Lessons</h1>
+        
+        {!selectedSubject ? (
+          <>
             <div className="mb-8">
-              <h2 className="text-xl font-medium mb-4">Recently Viewed</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {recentlyViewedTopics.map((item, index) => (
-                  <Card 
-                    key={index}
-                    className="cursor-pointer hover:border-primary hover:shadow-md transition-all"
-                    onClick={() => handleTopicSelect(item.topic)}
-                  >
-                    <CardContent className="p-4 flex items-center justify-between">
-                      <div>
-                        <h3 className="font-medium">{item.topic}</h3>
-                        <p className="text-sm text-gray-500">{item.subject}</p>
-                      </div>
-                      <Button variant="ghost" size="sm">Continue</Button>
-                    </CardContent>
-                  </Card>
+              <GradeSelector 
+                selectedGradeLevel={selectedGradeLevel} 
+                onGradeChange={setSelectedGradeLevel}
+              />
+            </div>
+            
+            {recentlyViewedTopics.length > 0 && (
+              <div className="mb-10">
+                <h2 className="text-xl font-medium mb-4">Recently Viewed</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {recentlyViewedTopics.map((item, index) => (
+                    <Card 
+                      key={item.id || index}
+                      className="cursor-pointer hover:border-primary hover:shadow-md transition-all"
+                      onClick={() => continueRecentActivity(item)}
+                    >
+                      <CardContent className="p-4 flex items-center justify-between">
+                        <div>
+                          <h3 className="font-medium">{item.topic}</h3>
+                          <p className="text-sm text-gray-500">{item.subject}</p>
+                        </div>
+                        <Button variant="ghost" size="sm">Continue</Button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            <div>
+              <h2 className="text-xl font-medium mb-4">Select Subject</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {subjects.map((subject) => (
+                  <SubjectCard 
+                    key={subject.id}
+                    subject={subject.name}
+                    gradeLevel={selectedGradeLevel}
+                    onClick={() => handleSubjectSelect(subject.id)}
+                    description={subject.description}
+                    color={subject.color}
+                    textColor={subject.textColor}
+                    iconText={subject.icon}
+                  />
                 ))}
               </div>
             </div>
-          )}
-          
-          <div>
-            <h2 className="text-xl font-medium mb-4">Select Subject</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {subjects.map((subject) => (
-                <SubjectCard 
-                  key={subject.id}
-                  subject={subject.name}
-                  gradeLevel={selectedGradeLevel}
-                  onClick={() => handleSubjectSelect(subject.id)}
-                  description={subject.description}
-                  color={subject.color}
-                  textColor={subject.textColor}
-                  iconText={subject.icon}
-                />
-              ))}
-            </div>
-          </div>
-        </>
-      ) : (
-        <TopicCarousel
-          gradeLevel={selectedGradeLevel}
-          subjectName={selectedSubject}
-          topicList={getTopicsForSubject()}
-          onSelectTopic={handleTopicSelect}
-          onBackClick={handleBackClick}
-          currentGrade={selectedGradeLevel}
-        />
-      )}
+          </>
+        ) : (
+          <TopicCarousel
+            gradeLevel={selectedGradeLevel}
+            subjectName={selectedSubject}
+            topicList={getTopicsForSubject()}
+            onSelectTopic={handleTopicSelect}
+            onBackClick={handleBackClick}
+            currentGrade={selectedGradeLevel}
+          />
+        )}
+      </div>
+      <Footer />
     </div>
   );
 };
