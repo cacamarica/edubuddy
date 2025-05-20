@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { Spinner } from '@/components/ui/spinner';
@@ -12,7 +11,7 @@ interface SubjectProgressChartProps {
 
 // Map subjects to their corresponding icons
 const SubjectIcon = ({ subject }: { subject: string }) => {
-  const iconProps = { className: "h-4 w-4 mr-2", strokeWidth: 2 };
+  const iconProps = { className: "h-5 w-5 mr-3", strokeWidth: 2 };
   
   switch (subject.toLowerCase()) {
     case 'math':
@@ -100,26 +99,26 @@ const SubjectProgressChart: React.FC<SubjectProgressChartProps> = ({ subjectProg
       )}
       
       {/* List View of Subject Progress with Icons */}
-      <div className="mt-8 space-y-4">
-        <h4 className="font-semibold text-lg">
+      <div className="mt-8">
+        <h4 className="font-semibold text-lg mb-4">
           {language === 'id' ? 'Detail Kemajuan Mata Pelajaran' : 'Subject Progress Details'}
         </h4>
         <div className="space-y-3">
           {chartData.length > 0 ? (
             chartData.map((item, index) => (
-              <div key={index} className="flex items-center justify-between p-3 border rounded-md">
+              <div key={index} className="flex items-center justify-between p-4 border rounded-md">
                 <div className="flex items-center">
                   <SubjectIcon subject={item.subject} />
                   <span className="font-medium">{item.subject}</span>
                 </div>
                 <div className="flex items-center gap-4">
-                  <div className="w-48 h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div className="w-48 h-3 bg-gray-200 rounded-full overflow-hidden">
                     <div
                       className={`h-full ${getProgressColor(item.progress)}`}
                       style={{ width: `${item.progress}%` }}
                     />
                   </div>
-                  <span className="font-semibold w-10 text-right">{item.progress}%</span>
+                  <span className="font-semibold w-12 text-right">{item.progress}%</span>
                 </div>
               </div>
             ))

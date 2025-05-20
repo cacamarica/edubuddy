@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -392,11 +391,21 @@ const StudentProgressSummary: React.FC<StudentProgressSummaryProps> = ({ student
                 {subjectProgress.length > 0 ? (
                   <div className="space-y-3">
                     {subjectProgress.slice(0, 5).map((subject, index) => (
-                      <div key={index} className="flex items-center justify-between p-2 border rounded-md">
-                        <span className="font-medium">{subject.subject}</span>
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${subject.progress >= 70 ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                          {subject.progress}%
-                        </span>
+                      <div key={index} className="flex items-center justify-between p-4 border rounded-md">
+                        <div className="flex items-center">
+                          <span className="font-medium">{subject.subject}</span>
+                        </div>
+                        <div className="flex items-center">
+                          <div className="w-24 h-3 bg-gray-200 rounded-full overflow-hidden mr-3">
+                            <div
+                              className={`h-full ${subject.progress >= 70 ? 'bg-green-500' : 'bg-yellow-500'}`}
+                              style={{ width: `${subject.progress}%` }}
+                            />
+                          </div>
+                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${subject.progress >= 70 ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                            {subject.progress}%
+                          </span>
+                        </div>
                       </div>
                     ))}
                   </div>
