@@ -504,13 +504,21 @@ export const studentProgressService = {
         completed: activityData.completed ?? false,
         started_at: now,
         last_interaction_at: now,
-        lesson_id: activityData.lesson_id || null,
       };
+      
+      // Only add lesson_id if it's provided and the activity type is lesson-related
+      if (activityData.lesson_id && activityData.activity_type.includes('lesson')) {
+        Object.assign(activity, {
+          lesson_id: activityData.lesson_id
+        });
+      }
+      
       if (activity.completed) {
         Object.assign(activity, {
           completed_at: now
         });
       }
+      
       const { error } = await supabase
         .from('learning_activities')
         .insert([activity]);

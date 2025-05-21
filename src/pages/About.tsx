@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Header from '@/components/Header';
@@ -48,6 +47,64 @@ const About = () => {
                 : 'An educational platform designed to nurture curiosity and foster a lifelong love of learning.'}
             </p>
           </div>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <span className="mr-2">✉️</span>
+                {language === 'id' ? 'Surat dari Pendiri' : 'Letter from the Founder'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="prose">
+                <p className="mb-4">
+                  {language === 'id' 
+                    ? 'Hai, nama saya Danish Adlanahza Hartono. Saya berusia 11 tahun dan saat ini duduk di kelas 4.'
+                    : 'Hi, my name is Danish Adlanahza Hartono. I\'m 11 years old and currently in 4th grade.'}
+                </p>
+                
+                <p className="mb-4">
+                  {language === 'id'
+                    ? 'Saya membuat platform ini karena saya memperhatikan sesuatu yang membuat saya khawatir—semakin banyak anak-anak saat ini menghabiskan sebagian besar waktu mereka bermain game mobile dan menonton video yang tidak membantu mereka belajar atau berkembang. Banyak teman saya merasa bosan dengan sekolah atau tidak lagi menikmati belajar. Saya percaya ini dapat mengarah pada apa yang saya sebut sebagai "generasi brainrot," di mana anak-anak lupa betapa menyenangkan dan pentingnya pembelajaran sejati.'
+                    : 'I created this platform because I noticed something that made me worried—more and more kids today spend most of their time playing mobile games and watching videos that don\'t help them learn or grow. Many of my friends feel bored with school or don\'t enjoy learning anymore. I believe this could lead to what I call a "brainrot generation," where children forget how fun and important real learning can be.'}
+                </p>
+                
+                <p className="mb-4">
+                  {language === 'id'
+                    ? 'Itulah mengapa saya ingin membangun sesuatu yang berbeda. Sebuah tempat di mana belajar sama menariknya dengan bermain game, di mana pelajaran menjadi hidup melalui cerita, video, gambar, kuis, dan bahkan pendamping AI—seperti memiliki guru virtual yang selalu siap membantu.'
+                    : 'That\'s why I wanted to build something different. A place where learning is just as exciting as playing games, where lessons come to life through stories, videos, pictures, quizzes, and even AI companions—like having a virtual teacher that\'s always ready to help.'}
+                </p>
+                
+                <p className="mb-4">
+                  {language === 'id'
+                    ? 'Platform ini juga dirancang untuk orang tua. Saya ingin memastikan Anda dapat memahami bagaimana perkembangan anak Anda tanpa perlu memeriksa setiap jawaban. AI kami dapat merangkum kemajuan belajar mereka, menunjukkan kekuatan mereka dan apa yang perlu mereka kerjakan—sehingga Anda dapat mendukung mereka dengan lebih baik tanpa stres.'
+                    : 'This platform is also designed for parents. I wanted to make sure you can understand how your child is doing without needing to check every answer. Our AI can summarize their learning progress, show their strengths and what they need to work on—so you can support them better without stress.'}
+                </p>
+                
+                <p className="mb-4">
+                  {language === 'id'
+                    ? 'Impian saya adalah untuk mengembalikan rasa ingin tahu dan kegembiraan dalam belajar—untuk anak-anak seperti saya, di seluruh dunia.'
+                    : 'My dream is to bring back curiosity and joy in learning—for kids like me, everywhere in the world.'}
+                </p>
+                
+                <p className="mb-4">
+                  {language === 'id'
+                    ? 'Mari kita belajar, jelajahi, dan tumbuh bersama.'
+                    : 'Let\'s learn, explore, and grow together.'}
+                </p>
+                
+                <div className="mt-6 border-t pt-4">
+                  <p className="font-medium">
+                    {language === 'id' ? 'Dengan cinta,' : 'With love,'}
+                  </p>
+                  <p className="font-semibold text-lg">Danish Adlanahza Hartono</p>
+                  <p className="text-muted-foreground">
+                    {language === 'id' ? 'Pendiri' : 'Founder'}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
           
           <Card>
             <CardHeader>

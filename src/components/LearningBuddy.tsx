@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Brain, X, ChevronUp, ChevronDown, Send, Loader2, Trash } from 'lucide-react';
+import { Brain, X, ChevronUp, ChevronDown, Send, Loader2, Trash, BookOpen, Link, ClipboardList, BookMarked, ExternalLink, MessageCircle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -9,9 +9,24 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useStudentProfile } from '@/contexts/StudentProfileContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
+import ReactMarkdown from 'react-markdown';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 // Key for storing the API key in localStorage - must match the one in LearningBuddySettings
 const API_KEY_STORAGE_KEY = 'edu_buddy_openai_api_key';
+
+interface InfoBoardContent {
+  title: string;
+  content: string;
+  references?: Array<{
+    title: string;
+    author?: string;
+    url?: string;
+    year?: string;
+  }>;
+  summary?: string;
+  keyConcepts?: string[];
+}
 
 const LearningBuddy: React.FC = () => {
   const { 
@@ -31,6 +46,9 @@ const LearningBuddy: React.FC = () => {
   const [hasApiKey, setHasApiKey] = useState(true); // Always assume we have API key
   const inputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Disable the info mode since we're now showing that in the lesson
+  const [infoMode, setInfoMode] = useState<'chat'>('chat');
   
   // Detect screen size
   const [isMobile, setIsMobile] = useState(false);
@@ -88,6 +106,21 @@ const LearningBuddy: React.FC = () => {
     }
   };
 
+  // We're removing the automated info board since we now handle that in the lesson
+  // This function is kept in case we need similar functionality in the future
+  const suggestRelatedQuestions = (messageContent: string) => {
+    // Extract potential topics from the message
+    const topics = messageContent.match(/\b\w{5,}\b/g) || [];
+    
+    // Generate related questions based on identified topics
+    const relatedQuestions = topics
+      .filter(topic => topic.length > 5) // Only use significant words
+      .slice(0, 3) // Limit to 3 topics
+      .map(topic => `Tell me more about ${topic}?`);
+      
+    return relatedQuestions;
+  };
+
   // Format timestamp for message display
   const formatTimestamp = (timestamp: Date): string => {
     return format(timestamp, 'HH:mm');
@@ -113,7 +146,7 @@ const LearningBuddy: React.FC = () => {
       );
     }
   };
-
+  
   // If not logged in, don't display the learning buddy
   if (!user) return null;
 
@@ -140,7 +173,7 @@ const LearningBuddy: React.FC = () => {
             transition={{ duration: 0.2 }}
             className={`fixed z-40 shadow-xl bg-background border rounded-lg overflow-hidden flex flex-col ${
               isExpanded
-                ? 'sm:top-[calc(50%-250px)] sm:left-[calc(50%-300px)] sm:w-[600px] sm:h-[500px] top-5 left-5 right-5 bottom-5'
+                ? 'sm:top-[calc(50%-250px)] sm:left-[calc(50%-350px)] sm:w-[700px] sm:h-[500px] top-5 left-5 right-5 bottom-5'
                 : 'bottom-4 right-4 w-[320px] sm:w-[350px] h-[450px] sm:h-[500px]'
             }`}
             style={{ 
@@ -201,72 +234,97 @@ const LearningBuddy: React.FC = () => {
               </div>
             </div>
             
-            {/* Message Area */}
-            <div className="flex-grow overflow-y-auto p-3 sm:p-4 bg-background/40">
-              {messages.map((message) => (
-                <div 
-                  key={message.id} 
-                  className={`flex gap-3 mb-4 ${message.role === 'user' ? 'justify-end flex-row-reverse text-right' : 'justify-start'}`}
-                >
-                  {getMessageAvatar(message)}
-                  <div 
-                    className={`rounded-lg px-3 py-2 max-w-[85%] shadow-sm ${
-                      message.role === 'user' 
-                        ? 'bg-eduPurple/10 text-eduPurple-dark' 
-                        : 'bg-gray-100'
-                    }`}
-                  >
-                    {message.formattedContent ? (
-                      <div className="text-xs sm:text-sm space-y-1">{message.formattedContent}</div>
-                    ) : (
-                      <p className="text-xs sm:text-sm whitespace-pre-wrap">{message.content}</p>
-                    )}
-                    <div className={`text-[10px] opacity-60 mt-1 ${message.role === 'user' ? 'text-right' : 'text-left'}`}>
-                      {formatTimestamp(message.timestamp)}
+            {/* Main content: Chat interface */}
+            <>
+              {/* Messages */}
+              <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-4">
+                {messages.length === 0 ? (
+                  <div className="text-center text-muted-foreground h-full flex flex-col items-center justify-center p-4">
+                    <Brain className="h-8 w-8 mb-2 text-eduPurple/30" />
+                    <p className="text-sm mb-2">{language === 'id' ? 'Hai! Saya Asisten Belajar Anda' : 'Hi! I\'m your Learning Buddy'}</p>
+                    <p className="text-xs mb-4">{language === 'id' ? 'Tanyakan tentang pelajaran Anda' : 'Ask me about your lessons'}</p>
+                    <div className="max-w-xs mx-auto text-xs bg-eduPurple/5 p-3 rounded-md">
+                      <p className="font-medium text-eduPurple mb-1">Suggested questions:</p>
+                      <ul className="space-y-2 mt-2">
+                        <li>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            className="w-full justify-start text-left text-xs h-auto py-1"
+                            onClick={() => sendMessage("Can you help me understand this topic better?")}
+                          >
+                            Can you help me understand this topic better?
+                          </Button>
+                        </li>
+                        <li>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            className="w-full justify-start text-left text-xs h-auto py-1"
+                            onClick={() => sendMessage("What are the most important things to remember about this subject?")}
+                          >
+                            What are the most important things to remember?
+                          </Button>
+                        </li>
+                        <li>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            className="w-full justify-start text-left text-xs h-auto py-1"
+                            onClick={() => sendMessage("How can I apply what I'm learning to real life?")}
+                          >
+                            How can I apply this to real life?
+                          </Button>
+                        </li>
+                      </ul>
                     </div>
                   </div>
-                </div>
-              ))}
-              {isLoading && (
-                <div className="flex justify-start gap-3 mb-4">
-                  {getMessageAvatar({ id: 'loading', role: 'assistant', content: '', timestamp: new Date() })}
-                  <div className="bg-gray-100 rounded-lg px-3 py-2 shadow-sm min-w-[60px] max-w-[85%]">
-                    <div className="flex space-x-1">
-                      <div className="h-2 w-2 bg-gray-300 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                      <div className="h-2 w-2 bg-gray-300 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                      <div className="h-2 w-2 bg-gray-300 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                ) : (
+                  messages.map((message, index) => (
+                    <div 
+                      key={index} 
+                      className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} items-start gap-2 sm:gap-3`}
+                    >
+                      {message.role !== 'user' && getMessageAvatar(message)}
+                      <div 
+                        className={`rounded-lg p-2.5 sm:p-3 max-w-[85%] sm:max-w-[80%] space-y-1 ${
+                          message.role === 'user' ? 'bg-eduPurple text-white' : 'bg-muted'
+                        }`}
+                      >
+                        <div className="prose prose-sm max-w-none dark:prose-invert">
+                          <ReactMarkdown>{message.content}</ReactMarkdown>
+                        </div>
+                        <div className="text-xs opacity-70 text-right">
+                          {formatTimestamp(message.timestamp)}
+                        </div>
+                      </div>
+                      {message.role === 'user' && getMessageAvatar(message)}
                     </div>
-                  </div>
-                </div>
-              )}
-              <div ref={messagesEndRef} />
-            </div>
-            
-            {/* Input area */}
-            <div className="p-2 sm:p-3 border-t">
-              <form onSubmit={handleSendMessage} className="flex gap-2">
+                  ))
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+              
+              {/* Input area */}
+              <form onSubmit={handleSendMessage} className="p-3 border-t flex gap-2">
                 <Input
                   ref={inputRef}
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
-                  placeholder={language === 'id' ? "Ketik pertanyaan Anda..." : "Type your question..."}
-                  className="flex-grow text-sm"
-                  disabled={isLoading}
+                  placeholder={language === 'id' ? "Tanyakan sesuatu..." : "Ask something..."}
+                  className="flex-1"
+                  disabled={isLoading || !hasApiKey}
                 />
                 <Button 
                   type="submit" 
-                  size="sm" 
-                  className="bg-eduPurple hover:bg-eduPurple/90 h-9 px-2 sm:px-3"
-                  disabled={isLoading || !inputValue.trim()}
+                  size="icon" 
+                  disabled={isLoading || !hasApiKey || !inputValue.trim()}
+                  className="bg-eduPurple hover:bg-eduPurple-dark"
                 >
-                  {isLoading ? (
-                    <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
-                  ) : (
-                    <Send className="h-3 w-3 sm:h-4 sm:w-4" />
-                  )}
+                  {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 </Button>
               </form>
-            </div>
+            </>
           </motion.div>
         )}
       </AnimatePresence>

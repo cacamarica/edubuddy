@@ -23,7 +23,7 @@ interface RecentActivity {
 
 const Header = () => {
   const { user, signOut } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -117,14 +117,50 @@ const Header = () => {
   };
   
   const navigateToQuiz = () => {
-    if (currentStudent && recentActivity) {
+    if (currentStudent) {
+      // Create a Quiz of the Day with randomized content
+      const studentGradeLevel = currentStudent.gradeLevel || 'k-3';
+      
+      // Randomize subject
+      const subjects = ['Math', 'Science', 'English'];
+      const randomSubject = subjects[Math.floor(Math.random() * subjects.length)];
+      
+      // Topics by subject
+      const topicsBySubject: Record<string, string[]> = {
+        'Math': studentGradeLevel === 'k-3' 
+          ? ['Numbers', 'Shapes', 'Addition', 'Subtraction', 'Patterns'] 
+          : studentGradeLevel === '4-6'
+            ? ['Fractions', 'Decimals', 'Multiplication', 'Division', 'Geometry']
+            : ['Algebra', 'Geometry', 'Statistics', 'Equations', 'Functions'],
+        'Science': studentGradeLevel === 'k-3'
+          ? ['Plants', 'Animals', 'Weather', 'Earth', 'Living Things']
+          : studentGradeLevel === '4-6'
+            ? ['Ecosystems', 'Solar System', 'Matter', 'Energy', 'Living Things']
+            : ['Chemistry', 'Physics', 'Biology', 'Earth Science', 'Living Things'],
+        'English': studentGradeLevel === 'k-3'
+          ? ['Letters', 'Reading', 'Writing', 'Stories', 'Comprehension']
+          : studentGradeLevel === '4-6'
+            ? ['Grammar', 'Vocabulary', 'Comprehension', 'Writing', 'Literature']
+            : ['Literature', 'Essays', 'Rhetoric', 'Analysis', 'Creative Writing']
+      };
+      
+      // Randomly select a topic based on subject
+      const topicsForSubject = topicsBySubject[randomSubject] || ['General Knowledge'];
+      const randomTopic = topicsForSubject[Math.floor(Math.random() * topicsForSubject.length)];
+      
+      // Navigate to quiz with randomized content
       navigate('/quiz', { 
         state: { 
-          subject: recentActivity.subject,
-          topic: recentActivity.topic,
-          gradeLevel: currentStudent.gradeLevel
+          subject: randomSubject,
+          topic: randomTopic,
+          gradeLevel: studentGradeLevel,
+          isQuizOfTheDay: true
         }
       });
+      
+      toast.success(language === 'id' 
+        ? `Kuis Hari Ini: ${randomSubject} - ${randomTopic}` 
+        : `Quiz of the Day: ${randomSubject} - ${randomTopic}`);
     } else {
       navigate('/quiz');
     }

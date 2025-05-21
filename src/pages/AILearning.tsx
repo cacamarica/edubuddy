@@ -26,25 +26,32 @@ interface LearningContentComponentProps {
   gradeLevel: 'k-3' | '4-6' | '7-9';
   subject: string;
   topic: string;
+  subtopic?: string;
   student?: Student;
   autoStart?: boolean;
+  recommendationId?: string;
 }
 
 interface AIQuizProps {
   gradeLevel: 'k-3' | '4-6' | '7-9';
   subject: string;
   topic: string;
+  subtopic?: string;
   studentId?: string;
   autoStart?: boolean;
+  recommendationId?: string;
+  onComplete?: (score: number) => void;
 }
 
 interface AIGameProps {
   gradeLevel: 'k-3' | '4-6' | '7-9';
   subject: string;
   topic: string;
+  subtopic?: string;
   studentId?: string;
   studentName?: string;
   autoStart?: boolean;
+  recommendationId?: string;
 }
 
 const AILearning = () => {
@@ -64,6 +71,7 @@ const AILearning = () => {
   const gradeLevel = location.state?.gradeLevel || 'k-3';
   const subject = location.state?.subject || 'Math';
   const topic = location.state?.topic || 'General Knowledge';
+  const subtopic = location.state?.subtopic || '';
   const autoStart = location.state?.autoStart || false;
   const isNewLesson = location.state?.isNewLesson || false;
   
@@ -256,6 +264,9 @@ const AILearning = () => {
     console.log(`Tab changed to: ${value}`);
   };
 
+  // Display title with subtopic if available
+  const displayTitle = subtopic ? `${topic}: ${subtopic}` : topic;
+
   if (!user) {
     return (
       <div className="min-h-screen flex flex-col">
@@ -289,7 +300,7 @@ const AILearning = () => {
         <div className="container mx-auto p-4">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4">
             <div>
-              <h1 className="text-3xl font-bold font-display">{subject} - {topic}</h1>
+              <h1 className="text-3xl font-bold font-display">{subject} - {displayTitle}</h1>
               {currentStudent && (
                 <p className="text-eduPurple">{language === 'id' ? 'Belajar sebagai:' : 'Learning as:'} {currentStudent.name}</p>
               )}
@@ -367,6 +378,7 @@ const AILearning = () => {
                       subject={subject}
                       gradeLevel={gradeLevel}
                       topic={topic}
+                      subtopic={subtopic}
                       studentId={currentStudent?.id}
                       onComplete={handleLessonComplete}
                     />
@@ -376,6 +388,7 @@ const AILearning = () => {
                       subject={subject}
                       gradeLevel={gradeLevel}
                       topic={topic}
+                      subtopic={subtopic}
                       studentId={currentStudent?.id}
                       onComplete={handleQuizComplete}
                     />
@@ -385,6 +398,7 @@ const AILearning = () => {
                       subject={subject}
                       gradeLevel={gradeLevel}
                       topic={topic}
+                      subtopic={subtopic}
                       studentId={currentStudent?.id}
                       studentName={currentStudent?.name}
                     />

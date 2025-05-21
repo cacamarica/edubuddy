@@ -7,11 +7,13 @@ import { getAIEducationContent } from '@/services/aiEducationService';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import FunLoadingAnimation from './FunLoadingAnimation';
 
 interface AIGameProps {
   subject: string;
   gradeLevel: 'k-3' | '4-6' | '7-9';
   topic: string;
+  subtopic?: string;
   limitProgress?: boolean;
   studentId?: string;
   studentName?: string;
@@ -39,6 +41,7 @@ const AIGame: React.FC<AIGameProps> = ({
   subject,
   gradeLevel,
   topic,
+  subtopic,
   limitProgress = false,
   studentId,
   studentName,
@@ -62,20 +65,49 @@ const AIGame: React.FC<AIGameProps> = ({
         subject,
         gradeLevel,
         topic,
-        language
+        subtopic,
+        language,
+        enhancedParams: {
+          gameType: 'scientific_activity',
+          useHouseholdMaterials: true,
+          requireMinimalEquipment: true,
+          collaborativeActivity: true,
+          curriculumStandard: 'cambridge',
+          focusOnSubtopic: !!subtopic,
+          alignWithCurriculum: true,
+          emphasizeSubtopics: subtopic ? 
+            [subtopic.toLowerCase()] : 
+            topic.toLowerCase().includes('living things') ? [
+              'characteristics of living things',
+              'classification of organisms',
+              'adaptation and evolution',
+              'life processes',
+              'ecosystems'
+            ] : undefined,
+          difficultyLevel: gradeLevel === 'k-3' ? 'easy' : 
+                          gradeLevel === '4-6' ? 'medium' : 'challenging',
+          learningObjectives: true,
+          educationalGoals: [
+            `Understand key concepts in ${topic}${subtopic ? ` related to ${subtopic}` : ''}`,
+            `Apply scientific thinking to ${subtopic || topic} scenarios`,
+            `Develop practical skills through hands-on learning`
+          ],
+          alignWithGradeLevel: gradeLevel,
+          gradeAppropriate: true
+        }
       });
       
       if (result?.content) {
         // Format the game data properly
         setGameData({
-          title: result.content.title || `${topic} Game`,
+          title: result.content.title || (subtopic ? `${topic}: ${subtopic} Game` : `${topic} Game`),
           objective: result.content.objective || '',
           instructions: result.content.instructions || '',
           materials: result.content.materials,
           variations: result.content.variations,
           image: result.content.image || {
-            url: `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(topic)}-game&backgroundColor=ffdfbf,ffd5dc,c0aede,d1d4f9,b6e3f4`,
-            alt: `Game illustration for ${topic}`
+            url: `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(topic + (subtopic || ''))}-game&backgroundColor=ffdfbf,ffd5dc,c0aede,d1d4f9,b6e3f4`,
+            alt: subtopic ? `Game illustration for ${topic}: ${subtopic}` : `Game illustration for ${topic}`
           }
         });
       }
@@ -92,7 +124,7 @@ const AIGame: React.FC<AIGameProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [subject, gradeLevel, topic, language, recommendationId]);
+  }, [subject, gradeLevel, topic, subtopic, language, recommendationId]);
 
   // Load initial content
   useEffect(() => {
@@ -147,11 +179,17 @@ const AIGame: React.FC<AIGameProps> = ({
   // Show loading state
   if (loading) {
     return (
-      <div className="space-y-4">
-        <Skeleton className="h-8 w-3/4" />
-        <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-64 w-full" />
-      </div>
+      <FunLoadingAnimation 
+        contentType="game"
+        theme={
+          topic.toLowerCase().includes('dinosaur') ? 'dinosaur' : 
+          topic.toLowerCase().includes('space') ? 'space' :
+          topic.toLowerCase().includes('ocean') || topic.toLowerCase().includes('water') ? 'ocean' :
+          topic.toLowerCase().includes('robot') ? 'robot' :
+          undefined
+        }
+        showProgress={true}
+      />
     );
   }
 
@@ -213,7 +251,7 @@ const AIGame: React.FC<AIGameProps> = ({
         <CardFooter className="flex justify-center">
           <Button onClick={handleStartGame} className="bg-eduPurple hover:bg-eduPurple-dark">
             <Gamepad className="mr-2 h-4 w-4" />
-            {t('game.start')}
+            {t('game.start') || 'Start Game'} <span className="ml-1 text-yellow-200">✨</span>
           </Button>
         </CardFooter>
       </Card>
@@ -255,6 +293,24 @@ const AIGame: React.FC<AIGameProps> = ({
           </div>
         )}
         
+        {/* Add Learning Objectives */}
+        <div className="bg-blue-50 p-4 rounded-md border border-blue-100">
+          <h3 className="font-semibold text-lg mb-2 text-blue-700">Learning Objectives</h3>
+          <p className="text-blue-800">While playing this game, you will learn about:</p>
+          <ul className="list-disc pl-5 space-y-1 text-blue-800 mt-2">
+            <li>Key concepts in {topic} ({subject})</li>
+            <li>Practical applications of scientific principles</li>
+            <li>How to conduct a simple scientific investigation</li>
+            {topic.toLowerCase().includes('living things') && (
+              <>
+                <li>Characteristics that define living organisms</li>
+                <li>Classification of different organisms</li>
+                <li>How living things interact with their environment</li>
+              </>
+            )}
+          </ul>
+        </div>
+        
         <div>
           <h3 className="font-semibold text-lg mb-2">{t('game.howToPlay')}</h3>
           <div className="bg-gray-50 p-4 rounded-md text-gray-800">
@@ -263,13 +319,17 @@ const AIGame: React.FC<AIGameProps> = ({
         </div>
         
         {gameData?.materials && gameData.materials.length > 0 && (
-          <div>
-            <h3 className="font-semibold text-lg mb-2">{t('game.materials')}</h3>
-            <ul className="list-disc pl-5 space-y-1">
+          <div className="bg-emerald-50 p-4 rounded-md border border-emerald-100">
+            <h3 className="font-semibold text-lg mb-2 text-emerald-700">{t('game.materials')}</h3>
+            <p className="text-sm text-emerald-700 mb-2">You'll need these simple items to play:</p>
+            <ul className="list-disc pl-5 space-y-1 text-emerald-800">
               {gameData.materials.map((material, index) => (
-                <li key={index}>{material}</li>
+                <li key={index} className="flex items-center">
+                  <span className="mr-2">📦</span> {material}
+                </li>
               ))}
             </ul>
+            <p className="text-xs italic mt-3 text-emerald-600">All materials are common household or classroom items.</p>
           </div>
         )}
         

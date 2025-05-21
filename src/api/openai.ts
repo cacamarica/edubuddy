@@ -32,22 +32,74 @@ type Message = {
   content: string;
 };
 
+// Try different API endpoints for OpenAI requests
+async function tryServerEndpoints(messages: Message[]) {
+  // List of potential endpoints to try
+  const endpoints = [
+    '/api/openai/chat',    // Next.js API route
+    'http://localhost:8080/api/openai/chat', // Server on port 8080
+    'http://localhost:3001/api/openai/chat'  // Server on port 3001
+  ];
+  
+  let lastError: Error | null = null;
+  
+  // Try each endpoint until one works
+  for (const endpoint of endpoints) {
+    try {
+      console.log(`Trying OpenAI server endpoint: ${endpoint}`);
+      
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ messages }),
+      });
+      
+      if (!response.ok) {
+        console.warn(`Endpoint ${endpoint} returned status ${response.status}`);
+        lastError = new Error(`HTTP error ${response.status}`);
+        continue; // Try next endpoint
+      }
+      
+      const data = await response.json();
+      console.log(`Successfully used endpoint: ${endpoint}`);
+      
+      return {
+        content: data.message || data.content || '',
+        model: data.model || 'gpt-3.5-turbo',
+        usage: data.usage || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+      };
+    } catch (error) {
+      console.warn(`Error with endpoint ${endpoint}:`, error);
+      lastError = error instanceof Error ? error : new Error(String(error));
+      // Continue to next endpoint
+    }
+  }
+  
+  // If we get here, all endpoints failed
+  throw lastError || new Error('All server endpoints failed');
+}
+
 /**
  * Sends a chat completion request to OpenAI
  */
 export async function getChatCompletion(messages: Message[]) {
-  const openai = createOpenAIClient();
-  
-  if (!openai.apiKey) {
-    throw new Error('OpenAI API key is not set. Please add your API key in settings.');
-  }
-
+  // First try direct API access
   try {
+    const openai = createOpenAIClient();
+    
+    if (!openai.apiKey) {
+      console.log('No OpenAI API key available for direct access, trying server endpoints...');
+      throw new Error('OpenAI API key is not set');
+    }
+
+    console.log('Attempting direct OpenAI API call...');
     const completion = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
       messages,
       temperature: 0.7,
-      max_tokens: 1000,
+      max_tokens: 2000,  // Increased for longer content
     });
 
     return {
@@ -55,9 +107,16 @@ export async function getChatCompletion(messages: Message[]) {
       model: completion.model,
       usage: completion.usage,
     };
-  } catch (error: any) {
-    console.error('Error calling OpenAI:', error);
-    throw new Error(`Error processing your request: ${error.message}`);
+  } catch (directError) {
+    console.warn('Direct OpenAI API call failed, trying server endpoints:', directError);
+    
+    // Try server endpoints as fallback
+    try {
+      return await tryServerEndpoints(messages);
+    } catch (serverError) {
+      console.error('All OpenAI access methods failed:', serverError);
+      throw new Error(`Could not complete OpenAI request. Please check your API key or network connection.`);
+    }
   }
 }
 
@@ -69,7 +128,7 @@ export async function handleChatRequest(messages: Message[], userId?: string, st
     // Log request for debugging (can be removed in production)
     console.log(`Processing chat request for user: ${userId || 'anonymous'}, student: ${studentId || 'unknown'}`);
     
-    // Call OpenAI directly
+    // Call OpenAI with fallbacks
     return await getChatCompletion(messages);
   } catch (error: any) {
     console.error('Error in handleChatRequest:', error);

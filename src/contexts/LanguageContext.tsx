@@ -40,6 +40,10 @@ const translations: TranslationsType = {
     'quiz.finished': 'I\'ve Completed the Quiz!',
     'quiz.question': 'Question {current} of {total}',
     'quiz.saveAndExit': 'Save & Exit',
+    'quiz.previous': 'Previous',
+    'quiz.next': 'Next',
+    'quiz.check': 'Check Answer',
+    'quiz.submitAnswer': 'Submit Answer',
     'nav.home': 'Home',
     'nav.lessons': 'Lessons',
     'nav.quiz': 'Quiz',
@@ -142,6 +146,8 @@ const translations: TranslationsType = {
     'topic.personalizedFor': 'Personalized for',
     'topic.years': 'years',
     'topic.grade': 'Grade',
+    'topic.grade46': 'Grades 4-6',
+    'topic.grade79': 'Grades 7-9',
     
     // Footer
     'footer.trackProgress': 'Track Progress',
@@ -191,6 +197,10 @@ const translations: TranslationsType = {
     'quiz.finished': 'Saya Telah Menyelesaikan Kuis!',
     'quiz.question': 'Pertanyaan {current} dari {total}',
     'quiz.saveAndExit': 'Simpan & Keluar',
+    'quiz.previous': 'Sebelumnya',
+    'quiz.next': 'Berikutnya',
+    'quiz.check': 'Periksa Jawaban',
+    'quiz.submitAnswer': 'Kirim Jawaban',
     'nav.home': 'Beranda',
     'nav.lessons': 'Pelajaran',
     'nav.quiz': 'Kuis',
@@ -293,6 +303,8 @@ const translations: TranslationsType = {
     'topic.personalizedFor': 'Dipersonalisasi untuk',
     'topic.years': 'tahun',
     'topic.grade': 'Kelas',
+    'topic.grade46': 'Kelas 4-6',
+    'topic.grade79': 'Kelas 7-9',
     
     // Footer
     'footer.trackProgress': 'Lacak Kemajuan',
