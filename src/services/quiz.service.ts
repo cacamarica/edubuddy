@@ -336,26 +336,42 @@ export const fetchQuizQuestions = async (options: QuizOptions): Promise<QuizQues
       }
     }
     
+    // Validate parameters before sending them
+    const validatedParams = {
+      subject: subject || 'General',
+      gradeLevel: gradeLevel || 'k-3',
+      topic: topic || 'General Knowledge',
+      subtopic: subtopic,
+      language: language === 'id' ? 'id' : 'en',
+      questionCount: Math.min(Math.max(1, questionCount || 5), 20), // Ensure between 1-20
+      includeLessonContent: !!includeLessonContent,
+      specificSubtopics: Array.isArray(specificSubtopics) ? specificSubtopics : undefined,
+      includeLearnedConcepts: !!includeLearnedConcepts
+    };
+    
+    // Add validation for stringifying large objects which might cause issues
+    // Ensure the body size is reasonable by limiting array sizes
+    if (validatedParams.specificSubtopics && validatedParams.specificSubtopics.length > 10) {
+      validatedParams.specificSubtopics = validatedParams.specificSubtopics.slice(0, 10);
+    }
+    
+    // Try to call the edge function with validated parameters
+    console.log('Calling Supabase function with params:', JSON.stringify(validatedParams));
+    
     try {
-      // Try to call the edge function to get quiz questions
       const { data, error } = await supabase.functions.invoke('ai-quiz-generator', {
-        body: { 
-          subject, 
-          gradeLevel, 
-          topic,
-          subtopic,
-          language,
-          questionCount,
-          includeLessonContent,
-          specificSubtopics,
-          includeLearnedConcepts
-        }
+        body: validatedParams
+      }).catch(err => {
+        // Handle network errors or other exceptions from the fetch request
+        console.error('Network error calling Supabase function:', err);
+        // Return a structured response with error to be handled by the outer catch
+        return { data: null, error: { message: `Network error: ${err.message || 'Unknown error'}` } };
       });
       
       // Handle API errors
       if (error) {
-        console.error('Error from Supabase function:', error);
-        throw new Error(`Quiz API error: ${error.message}`);
+        console.error('Error response from Supabase function:', error);
+        throw new Error(`Quiz API error: ${error.message || 'Unknown error'}`);
       }
 
       // Validate the response

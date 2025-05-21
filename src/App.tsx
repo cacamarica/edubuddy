@@ -25,6 +25,7 @@ import DetailedQuizHistoryPage from "./pages/DetailedQuizHistory";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { fixStudentProfilesMappings } from "@/utils/databaseMigration";
 import { useEffect } from "react";
+import QuizResults from "./components/QuizComponents/QuizResults";
 
 // Create QueryClient with updated configuration (removed onError)
 const queryClient = new QueryClient({
@@ -258,6 +259,22 @@ const App = () => {
                     <ProtectedRoute>
                       <ManageStudentProfilesPage />
                     </ProtectedRoute>
+                  } />
+                  <Route path="/quiz/results" element={
+                    <ErrorBoundary fallback={
+                      <div className="flex h-screen flex-col items-center justify-center p-4 text-center">
+                        <h2 className="mb-4 text-2xl font-bold text-red-600">Quiz Results Error</h2>
+                        <p className="mb-4">We encountered an issue loading the quiz results.</p>
+                        <button 
+                          onClick={() => window.location.href = '/quiz'}
+                          className="rounded bg-eduPurple px-4 py-2 text-white hover:bg-eduPurple/80"
+                        >
+                          Return to Quiz
+                        </button>
+                      </div>
+                    }>
+                      <QuizResults />
+                    </ErrorBoundary>
                   } />
                   <Route path="*" element={<NotFound />} />
                 </Routes>

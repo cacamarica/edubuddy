@@ -50,6 +50,7 @@ const AIQuiz = ({ subject, gradeLevel, topic, subtopic, onComplete, limitProgres
   const [hasSavedProgress, setHasSavedProgress] = useState(false);
   const { user } = useAuth();
   const { language } = useLanguage();
+  const navigate = useNavigate();
 
   // Check for saved progress
   useEffect(() => {
@@ -561,7 +562,8 @@ const AIQuiz = ({ subject, gradeLevel, topic, subtopic, onComplete, limitProgres
             "Keep practicing to improve!"
           }`;
           
-          // Store in learning_activities table with the summary
+          // Store in learning_activities table with the summary - include all required fields
+          const now = new Date().toISOString();
           await supabase
             .from('learning_activities')
             .insert([{
@@ -569,13 +571,16 @@ const AIQuiz = ({ subject, gradeLevel, topic, subtopic, onComplete, limitProgres
               activity_type: 'quiz',
               subject,
               topic,
+              grade_level: gradeLevel,
               completed: true,
               progress: 100,
               stars_earned: Math.ceil(percentage / 20), // 1-5 stars based on percentage
-              completed_at: new Date().toISOString(),
-              last_interaction_at: new Date().toISOString(),
-              recommendation_id: recommendationId, // Track recommendation if available
-              summary: summary // Store the quiz summary for future reference
+              started_at: now,
+              completed_at: now,
+              last_interaction_at: now,
+              // Only include recommendation_id if it exists
+              ...(recommendationId ? { recommendation_id: recommendationId } : {})
+              // Removed summary field as it's not in the table schema
             }]);
         }
       } catch (error) {
@@ -723,24 +728,26 @@ const AIQuiz = ({ subject, gradeLevel, topic, subtopic, onComplete, limitProgres
     return <QuizError onTryAgain={fetchQuiz} error={error} />;
   }
 
+  // Add useEffect to handle navigation when quiz is complete
+  useEffect(() => {
+    if (quizComplete) {
+      const finalScore = calculateFinalScore();
+      
+      // Navigate to QuizResults with the necessary state
+      navigate('/quiz/results', {
+        state: {
+          studentId,
+          subject,
+          topic,
+          correctAnswers: finalScore,
+          totalQuestions: questions.length
+        },
+        replace: true
+      });
+    }
+  }, [quizComplete]);
+  
   if (quizComplete) {
-    const navigate = useNavigate();
-    
-    // Calculate final score
-    const finalScore = calculateFinalScore();
-    
-    // Navigate to QuizResults with the necessary state
-    navigate('/quiz/results', {
-      state: {
-        studentId,
-        subject,
-        topic,
-        correctAnswers: finalScore,
-        totalQuestions: questions.length
-      },
-      replace: true
-    });
-    
     // Return loading state during navigation
     return <LoadingQuiz progress={100} />;
   }
