@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { getAIEducationContent } from "./aiEducationService";
 import { toast } from 'sonner'; // Import toast from sonner
@@ -241,6 +240,7 @@ export const lessonService = {
    * @param topic The topic
    * @param gradeLevel The grade level
    * @param studentId Optional student ID
+   * @param subtopic Optional subtopic
    * @param forceFresh Whether to force creation of a new lesson even if one exists
    * @returns The lesson
    */
@@ -249,7 +249,7 @@ export const lessonService = {
     topic: string, 
     gradeLevel: string,
     studentId?: string,
-    subtopic?: string,
+    subtopic?: string, // Changed from string | null to string | undefined
     forceFresh = false
   ): Promise<{ lesson: Lesson | null; isNew: boolean }> => {
     try {

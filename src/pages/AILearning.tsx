@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
@@ -20,7 +19,7 @@ const AILearning = () => {
   const { language } = useLanguage();
   const [subject, setSubject] = useState('Science');
   const [topic, setTopic] = useState('');
-  const [subtopic, setSubtopic] = useState(''); // Using string type with empty string default
+  const [subtopic, setSubtopic] = useState(''); // Initialize with empty string instead of null
   const [isNormalFlow, setIsNormalFlow] = useState(true);
   const [students, setStudents] = useState<Student[]>([]);
 
@@ -79,7 +78,7 @@ const AILearning = () => {
     if (selectedSubtopic) {
       setSubtopic(selectedSubtopic);
     } else {
-      setSubtopic(''); // Using empty string instead of undefined
+      setSubtopic(''); // Using empty string instead of null
     }
 
     // Toggle back to normal flow
@@ -90,7 +89,7 @@ const AILearning = () => {
   const handleSubjectChange = useCallback((newSubject: string) => {
     setSubject(newSubject);
     setTopic('');
-    setSubtopic(''); // Using empty string instead of undefined
+    setSubtopic(''); // Using empty string instead of undefined or null
   }, []);
 
   // Create learning content

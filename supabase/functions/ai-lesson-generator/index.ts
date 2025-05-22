@@ -1,4 +1,3 @@
-
 // NOTE: This file is designed to run in Supabase Edge Functions with Deno runtime
 // These imports and globals won't be recognized in a regular Node.js environment 
 // but will work correctly when deployed to Supabase
@@ -13,6 +12,7 @@ interface RequestData {
   language?: 'en' | 'id';
   forceLongerLessons?: boolean;
   skipMediaSearch?: boolean; // New option to skip media searches
+  subtopic?: string;
 }
 
 interface OpenAIResponse {
@@ -75,13 +75,13 @@ serve(async (req) => {
       throw new Error("Invalid request body format");
     }) as RequestData;
 
-    const { subject, gradeLevel, topic, language = 'en', skipMediaSearch = false } = requestBody;
+    const { subject, gradeLevel, topic, language = 'en', skipMediaSearch = false, subtopic } = requestBody;
     
     if (!subject || !gradeLevel || !topic) {
       throw new Error("Missing required parameters: subject, gradeLevel, or topic");
     }
 
-    console.log(`Generating lesson for ${topic} in ${subject} (grade ${gradeLevel}, language: ${language})`);
+    console.log(`Generating lesson for ${topic}${subtopic ? ` (subtopic: ${subtopic})` : ''} in ${subject} (grade ${gradeLevel}, language: ${language})`);
 
     // Create a prompt for OpenAI - optimized for faster generation
     const prompt = `
