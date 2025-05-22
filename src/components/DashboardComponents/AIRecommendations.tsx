@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import * as React from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Lightbulb, CheckCircle, ArrowRight, FileText, BarChart3, HelpCircle, Check, X, RefreshCw } from 'lucide-react';
 import { studentProgressService, AIRecommendation, AISummaryReport } from '@/services/studentProgressService';
@@ -12,8 +13,18 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
-import { toast } from 'sonner';
+// Import all components from our mock file
+import { 
+  ResponsiveContainer, 
+  LineChart, 
+  CartesianGrid, 
+  XAxis, 
+  YAxis, 
+  Tooltip, 
+  Legend, 
+  Line 
+} from '@/components/Charts/ChartComponents';
+import { toast } from 'react-toastify';
 
 // Time interval types for the chart
 type TimeInterval = 'daily' | 'weekly' | 'monthly' | 'yearly';

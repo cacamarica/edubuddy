@@ -23,7 +23,9 @@
     "noFallthroughCasesInSwitch": false,
 
     /* Type Definitions */
-    "types": ["react", "react-dom", "node"],
+    "types": ["node"],
+    "typeRoots": ["./node_modules/@types"],
+    "allowSyntheticDefaultImports": true,
 
     "baseUrl": ".",
     "paths": {

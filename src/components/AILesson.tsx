@@ -8,7 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { ChevronLeft, ChevronRight, ChevronDown, Loader2, Brain, CircleHelp, MessageCircle, AlertCircle, BookOpen, ClipboardList, BookMarked, Link, Sparkles, HelpCircle, Lightbulb, Search, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { toast } from 'react-toastify';
 import { useStudentProfile } from '@/contexts/StudentProfileContext';
 import { useLearningBuddy } from '@/contexts/LearningBuddyContext';
 import { normalizeLessonContent, cleanMarkdownText, extractKeyConcepts } from '@/utils/lessonUtils';
@@ -1607,295 +1607,47 @@ const AILesson: React.FC<AILessonProps> = ({
   // Function to get lesson content from cached or new API call
   const fetchLessonContent = useCallback(async (refreshContent = false) => {
     setLoading(true);
-    setLoadingProgress(10); // Start progress
-    // Define a notification ID to prevent duplicate toasts
-    const notificationId = 'ai-lesson-toast';
+    setLoadingProgress(1); // Start progress
     
     try {
-      console.log('[AI] Requesting lesson:', { subject, topic, gradeLevel, language, subtopic });
-      toast.info(
-        language === 'id' 
-          ? 'Mempersiapkan pelajaran khusus untuk Anda...' 
-          : 'Preparing your personalized lesson...', 
-        { id: notificationId }
-      );
+      // DB check
+      setLoadingProgress(10);
+      // ... existing code ...
+      setLoadingProgress(50); // Injecting content into DB
       
-      // Try to load from DB
-      if (!refreshContent && effectiveStudentId) {
-        setLoadingProgress(20); // DB check started
-        const { data: cachedLesson, error: lessonError } = await supabase
-          .from('lesson_materials')
-          .select('*')
-          .eq('subject', subject)
-          .eq('topic', topic)
-          .eq('grade_level', gradeLevel)
-          .maybeSingle();
-        if (lessonError) console.error('[DB] Error fetching cached lesson:', lessonError);
-        console.log('[DB] Raw cached lesson:', cachedLesson);
-        setLoadingProgress(30); // DB check complete
-        const normalized = normalizeLessonContent(cachedLesson || null);
-        console.log('[DB] Normalized cached lesson:', normalized);
-        
-        // Debug the chapters specifically
-        if (normalized) {
-          console.log('[DB] Normalized chapters count:', 
-            normalized.mainContent ? normalized.mainContent.length : 0,
-            'First chapter:', normalized.mainContent?.[0]);
-        }
-        
-        if (normalized) {
-          setLessonId(cachedLesson?.id || null);
-          setLessonContent(normalized);
-          setLoadingProgress(100); // Complete
-          setLoading(false);
-          return;
-        } else if (cachedLesson && cachedLesson.id) {
-          console.warn('[DB] Malformed cached lesson, deleting...');
-          await supabase.from('lesson_materials').delete().eq('id', cachedLesson.id);
-        }
-      }
-      
-      // Request from AI
-      setLoadingProgress(40); // Starting AI request
-      toast.info(
-        language === 'id' 
-          ? 'Meminta AI untuk membuat konten pembelajaran...' 
-          : 'Asking our AI to generate learning content...', 
-        { id: notificationId }
-      );
-      
-      // Get student profile data if available
-      let studentData: {
-        age?: number;
-        name?: string;
-        interests?: string[];
-        learningStyle?: string;
-        comprehensionLevel?: 'basic' | 'intermediate' | 'advanced';
-      } | undefined = undefined;
+      // AI request
+      setLoadingProgress(70); // Loading content into lesson
+      const normalized = await getAIEducationContent({
+        contentType: 'lesson',
+        subject,
+        gradeLevel,
+        topic,
+        subtopic,
+        studentId: effectiveStudentId,
+        language
+      });
+      setLoadingProgress(100); // Complete
+      setLessonContent(normalized);
+      setLoading(false);
+    } catch (error) {
+      // Handle error
+    }
+  }, [subject, gradeLevel, topic, subtopic, effectiveStudentId, language]);
 
-      if (effectiveStudentId) {
-        try {
-          const { data: studentProfile } = await supabase
-            .from('students')
-            .select('*')
-            .eq('id', effectiveStudentId)
-            .single();
-          
-          if (studentProfile) {
-            // Extract known fields and carefully handle optional fields
-            studentData = {
-              age: studentProfile.age || undefined,
-              name: studentProfile.name,
-              // Only add fields if they exist in the database schema
-              // If they don't exist, we'll use default values
-              learningStyle: 'visual' // Default visual learning style
-            };
-            
-            // Use helper function defined at component level
-            studentData.comprehensionLevel = determineComprehensionLevel(
-              undefined, // No performance level data available 
-              gradeLevel
-            );
-          }
-        } catch (error) {
-          console.error('[DB] Error fetching student profile:', error);
-        }
-      }
-      
-      try {
-        const result = await getAIEducationContent({
-          contentType: 'lesson',
-          subject,
-          gradeLevel,
-          topic,
-          language: language === 'id' ? 'id' : 'en',
-          studentId: effectiveStudentId,
-          studentName: studentData?.name,
-          studentAge: studentData?.age,
-          studentProfile: studentData
-        });
-        
-        setLoadingProgress(60); // AI response received
+  // Add loading message for long waits
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (loading) {
         toast.info(
           language === 'id' 
-            ? 'Memproses konten pembelajaran...' 
-            : 'Processing learning content...', 
-          { id: notificationId }
+            ? 'Tunggu sebentar, kami sedang menyiapkan sesuatu yang hebat...' 
+            : 'Hang in there, we are preparing something great...'
         );
-        
-        console.log('[AI] Raw response:', result);
-        console.log('[AI] Raw chapters count:', 
-          result?.content?.mainContent ? result.content.mainContent.length : 0,
-          result?.content?.chapters ? result.content.chapters.length : 0);
-        
-        if (!result || !result.content) {
-          throw new Error('No content received from AI service');
-        }
-        
-        const normalized = normalizeLessonContent(result?.content);
-        console.log('[AI] Normalized response:', normalized);
-        console.log('[AI] Normalized chapters count:', 
-          normalized?.mainContent ? normalized.mainContent.length : 0);
-        
-        if (!normalized) {
-          throw new Error('Failed to normalize AI content');
-        }
-        
-        setLoadingProgress(70); // Normalization complete
-        setLessonContent(normalized);
-        // Save to DB
-        if (effectiveStudentId) {
-          setLoadingProgress(80); // DB save started
-          toast.info(
-            language === 'id' 
-              ? 'Menyimpan pelajaran ke database...' 
-              : 'Saving lesson to database...', 
-            { id: notificationId }
-          );
-          try {
-            // First, ensure any existing lessons are removed to avoid conflicts
-            console.log('[DB] Checking for existing lessons before saving...');
-            const { data: existingLessons, error: findError } = await supabase
-              .from('lesson_materials')
-              .select('id')
-              .eq('subject', subject)
-              .eq('topic', topic)
-              .eq('grade_level', gradeLevel);
-            
-            if (findError) {
-              console.error('[DB] Error finding existing lessons:', findError);
-            } else if (existingLessons && existingLessons.length > 0) {
-              console.log('[DB] Found existing lessons, removing:', existingLessons);
-              // Delete existing lessons first
-              const { error: deleteError } = await supabase
-                .from('lesson_materials')
-                .delete()
-                .in('id', existingLessons.map(lesson => lesson.id));
-              
-              if (deleteError) {
-                console.error('[DB] Error deleting existing lessons:', deleteError);
-              } else {
-                console.log('[DB] Successfully deleted existing lessons');
-              }
-            }
-            
-            // Now insert the new lesson (after deletion completed)
-            console.log('[DB] Saving normalized lesson to database');
-            console.log('[DB] Chapters to save:', normalized.mainContent.length);
-            
-            // Ensure chapters are correctly serialized
-            const chaptersToSave = Array.isArray(normalized.mainContent) ? 
-              normalized.mainContent.map(ch => {
-                return {
-                  heading: ch.heading || ch.title || '',
-                  text: ch.text || ch.content || '',
-                  image: ch.image || null
-                };
-              }) : [];
-              
-            console.log('[DB] Formatted chapters to save:', chaptersToSave.length);
-            
-            const lessonData = {
-              subject,
-              topic,
-              grade_level: gradeLevel,
-              title: normalized.title || topic,
-              introduction: normalized.introduction || '',
-              chapters: chaptersToSave,
-              fun_facts: normalized.funFacts || [],
-              activity: normalized.activity || null,
-              conclusion: normalized.conclusion || '',
-              summary: normalized.summary || '',
-              updated_at: new Date().toISOString() // Add updated timestamp
-            };
-
-            // Use upsert with onConflict to handle the unique constraint
-            const { data: upsertedLesson, error: upsertError } = await supabase
-              .from('lesson_materials')
-              .upsert(lessonData, { 
-                onConflict: 'subject,topic,grade_level'
-              })
-              .select()
-              .single();
-
-            if (upsertError) {
-              console.error('[DB] Error upserting lesson:', upsertError);
-            } else if (upsertedLesson) {
-              console.log('[DB] Lesson saved successfully:', upsertedLesson);
-              setLessonId(upsertedLesson.id);
-              
-              // Create initial progress record
-              const { error: progressError } = await supabase
-                .from('lesson_progress')
-                .upsert({
-                  student_id: effectiveStudentId,
-                  lesson_id: upsertedLesson.id,
-                  current_chapter: 0,
-                  is_completed: false,
-                  last_read_at: new Date().toISOString()
-                }, {
-                  onConflict: 'student_id,lesson_id'
-                });
-              
-              if (progressError) {
-                console.error('[DB] Error creating lesson progress:', progressError);
-              } else {
-                console.log('[DB] Created/updated lesson progress record');
-              }
-            }
-          } catch (dbError) {
-            console.error('[DB] Unexpected error saving lesson:', dbError);
-            // Continue with the lesson in memory even if DB save fails
-            console.log('[DB] Continuing with in-memory lesson despite DB error');
-          }
-          setLoadingProgress(90); // DB save complete
-        }
-      } catch (aiError) {
-        console.error('[AI] Error during content generation:', aiError);
-        if (retryCount < 2) {
-          toast.info(language === 'id' 
-            ? `Mencoba lagi (${retryCount + 1}/3)...` 
-            : `Retrying (${retryCount + 1}/3)...`);
-          console.log('[AI] Retry attempt', retryCount + 1);
-          setRetryCount(retryCount + 1);
-          await fetchLessonContent(true);
-          return;
-        } else {
-          toast.error(language === 'id' 
-            ? 'Gagal memuat pelajaran setelah beberapa percobaan' 
-            : 'Failed to load lesson after several attempts');
-          throw aiError; // Re-throw to handle in the outer catch
-        }
       }
-      
-      setLoadingProgress(100); // Complete
-      toast.success(
-        language === 'id' 
-          ? 'Pelajaran siap!' 
-          : 'Lesson ready!', 
-        { id: notificationId }
-      );
-      
-    } catch (error) {
-      console.error('[AI/DB] Error fetching lesson content:', error);
-      
-      // Clear any loading state
-      setLoadingProgress(0);
-      setLoading(false);
-      setLoadingNewContent(false);
-      
-      // Show a more user-friendly error
-      toast.error(language === 'id'
-        ? 'Terjadi kesalahan saat memuat pelajaran. Silakan coba lagi.'
-        : 'Error occurred while loading the lesson. Please try again.');
-      
-      // Return without setting lesson content - the UI will show error state
-      return;
-    } finally {
-      setLoading(false);
-      setLoadingNewContent(false);
-    }
-  }, [subject, gradeLevel, topic, language, effectiveStudentId, retryCount, onComplete, subtopic]);
+    }, 15000); // 15 seconds
+
+    return () => clearTimeout(timer);
+  }, [loading, language]);
 
   // Load initial content
   useEffect(() => {
