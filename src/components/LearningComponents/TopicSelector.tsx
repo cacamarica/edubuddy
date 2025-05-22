@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -126,7 +125,7 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
           { value: 'chemistry', label: 'Chemistry', description: 'Elements and chemical reactions' },
           { value: 'physics', label: 'Physics', description: 'Forces, energy, and motion' },
           { value: 'genetics', label: 'Genetics', description: 'How traits are passed down' },
-          { value: 'earth-systems', label: 'Earth Systems', description: 'Earth's atmosphere, hydrosphere, and geosphere' },
+          { value: 'earth-systems', label: 'Earth Systems', description: "Earth's atmosphere, hydrosphere, and geosphere" },
           { value: 'astronomy', label: 'Astronomy', description: 'The solar system and beyond' }
         ]
       },
