@@ -16,7 +16,6 @@ import Footer from '@/components/Footer';
 interface ExtendedAILessonRequest {
   subject: string;
   topic: string;
-  subtopic?: string;
   gradeLevel: string;
   studentId?: string;
   skipMediaSearch?: boolean; // Add option to skip media search
@@ -40,8 +39,7 @@ const AILesson: React.FC = () => {
   
   const subject = queryParams.get('subject') || '';
   const topic = queryParams.get('topic') || '';
-  const subtopic = queryParams.get('subtopic') || '';
-  const gradeLevel = selectedProfile?.gradeLevel || queryParams.get('grade') || '1';
+  const gradeLevel = selectedProfile?.grade_level || queryParams.get('grade') || '1';
   
   const [isGenerating, setIsGenerating] = useState(false);
   const [lessonId, setLessonId] = useState<string | null>(null);
@@ -69,19 +67,18 @@ const AILesson: React.FC = () => {
     
     try {
       // Create a unique ID for the lesson to avoid duplicate toasts
-      const notificationId = `generating-${subject}-${topic}${subtopic ? '-' + subtopic : ''}`;
+      const notificationId = `generating-${subject}-${topic}`;
       
       // Show a loading toast
       toast.loading(t('lesson.generating'), {
         id: notificationId,
-        description: `${subject} - ${topic}${subtopic ? ' - ' + subtopic : ''}`,
+        description: `${subject} - ${topic}`,
       });
       
       // Generate the lesson using AI service with extended interface and performance options
       const result = await aiEducationService.generateLesson({
         subject,
         topic,
-        subtopic,
         gradeLevel,
         studentId: selectedProfile?.id || 'guest',
         skipMediaSearch: true // Skip media search for faster generation
@@ -95,7 +92,7 @@ const AILesson: React.FC = () => {
       } else {
         toast.success(t('lesson.generation_complete'), {
           id: notificationId,
-          description: `${subject} - ${topic}${subtopic ? ' - ' + subtopic : ''}`,
+          description: `${subject} - ${topic}`,
         });
         
         // Store the lesson ID and redirect to the lesson viewer
@@ -134,20 +131,13 @@ const AILesson: React.FC = () => {
               <div className="flex items-center mb-4">
                 <Brain className="w-8 h-8 text-eduPurple mr-3" />
                 <h2 className="text-xl font-semibold">
-                  {subject && topic ? (
-                    <>
-                      {subject}: {topic}
-                      {subtopic && <span className="text-lg text-muted-foreground ml-2">→ {subtopic}</span>}
-                    </>
-                  ) : (
-                    t('ai_lesson.create_lesson')
-                  )}
+                  {subject && topic ? `${subject}: ${topic}` : t('ai_lesson.create_lesson')}
                 </h2>
               </div>
               
               {selectedProfile ? (
                 <p className="mb-4 text-muted-foreground">
-                  {t('ai_lesson.personalized_for')} {selectedProfile.name}, {t('grade')} {selectedProfile.gradeLevel}
+                  {t('ai_lesson.personalized_for')} {selectedProfile.name}, {t('grade')} {selectedProfile.grade_level}
                 </p>
               ) : (
                 <p className="mb-4 text-muted-foreground">

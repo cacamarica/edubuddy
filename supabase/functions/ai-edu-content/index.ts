@@ -1,4 +1,3 @@
-
 // NOTE: This file is designed to run in Supabase Edge Functions with Deno runtime
 // These imports and globals won't be recognized in a regular Node.js environment 
 // but will work correctly when deployed to Supabase
@@ -16,7 +15,6 @@ interface RequestData {
   includeImages?: boolean;
   language?: 'en' | 'id';
   imageStyle?: string;
-  skipMediaSearch?: boolean; // Add this property to the interface
 }
 
 interface OpenAIResponse {
@@ -277,8 +275,7 @@ serve(async (req) => {
       topic, 
       question, 
       includeImages = true,
-      language = 'en', // Default to English if not provided
-      skipMediaSearch = false // Default to false if not provided
+      language = 'en' // Default to English if not provided
     } = requestData;
     
     // Create Supabase client
@@ -500,8 +497,8 @@ serve(async (req) => {
           parsedContent = content as LessonContent;
         }
         
-        // Skip image processing if skipMediaSearch is true
-        if (!skipMediaSearch && includeImages && contentType === 'lesson' && parsedContent) {
+        // Add images to content if requested
+        if (includeImages && contentType === 'lesson' && parsedContent) {
           // Add images to each section if mainContent exists
           if (parsedContent.mainContent && Array.isArray(parsedContent.mainContent)) {
             parsedContent.mainContent = parsedContent.mainContent.map((section: any) => {
@@ -531,67 +528,97 @@ serve(async (req) => {
                 parsedContent.activity.image = convertImageDescription(
                   parsedContent.activity.image.description, 
                   subject || '', 
-                  topic || '', 
-                  parsedContent.activity.title
-                );
-              } else if (parsedContent.activity.image && typeof parsedContent.activity.image === 'string') {
-                parsedContent.activity.image = convertImageDescription(
-                  parsedContent.activity.image, 
-                  subject || '', 
-                  topic || '', 
-                  parsedContent.activity.title
-                );
-              } else {
-                parsedContent.activity.image = getRandomImage(
-                  subject || '', 
-                  topic || '', 
-                  `Activity for ${parsedContent.activity.title} in ${topic || ''}`
-                );
+          // Add images to content if requested
+          if (includeImages && contentType === 'lesson' && typeof content === 'object') {
+            // Add images to each section if mainContent exists
+            if (content.mainContent && Array.isArray(content.mainContent)) {
+              content.mainContent = content.mainContent.map((section: any) => {
+                // Create a contextual image for each section based on its heading and content
+                let imageObj;
+                
+                if (section.image && section.image.description) {
+                  // Convert the description to a proper image URL with context
+                  imageObj = convertImageDescription(section.image.description, subject, topic, section.heading);
+                } else if (section.image && typeof section.image === 'string') {
+                  // Convert the string to a proper image URL with context
+                  imageObj = convertImageDescription(section.image, subject, topic, section.heading);
+                } else {
+                  // Create a new image based on section heading and topic
+                  imageObj = getRandomImage(subject, section.heading, `Image illustrating ${section.heading} in ${topic}`);
+                }
+                
+                return {
+                  ...section,
+                  image: imageObj
+                };
+              });
+            
+              // Add image to activity if it exists
+              if (content.activity) {
+                if (content.activity.image && content.activity.image.description) {
+                  content.activity.image = convertImageDescription(
+                    content.activity.image.description, 
+                    subject, 
+                    topic, 
+                    content.activity.title
+                  );
+                } else if (content.activity.image && typeof content.activity.image === 'string') {
+                  content.activity.image = convertImageDescription(
+                    content.activity.image, 
+                    subject, 
+                    topic, 
+                    content.activity.title
+                  );
+                } else {
+                  content.activity.image = getRandomImage(
+                    subject, 
+                    topic, 
+                    `Activity for ${content.activity.title} in ${topic}`
+                  );
+                }
               }
             }
-          }
-        } else if (!skipMediaSearch && includeImages && contentType === 'quiz' && parsedContent) {
-          // For quiz content
-          let questions: any[] = [];
-          
-          if (Array.isArray(parsedContent)) {
-            // Direct array of questions
-            questions = parsedContent;
-          } else if (parsedContent.questions && Array.isArray(parsedContent.questions)) {
-            // Already has questions array
-            questions = parsedContent.questions;
-          }
-          
-          // Process questions to ensure they have proper image URLs
-          questions = questions.map((question: any, index: number) => {
-            // Add images to some questions based on the question content
-            if (index % 3 === 0 || question.image) {
-              let imageObj;
-              
-              if (question.image && question.image.description) {
-                // Convert the description to a proper image URL with context from the question
-                imageObj = convertImageDescription(question.image.description, subject || '', topic || '', question.question);
-              } else if (question.image && typeof question.image === 'string') {
-                // Convert the string to a proper image URL with context
-                imageObj = convertImageDescription(question.image, subject || '', topic || '', question.question);
-              } else {
-                // Create a new image related to the question content
-                imageObj = getRandomImage(subject || '', topic || '', `Image illustrating: ${question.question}`);
-              }
-              
-              return {
-                ...question,
-                image: imageObj
-              };
+          } else if (includeImages && contentType === 'quiz') {
+            // For quiz content
+            let questions: any[] = [];
+            
+            if (Array.isArray(content)) {
+              // Direct array of questions
+              questions = content;
+            } else if (content.questions && Array.isArray(content.questions)) {
+              // Already has questions array
+              questions = content.questions;
             }
-            return question;
-          });
-          
-          // Wrap in a proper structure
-          parsedContent = Array.isArray(parsedContent) ? { questions } : { ...parsedContent, questions };
+            
+            // Process questions to ensure they have proper image URLs
+            questions = questions.map((question: any, index: number) => {
+              // Add images to some questions based on the question content
+              if (index % 3 === 0 || question.image) {
+                let imageObj;
+                
+                if (question.image && question.image.description) {
+                  // Convert the description to a proper image URL with context from the question
+                  imageObj = convertImageDescription(question.image.description, subject, topic, question.question);
+                } else if (question.image && typeof question.image === 'string') {
+                  // Convert the string to a proper image URL with context
+                  imageObj = convertImageDescription(question.image, subject, topic, question.question);
+                } else {
+                  // Create a new image related to the question content
+                  imageObj = getRandomImage(subject, topic, `Image illustrating: ${question.question}`);
+                }
+                
+                return {
+                  ...question,
+                  image: imageObj
+                };
+              }
+              return question;
+            });
+            
+            // Wrap in a proper structure
+            content = Array.isArray(content) ? { questions } : { ...content, questions };
+          }
         }
-        
-        content = parsedContent || content;
       } catch (e) {
         console.log('Could not parse JSON from OpenAI response, returning raw content:', e);
       }

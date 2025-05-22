@@ -1,456 +1,467 @@
-
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from "@/integrations/supabase/client";
 import { getAIEducationContent } from "./aiEducationService";
-import { toast } from 'sonner'; // Import toast from sonner
+import { toast } from "sonner";
+import { Json } from "@/integrations/supabase/types";
 
 // Types for lesson materials and progress
 export interface LessonChapter {
   heading: string;
-  content: string;
-  image_url?: string;
+  text: string;
+  image?: {
+    url: string;
+    alt: string;
+    caption?: string;
+  };
 }
 
-export interface Lesson {
-  id: string;
+export interface LessonActivity {
+  title: string;
+  instructions: string;
+  image?: {
+    url: string;
+    alt: string;
+    caption?: string;
+  };
+}
+
+export interface LessonMaterial {
+  id?: string;
+  subject: string;
+  topic: string;
+  grade_level: "k-3" | "4-6" | "7-9";
   title: string;
   introduction: string;
   chapters: LessonChapter[];
-  conclusion: string;
-  summary: string;
-  fun_facts?: string[];
-  activity?: {
-    title: string;
-    instructions: string;
-    image_url?: string;
-  };
-  created_at: string;
-  updated_at: string;
-  grade_level: string;
-  subject: string;
-  topic: string;
-  subtopic?: string; // Add subtopic field
+  fun_facts: string[];
+  activity: LessonActivity;
+  conclusion?: string;
+  summary?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface LessonProgress {
-  id: string;
-  lesson_id: string;
+  id?: string;
   student_id: string;
+  lesson_id: string;
   current_chapter: number;
   is_completed: boolean;
-  created_at: string;
-  last_read_at: string;
-}
-
-// Interface for more detailed lesson content structure
-export interface DetailedLessonChapter {
-  heading: string;
-  content: string[];
-  imageUrl?: string;
-  imageAlt?: string;
-}
-
-export interface DetailedLesson {
-  id: string;
-  title: string;
-  introduction: string[];
-  chapters: DetailedLessonChapter[];
-  conclusion: string[];
-  summary: string;
-  funFacts?: string[];
-  activity?: {
-    title: string;
-    instructions: string[];
-    imageUrl?: string;
-  };
-  createdAt: string;
-  updatedAt: string;
-  gradeLevel: string;
-  subject: string;
-  topic: string;
-  subtopic?: string; // Add subtopic field
+  last_read_at?: string;
+  created_at?: string;
 }
 
 // Helper function to safely parse JSON data
-function safeParseJson<T>(jsonData: any, defaultValue: T): T {
+function safeParseJson<T>(jsonData: Json | null, defaultValue: T): T {
   if (jsonData === null) return defaultValue;
   
   if (typeof jsonData === 'object') {
-    return jsonData as T;
+    return jsonData as unknown as T;
   }
   
   try {
-    return JSON.parse(jsonData) as T;
+    if (typeof jsonData === 'string') {
+      return JSON.parse(jsonData) as T;
+    }
+    return defaultValue;
   } catch (e) {
-    console.error('Error parsing JSON data:', e);
+    console.error('Error parsing JSON:', e);
     return defaultValue;
   }
 }
 
+// Service functions with performance optimization
 export const lessonService = {
-  /**
-   * Get a lesson by ID
-   * 
-   * @param lessonId The lesson ID
-   * @returns The lesson if found, null otherwise
-   */
-  getLessonById: async (lessonId: string): Promise<Lesson | null> => {
+  // Get lesson material by subject, topic, and grade level - optimized with caching
+  async getLessonMaterial(subject: string, topic: string, gradeLevel: "k-3" | "4-6" | "7-9"): Promise<LessonMaterial | null> {
+    // Create a cache key
+    const cacheKey = `lesson_${subject}_${topic}_${gradeLevel}`;
+    
+    // Try to get from session storage first for instant loading on repeat visits
+    const cachedData = sessionStorage.getItem(cacheKey);
+    if (cachedData) {
+      try {
+        return JSON.parse(cachedData) as LessonMaterial;
+      } catch (e) {
+        console.error('Error parsing cached lesson:', e);
+        // Continue to fetch from database if cache parsing fails
+      }
+    }
+    
     try {
+      // First, try to get from database
       const { data, error } = await supabase
         .from('lesson_materials')
         .select('*')
-        .eq('id', lessonId)
+        .eq('subject', subject)
+        .eq('topic', topic)
+        .eq('grade_level', gradeLevel)
         .single();
-      
+
       if (error) {
-        console.error('Error fetching lesson:', error);
-        return null;
+        if (error.code !== 'PGRST116') { // code for no rows returned
+          console.error("Error fetching lesson:", error);
+          throw error;
+        }
+        
+        // If not found in database, generate using AI
+        console.log("Lesson not found in database, generating with AI...");
+        const result = await this.generateAndStoreLessonMaterial(subject, topic, gradeLevel);
+        
+        // Cache the result if we got one
+        if (result) {
+          try {
+            sessionStorage.setItem(cacheKey, JSON.stringify(result));
+          } catch (e) {
+            console.error('Error caching lesson:', e);
+          }
+        }
+        
+        return result;
       }
-      
-      if (!data) return null;
-      
-      // Parse chapters JSON if necessary
-      const chapters = safeParseJson<LessonChapter[]>(data.chapters, []);
-      const funFacts = safeParseJson<string[]>(data.fun_facts, []);
-      const activity = safeParseJson<any>(data.activity, null);
-      
-      return {
+
+      // Format the data to match our interface
+      const formattedData = {
         id: data.id,
-        title: data.title,
-        introduction: data.introduction,
-        chapters,
-        conclusion: data.conclusion || "",
-        summary: data.summary || "",
-        fun_facts: funFacts,
-        activity,
-        created_at: data.created_at,
-        updated_at: data.updated_at,
-        grade_level: data.grade_level,
         subject: data.subject,
         topic: data.topic,
-        subtopic: data.subtopic // Include subtopic in the result
+        grade_level: data.grade_level as "k-3" | "4-6" | "7-9",
+        title: data.title,
+        introduction: data.introduction,
+        chapters: safeParseJson<LessonChapter[]>(data.chapters, []),
+        fun_facts: safeParseJson<string[]>(data.fun_facts, []),
+        activity: safeParseJson<LessonActivity>(data.activity, { title: "Activity", instructions: "No activity available" }),
+        conclusion: data.conclusion || undefined,
+        summary: data.summary || undefined,
+        created_at: data.created_at || undefined,
+        updated_at: data.updated_at || undefined,
       };
+      
+      // Cache the result for future use
+      try {
+        sessionStorage.setItem(cacheKey, JSON.stringify(formattedData));
+      } catch (e) {
+        console.error('Error caching lesson:', e);
+      }
+      
+      return formattedData;
     } catch (error) {
-      console.error('Error in getLessonById:', error);
+      console.error("Error in getLessonMaterial:", error);
+      toast.error("Failed to load the lesson material");
       return null;
     }
   },
-  
-  /**
-   * Get lessons for a specific student
-   * 
-   * @param studentId The student ID
-   * @param limit Optional limit for the number of lessons to return
-   * @returns Array of lessons for the student
-   */
-  getLessonsForStudent: async (studentId: string, limit?: number): Promise<Lesson[]> => {
+
+  // Get lesson material by ID directly - optimized with caching
+  getLessonMaterialById: async (id: string): Promise<LessonMaterial | null> => {
+    // Create a cache key for this specific lesson ID
+    const cacheKey = `lesson_id_${id}`;
+    
+    // Try to get from session storage first for instant loading
+    const cachedData = sessionStorage.getItem(cacheKey);
+    if (cachedData) {
+      try {
+        return JSON.parse(cachedData) as LessonMaterial;
+      } catch (e) {
+        console.error('Error parsing cached lesson:', e);
+        // Continue to fetch if cache parsing fails
+      }
+    }
+    
     try {
-      // First, get the lesson progress entries for this student
-      const { data: progressData, error: progressError } = await supabase
-        .from('lesson_progress')
-        .select('lesson_id, current_chapter, is_completed, last_read_at')
-        .eq('student_id', studentId)
-        .order('last_read_at', { ascending: false })
-        .limit(limit || 10);
+      const { data, error } = await supabase
+        .from("lesson_materials")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      if (!data) {
+        return null;
+      }
+
+      const formattedData = {
+        id: data.id,
+        subject: data.subject,
+        topic: data.topic,
+        grade_level: data.grade_level as "k-3" | "4-6" | "7-9",
+        title: data.title,
+        introduction: data.introduction,
+        chapters: safeParseJson<LessonChapter[]>(data.chapters, []),
+        fun_facts: safeParseJson<string[]>(data.fun_facts, []),
+        activity: safeParseJson<LessonActivity>(data.activity, {
+          title: "Activity", 
+          instructions: "No activity available"
+        }),
+        conclusion: data.conclusion || undefined,
+        summary: data.summary || undefined,
+        created_at: data.created_at || undefined,
+        updated_at: data.updated_at || undefined,
+      };
       
-      if (progressError) {
-        toast.error('Failed to fetch lesson progress');
-        console.error('Error fetching lesson progress:', progressError);
-        return [];
+      // Cache the result for future use
+      try {
+        sessionStorage.setItem(cacheKey, JSON.stringify(formattedData));
+      } catch (e) {
+        console.error('Error caching lesson by ID:', e);
       }
       
-      // No lessons found
-      if (!progressData || progressData.length === 0) return [];
-      
-      // Get the actual lesson materials
-      const lessonIds = progressData.map(progress => progress.lesson_id);
-      const { data: lessonData, error: lessonError } = await supabase
-        .from('lesson_materials')
-        .select('*')
-        .in('id', lessonIds);
-      
-      if (lessonError) {
-        toast.error('Failed to fetch lesson materials');
-        console.error('Error fetching lesson materials:', lessonError);
-        return [];
-      }
-      
-      if (!lessonData) return [];
-      
-      // Combine the lessons with their progress info
-      return lessonData.map(lesson => {
-        const progress = progressData.find(p => p.lesson_id === lesson.id);
-        const chapters = safeParseJson<LessonChapter[]>(lesson.chapters, []);
-        const funFacts = safeParseJson<string[]>(lesson.fun_facts, []);
-        const activity = safeParseJson<any>(lesson.activity, null);
-        
-        return {
-          id: lesson.id,
-          title: lesson.title,
-          introduction: lesson.introduction,
-          chapters,
-          conclusion: lesson.conclusion || "",
-          summary: lesson.summary || "",
-          fun_facts: funFacts,
-          activity,
-          created_at: lesson.created_at,
-          updated_at: lesson.updated_at,
-          grade_level: lesson.grade_level,
-          subject: lesson.subject,
-          topic: lesson.topic,
-          subtopic: lesson.subtopic, // Include subtopic in the result
-          // Add progress info
-          currentChapter: progress?.current_chapter || 0,
-          isCompleted: progress?.is_completed || false,
-          lastReadAt: progress?.last_read_at || lesson.created_at
-        } as Lesson & { currentChapter: number; isCompleted: boolean; lastReadAt: string };
-      });
+      return formattedData;
     } catch (error) {
-      console.error('Error in getLessonsForStudent:', error);
-      return [];
+      console.error("Error in getLessonMaterialById:", error);
+      return null;
     }
   },
-  
-  /**
-   * Get or create a lesson on a specific topic
-   * 
-   * @param subject The subject
-   * @param topic The topic
-   * @param gradeLevel The grade level
-   * @param studentId Optional student ID
-   * @param forceFresh Whether to force creation of a new lesson even if one exists
-   * @returns The lesson
-   */
-  getOrCreateLesson: async (
-    subject: string, 
-    topic: string, 
-    gradeLevel: string,
-    studentId?: string,
-    subtopic?: string,
-    forceFresh = false
-  ): Promise<{ lesson: Lesson | null; isNew: boolean }> => {
-    try {
-      // Check if a lesson already exists for this topic and grade level
-      if (!forceFresh) {
-        const query = supabase
-          .from('lesson_materials')
-          .select('*')
-          .eq('subject', subject)
-          .eq('topic', topic)
-          .eq('grade_level', gradeLevel);
 
-        // Add subtopic constraint if provided
-        const { data: existingLessons, error } = subtopic 
-          ? await query.eq('subtopic', subtopic) 
-          : await query.is('subtopic', null);
-        
-        if (error) {
-          console.error('Error checking for existing lesson:', error);
-        } else if (existingLessons?.length > 0) {
-          // Return the most recently created lesson
-          const sortedLessons = existingLessons.sort((a, b) => 
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-          );
-          
-          const latestLesson = sortedLessons[0];
-          
-          // Parse JSON fields
-          const chapters = safeParseJson<LessonChapter[]>(latestLesson.chapters, []);
-          const funFacts = safeParseJson<string[]>(latestLesson.fun_facts, []);
-          const activity = safeParseJson<any>(latestLesson.activity, null);
-          
-          const lesson: Lesson = {
-            id: latestLesson.id,
-            title: latestLesson.title,
-            introduction: latestLesson.introduction,
-            chapters,
-            conclusion: latestLesson.conclusion || "",
-            summary: latestLesson.summary || "",
-            fun_facts: funFacts,
-            activity,
-            created_at: latestLesson.created_at,
-            updated_at: latestLesson.updated_at,
-            grade_level: latestLesson.grade_level,
-            subject: latestLesson.subject,
-            topic: latestLesson.topic,
-            subtopic: latestLesson.subtopic
-          };
-          
-          // Create progress entry for the student if not exists
-          if (studentId) {
-            const { data: progressData, error: progressError } = await supabase
-              .from('lesson_progress')
-              .select('*')
-              .eq('lesson_id', lesson.id)
-              .eq('student_id', studentId)
-              .maybeSingle();
-            
-            if (progressError) {
-              console.error('Error checking for existing progress:', progressError);
-            } else if (!progressData) {
-              // Create a new progress entry
-              const { error: insertError } = await supabase
-                .from('lesson_progress')
-                .insert({
-                  lesson_id: lesson.id,
-                  student_id: studentId,
-                  current_chapter: 0,
-                  is_completed: false
-                });
-              
-              if (insertError) {
-                console.error('Error creating progress entry:', insertError);
-              }
-            }
-          }
-          
-          return { lesson, isNew: false };
-        }
-      }
-      
-      // No existing lesson found or force fresh requested - generate a new one
-      console.log('Generating new lesson for:', { subject, topic, subtopic, gradeLevel });
-      
-      const { content: lessonContent, error: aiError } = await getAIEducationContent({
+  // Generate lesson material using AI and store in database - optimized to skip media searches
+  async generateAndStoreLessonMaterial(subject: string, topic: string, gradeLevel: "k-3" | "4-6" | "7-9"): Promise<LessonMaterial | null> {
+    try {
+      // Generate content using AI with skipMediaSearch option for better performance
+      const result = await getAIEducationContent({
         contentType: 'lesson',
         subject,
+        gradeLevel,
         topic,
-        subtopic,
-        gradeLevel: gradeLevel as any,
-        studentId,
-        includeImages: false // For faster generation
+        skipMediaSearch: true // Add this option for performance
       });
-      
-      if (aiError || !lessonContent) {
-        console.error('Error generating lesson:', aiError);
-        toast.error('Failed to generate lesson content');
-        return { lesson: null, isNew: false };
+
+      if (!result || !result.content) {
+        throw new Error("Failed to generate lesson content");
       }
+
+      // Process the AI response to ensure it has the right format
+      const processedContent = this.processAIContent(result.content, subject, topic, gradeLevel);
       
-      // Process AI-generated content
-      const parsedLesson = typeof lessonContent === 'string' 
-        ? JSON.parse(lessonContent) 
-        : lessonContent;
-      
-      // Ensure we have chapters
-      if (!parsedLesson.chapters || parsedLesson.chapters.length === 0) {
-        console.error('Generated lesson has no chapters');
-        toast.error('The generated lesson was incomplete');
-        return { lesson: null, isNew: false };
-      }
-      
-      // Prepare lesson data for insertion
-      const lessonData = {
-        title: parsedLesson.title || `${subject}: ${topic}`,
-        introduction: parsedLesson.introduction || '',
-        chapters: parsedLesson.chapters,
-        conclusion: parsedLesson.conclusion || '',
-        summary: parsedLesson.summary || '',
-        fun_facts: parsedLesson.funFacts || [],
-        activity: parsedLesson.activity,
-        grade_level: gradeLevel,
-        subject,
-        topic,
-        subtopic // Store the subtopic
-      };
-      
-      // Insert the lesson into the database
-      const { data: createdLesson, error: insertError } = await supabase
+      // Save to database
+      const { data, error } = await supabase
         .from('lesson_materials')
-        .insert(lessonData)
+        .insert([processedContent])
         .select()
         .single();
-      
-      if (insertError || !createdLesson) {
-        console.error('Error saving lesson:', insertError);
-        toast.error('Failed to save lesson to database');
-        return { lesson: null, isNew: false };
+
+      if (error) {
+        console.error("Error saving lesson to database:", error);
+        throw error;
       }
-      
-      // Create a progress entry for the student if provided
-      if (studentId) {
-        const { error: progressError } = await supabase
-          .from('lesson_progress')
-          .insert({
-            lesson_id: createdLesson.id,
-            student_id: studentId,
-            current_chapter: 0,
-            is_completed: false
-          });
-        
-        if (progressError) {
-          console.error('Error creating progress entry:', progressError);
-        }
-      }
-      
-      // Format the lesson for return
-      const chapters = safeParseJson<LessonChapter[]>(createdLesson.chapters, []);
-      const funFacts = safeParseJson<string[]>(createdLesson.fun_facts, []);
-      const activity = safeParseJson<any>(createdLesson.activity, null);
-      
-      const lesson: Lesson = {
-        id: createdLesson.id,
-        title: createdLesson.title,
-        introduction: createdLesson.introduction,
-        chapters,
-        conclusion: createdLesson.conclusion || "",
-        summary: createdLesson.summary || "",
-        fun_facts: funFacts,
-        activity,
-        created_at: createdLesson.created_at,
-        updated_at: createdLesson.updated_at,
-        grade_level: createdLesson.grade_level,
-        subject: createdLesson.subject,
-        topic: createdLesson.topic,
-        subtopic: createdLesson.subtopic
+
+      // Convert the database result back to our interface
+      return {
+        id: data.id,
+        subject: data.subject,
+        topic: data.topic,
+        grade_level: data.grade_level as "k-3" | "4-6" | "7-9",
+        title: data.title,
+        introduction: data.introduction,
+        chapters: safeParseJson<LessonChapter[]>(data.chapters, []),
+        fun_facts: safeParseJson<string[]>(data.fun_facts, []),
+        activity: safeParseJson<LessonActivity>(data.activity, { title: "Activity", instructions: "No activity available" }),
+        conclusion: data.conclusion || undefined,
+        summary: data.summary || undefined,
+        created_at: data.created_at || undefined,
+        updated_at: data.updated_at || undefined,
       };
-      
-      return { lesson, isNew: true };
     } catch (error) {
-      console.error('Error in getOrCreateLesson:', error);
-      toast.error('An unexpected error occurred');
-      return { lesson: null, isNew: false };
+      console.error("Error generating lesson material:", error);
+      toast.error("Failed to generate the lesson material");
+      return null;
     }
   },
-  
-  /**
-   * Update a student's progress on a lesson
-   * 
-   * @param lessonId The lesson ID
-   * @param studentId The student ID
-   * @param chapter The current chapter number
-   * @param isCompleted Whether the lesson is completed
-   * @returns True if the update was successful, false otherwise
-   */
-  updateLessonProgress: async (
-    lessonId: string, 
-    studentId: string, 
-    chapter: number, 
-    isCompleted: boolean
-  ): Promise<boolean> => {
+
+  // Process AI content to ensure it matches our schema - optimized for performance
+  processAIContent(content: any, subject: string, topic: string, gradeLevel: "k-3" | "4-6" | "7-9"): any {
+    // Ensure chapters have the right format - use simple placeholders for images instead of searching
+    const chapters = Array.isArray(content.chapters) 
+      ? content.chapters.map((chapter: any, index: number) => {
+          // Create simple placeholder image for better performance
+          const placeholderImage = {
+            url: `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(chapter.heading || `chapter-${index}`)}&backgroundColor=ffdfbf`,
+            alt: `Image for ${chapter.heading || `Chapter ${index + 1}`}`,
+            caption: chapter.image?.caption || chapter.image?.description || ''
+          };
+          
+          return {
+            heading: chapter.heading || chapter.title || `Chapter ${index + 1}`,
+            text: chapter.text || chapter.content || '',
+            image: chapter.image ? {
+              url: chapter.image.url || placeholderImage.url,
+              alt: chapter.image.alt || placeholderImage.alt,
+              caption: chapter.image.caption || chapter.image.description || placeholderImage.caption
+            } : placeholderImage
+          };
+        })
+      : [];
+
+    // Process activity with simple placeholder image if needed
+    let activity = content.activity || { title: "Activity", instructions: "No activity available" };
+    if (activity) {
+      const activityImage = {
+        url: `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(activity.title || 'activity')}&backgroundColor=ffdfbf`,
+        alt: `Image for ${activity.title || 'activity'}`,
+        caption: activity.image?.caption || activity.image?.description || ''
+      };
+      
+      activity = {
+        ...activity,
+        image: activity.image ? {
+          url: activity.image.url || activityImage.url,
+          alt: activity.image.alt || activityImage.alt,
+          caption: activity.image.caption || activity.image.description || activityImage.caption
+        } : activityImage
+      };
+    }
+
+    // Return properly formatted lesson material for database storage
+    return {
+      subject,
+      topic,
+      grade_level: gradeLevel,
+      title: content.title || `${topic} in ${subject}`,
+      introduction: content.introduction || "",
+      chapters: chapters,
+      fun_facts: Array.isArray(content.funFacts) ? content.funFacts : [],
+      activity: activity,
+      conclusion: content.conclusion || null,
+      summary: content.summary || null,
+    };
+  },
+
+  // Get lesson progress for a student
+  async getLessonProgress(studentId: string, lessonId: string): Promise<LessonProgress | null> {
+    try {
+      const { data, error } = await supabase
+        .from('lesson_progress')
+        .select('*')
+        .eq('student_id', studentId)
+        .eq('lesson_id', lessonId)
+        .maybeSingle();
+
+      if (error) throw error;
+      
+      return data as LessonProgress;
+    } catch (error) {
+      console.error("Error fetching lesson progress:", error);
+      return null;
+    }
+  },
+
+  // Create initial progress record for a lesson
+  createLessonProgress: async (studentId: string, lessonId: string): Promise<LessonProgress | null> => {
+    try {
+      // Check if progress already exists
+      const { data: existingProgress } = await supabase
+        .from("lesson_progress")
+        .select("*")
+        .eq("student_id", studentId)
+        .eq("lesson_id", lessonId)
+        .single();
+
+      if (existingProgress) {
+        return existingProgress as LessonProgress;
+      }
+
+      // Create new progress record
+      const initialProgress: LessonProgress = {
+        student_id: studentId,
+        lesson_id: lessonId,
+        current_chapter: 0,
+        is_completed: false,
+        last_read_at: new Date().toISOString()
+      };
+
+      const { data, error } = await supabase
+        .from("lesson_progress")
+        .insert([initialProgress])
+        .select()
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      // Also create or update learning activity record for analytics
+      await supabase.from("learning_activities").upsert([
+        {
+          student_id: studentId,
+          activity_type: "lesson",
+          subject: '',
+          topic: '',
+          progress: 0,
+          started_at: new Date().toISOString(),
+          last_interaction_at: new Date().toISOString(),
+          lesson_id: lessonId,
+          completed: false,
+          grade_level: '',
+        }
+      ], {
+        onConflict: "student_id,activity_type,lesson_id"
+      });
+
+      return data as LessonProgress;
+    } catch (error) {
+      console.error("Error creating lesson progress:", error);
+      return null;
+    }
+  },
+
+  // Save or update lesson progress
+  async saveProgress(progress: LessonProgress): Promise<LessonProgress | null> {
+    try {
+      const { data, error } = await supabase
+        .from('lesson_progress')
+        .upsert([progress])
+        .select()
+        .single();
+
+      if (error) throw error;
+      
+      return data as LessonProgress;
+    } catch (error) {
+      console.error("Error saving lesson progress:", error);
+      toast.error("Failed to save your progress");
+      return null;
+    }
+  },
+
+  // Mark a lesson as complete
+  async markLessonComplete(studentId: string, lessonId: string): Promise<boolean> {
     try {
       const { error } = await supabase
         .from('lesson_progress')
-        .update({
-          current_chapter: chapter,
-          is_completed: isCompleted,
+        .upsert([{
+          student_id: studentId,
+          lesson_id: lessonId,
+          is_completed: true,
+          current_chapter: 999, // A high number to indicate completion
           last_read_at: new Date().toISOString()
-        })
-        .eq('lesson_id', lessonId)
-        .eq('student_id', studentId);
+        }]);
+
+      if (error) throw error;
       
-      if (error) {
-        console.error('Error updating lesson progress:', error);
-        toast.error('Failed to save your progress');
-        return false;
-      }
+      // Also record this in learning_activities table
+      await supabase
+        .from('learning_activities')
+        .insert([{
+          student_id: studentId,
+          activity_type: 'lesson',
+          subject: '',
+          topic: '',
+          completed: true,
+          progress: 100,
+          stars_earned: 5,
+          completed_at: new Date().toISOString(),
+          started_at: new Date().toISOString(),
+          last_interaction_at: new Date().toISOString(),
+          lesson_id: lessonId,
+          grade_level: '',
+        }]);
       
       return true;
     } catch (error) {
-      console.error('Error in updateLessonProgress:', error);
-      toast.error('An unexpected error occurred');
+      console.error("Error marking lesson as complete:", error);
+      toast.error("Failed to update lesson completion status");
       return false;
     }
   }
 };
-
-export default lessonService;
