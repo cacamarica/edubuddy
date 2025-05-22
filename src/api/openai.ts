@@ -1,3 +1,4 @@
+
 import OpenAI from 'openai';
 import { apiRateLimiter, APICallTracker } from '@/utils/rateLimiter';
 
@@ -6,22 +7,22 @@ const API_KEY_STORAGE_KEY = 'edu_buddy_openai_api_key';
 
 // Configuration for token usage optimization
 interface TokenConfig {
-  defaultMaxTokens: number; // Default max tokens for most requests
-  longContentMaxTokens: number; // For longer content like lessons
-  model: string; // Default model to use
-  lessonModel: string; // Model for generating lessons (less expensive)
+  defaultMaxTokens: number;
+  longContentMaxTokens: number;
+  model: string;
+  lessonModel: string;
 }
 
 // Token configuration with optimized values
 const tokenConfig: TokenConfig = {
-  defaultMaxTokens: 1000, // Reasonable default for most interactions
-  longContentMaxTokens: 2000, // For longer lesson content
-  model: "gpt-3.5-turbo", // Changed from gpt-4 to reduce costs 
-  lessonModel: "gpt-3.5-turbo", // Consistent model for lessons
+  defaultMaxTokens: 1000,
+  longContentMaxTokens: 2000,
+  model: "gpt-3.5-turbo",
+  lessonModel: "gpt-3.5-turbo",
 };
 
-// Maximum retry attempts for API calls
-const MAX_RETRY_ATTEMPTS = 2;
+// Maximum retry attempts for API calls - increased for better reliability
+const MAX_RETRY_ATTEMPTS = 3;
 
 // Function to get the API key from localStorage or environment
 const getApiKey = (): string => {
@@ -36,13 +37,15 @@ const getApiKey = (): string => {
 };
 
 // Initialize OpenAI client with dynamic API key
-// WARNING: Using dangerouslyAllowBrowser: true exposes your API key to the browser
-// This is only for development/demo purposes - in production, always use a backend proxy
-// See: https://help.openai.com/en/articles/5112595-best-practices-for-api-key-safety
 const createOpenAIClient = () => {
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    console.warn('OpenAI API key is missing. Please configure it in the settings.');
+  }
+  
   return new OpenAI({
-    apiKey: getApiKey(),
-    dangerouslyAllowBrowser: true // Required for browser usage, but not recommended for production
+    apiKey: apiKey,
+    dangerouslyAllowBrowser: true
   });
 };
 
@@ -73,13 +76,14 @@ function getModelSettings(options?: ChatOptions): { model: string, maxTokens: nu
   };
 }
 
-// Try different API endpoints for OpenAI requests
+// Try different API endpoints for OpenAI requests with improved error handling
 async function tryServerEndpoints(messages: Message[], options?: ChatOptions) {
   // Check rate limiting before making calls
   if (!apiRateLimiter.canMakeCall()) {
     throw new Error('Rate limit exceeded. Please try again later.');
   }
-    // Generate cache key from messages and options
+  
+  // Generate cache key from messages and options
   const cacheKey = APICallTracker.generateCacheKey({ 
     messages, 
     model: options?.model,
@@ -97,15 +101,15 @@ async function tryServerEndpoints(messages: Message[], options?: ChatOptions) {
   
   // List of potential endpoints to try
   const endpoints = [
-    '/api/openai/chat',    // Next.js API route
-    'http://localhost:8080/api/openai/chat', // Server on port 8080
-    'http://localhost:3001/api/openai/chat'  // Server on port 3001
+    '/api/openai/chat',
+    'http://localhost:8080/api/openai/chat', 
+    'http://localhost:3001/api/openai/chat'
   ];
   
   let lastError: Error | null = null;
   let retryCount = 0;
   
-  // Try each endpoint with retries
+  // Try each endpoint with retries and better error handling
   while (retryCount < MAX_RETRY_ATTEMPTS) {
     for (const endpoint of endpoints) {
       try {
@@ -121,11 +125,14 @@ async function tryServerEndpoints(messages: Message[], options?: ChatOptions) {
             model: options?.model || tokenConfig.model,
             maxTokens: options?.maxTokens || tokenConfig.defaultMaxTokens
           }),
+          // Add signal for timeout control
+          signal: AbortSignal.timeout(60000) // 60 second timeout
         });
         
         if (!response.ok) {
-          console.warn(`Endpoint ${endpoint} returned status ${response.status}`);
-          lastError = new Error(`HTTP error ${response.status}`);
+          const errorText = await response.text().catch(() => "Unknown API error");
+          console.warn(`Endpoint ${endpoint} returned status ${response.status}: ${errorText}`);
+          lastError = new Error(`HTTP error ${response.status}: ${errorText}`);
           continue; // Try next endpoint
         }
         
@@ -164,6 +171,7 @@ async function tryServerEndpoints(messages: Message[], options?: ChatOptions) {
   }
   
   // If we get here, all endpoints and retries failed
+  console.error('All OpenAI endpoints failed after multiple attempts');
   throw lastError || new Error('All server endpoints failed after multiple attempts');
 }
 
@@ -172,7 +180,8 @@ async function tryServerEndpoints(messages: Message[], options?: ChatOptions) {
  */
 export async function getChatCompletion(messages: Message[], options?: ChatOptions) {
   // Check if we can make a call based on rate limiting rules
-  if (!apiRateLimiter.canMakeCall()) {    // Try to use cached content for this request
+  if (!apiRateLimiter.canMakeCall()) {
+    // Try to use cached content for this request
     const cacheKey = APICallTracker.generateCacheKey({ messages, options });
     const cachedResult = apiRateLimiter.getCachedResult(cacheKey);
     
@@ -202,7 +211,7 @@ export async function getChatCompletion(messages: Message[], options?: ChatOptio
     }
   }
 
-  // First try direct API access
+  // First try direct API access with improved error handling
   try {
     const openai = createOpenAIClient();
     
@@ -250,7 +259,7 @@ export async function getChatCompletion(messages: Message[], options?: ChatOptio
  */
 export async function handleChatRequest(messages: Message[], userId?: string, studentId?: string) {
   try {
-    // Log request for debugging (can be removed in production)
+    // Log request for debugging
     console.log(`Processing chat request for user: ${userId || 'anonymous'}, student: ${studentId || 'unknown'}`);
     
     // Call OpenAI with fallbacks

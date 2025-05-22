@@ -1,419 +1,241 @@
-import React, { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import AILesson from '@/components/AILesson';
-import AIQuiz from '@/components/AIQuiz';
-import AIGame from '@/components/AIGame';
-import LearningBuddy from '@/components/LearningBuddy';
-import { useAuth } from '@/contexts/AuthContext';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
+import { useStudentProfile } from '@/contexts/StudentProfileContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Student, convertToStudent } from '@/types/learning';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
+import { toast } from 'sonner';
+import { BookOpen, Brain, PlayCircle } from 'lucide-react';
+import { getAIEducationContent } from '@/services/optimizedAIEducationService';
+import { lessonService } from '@/services/lessonService';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import LearningContent from '@/components/LearningComponents/LearningContent';
-import { Skeleton } from '@/components/ui/skeleton';
-import StudentProfile from '@/components/StudentProfile';
-import { LogIn, BookOpen, PencilRuler, Gamepad, AlertCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { supabase } from '@/integrations/supabase/client';
-import { fixStudentProfilesMappings } from '@/utils/databaseMigration';
-import { toast } from 'sonner';
 
-// Interface for needed props
-interface LearningContentComponentProps {
-  gradeLevel: 'k-3' | '4-6' | '7-9';
+// Extended interface for AI lesson requests
+interface ExtendedAILessonRequest {
   subject: string;
   topic: string;
-  subtopic?: string;
-  student?: Student;
-  autoStart?: boolean;
-  recommendationId?: string;
-}
-
-interface AIQuizProps {
-  gradeLevel: 'k-3' | '4-6' | '7-9';
-  subject: string;
-  topic: string;
-  subtopic?: string;
+  gradeLevel: "k-3" | "4-6" | "7-9";
   studentId?: string;
-  autoStart?: boolean;
-  recommendationId?: string;
-  onComplete?: (score: number) => void;
-}
-
-interface AIGameProps {
-  gradeLevel: 'k-3' | '4-6' | '7-9';
-  subject: string;
-  topic: string;
   subtopic?: string;
-  studentId?: string;
-  studentName?: string;
-  autoStart?: boolean;
-  recommendationId?: string;
+  skipMediaSearch?: boolean; 
+  fastMode?: boolean;
 }
 
-const AILearning = () => {
-  const location = useLocation();
+interface LessonResult {
+  lessonId: string | null;
+  error: string | null;
+}
+
+const AILesson: React.FC = () => {
+  const { selectedProfile } = useStudentProfile();
+  const { t } = useLanguage();
   const navigate = useNavigate();
-  const { user, isParent, isStudent } = useAuth();
-  const { language, t } = useLanguage();
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
   
-  const [currentStudent, setCurrentStudent] = useState<Student | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [selectedTab, setSelectedTab] = useState('lesson');
-  const [isShowingProfile, setIsShowingProfile] = useState(false);
-  const [isLoadingStudents, setIsLoadingStudents] = useState(false);
+  const subject = queryParams.get('subject') || '';
+  const topic = queryParams.get('topic') || '';
+  // Fix the TypeScript error by converting null to undefined
+  const subtopic = queryParams.get('subtopic') || undefined;
+  const gradeLevel = (selectedProfile?.grade_level || queryParams.get('grade') || 'k-3') as "k-3" | "4-6" | "7-9";
   
-  // Extract data from location.state
-  const gradeLevel = location.state?.gradeLevel || 'k-3';
-  const subject = location.state?.subject || 'Math';
-  const topic = location.state?.topic || 'General Knowledge';
-  const subtopic = location.state?.subtopic || '';
-  const autoStart = location.state?.autoStart || false;
-  const isNewLesson = location.state?.isNewLesson || false;
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [lessonId, setLessonId] = useState<string | null>(null);
   
-  // Note: We're using the studentId from location.state, not currentStudent.id
-  const studentId = location.state?.studentId;
-  const studentName = location.state?.studentName || 'Student';
-  
-  // Redirect if studentId is missing
-  React.useEffect(() => {
-    if (!location.state?.studentId) {
-      navigate('/dashboard');
-    }
-  }, [location.state, navigate]);
-  
+  // Check if we have the necessary data to proceed
   useEffect(() => {
-    const fetchInitialData = async () => {
-      setLoading(true);
-      setLoadError(null);
-      
-      try {
-        // Run database migration to fix potential constraint issues
-        await fixStudentProfilesMappings();
-        
-        // If no user is logged in, just set loading to false
-        if (!user) {
-          setLoading(false);
-          return;
-        }
-        
-        // If we have a studentId from location state, fetch that student's data first
-        if (studentId) {
-          try {
-            const { data: profile, error } = await supabase
-              .from('students')
-              .select('*')
-              .eq('id', studentId)
-              .single();
-            
-            if (error) throw error;
-            
-            if (profile) {
-              const studentData: Student = {
-                id: profile.id,
-                name: profile.name,
-                age: profile.age || 10,
-                grade_level: profile.grade_level || gradeLevel,
-                parent_id: profile.parent_id || user.id,
-                created_at: profile.created_at || new Date().toISOString(),
-                avatar_url: profile.avatar_url || undefined
-              };
-              
-              setCurrentStudent(studentData);
-              setLoading(false);
-              return;
-            }
-          } catch (error) {
-            console.error('Error fetching student profile:', error);
-            toast.error(language === 'id' 
-              ? 'Gagal memuat profil siswa' 
-              : 'Failed to load student profile');
-          }
-        }
-        
-        if (isStudent) {
-          // For student users, create their profile for the learning session
-          try {
-            // If we're a student user, we are the current student
-            const { data: profile } = await supabase
-              .from('students')
-              .select('*')
-              .eq('id', user.id)
-              .single();
-            
-            if (profile) {
-              const studentData: Student = {
-                id: profile.id,
-                name: profile.name,
-                age: profile.age || 10,
-                grade_level: profile.grade_level || 'k-3',
-                parent_id: profile.parent_id || '',
-                created_at: profile.created_at || new Date().toISOString(),
-                avatar_url: profile.avatar_url || undefined
-              };
-              
-              setCurrentStudent(studentData);
-            } else {
-              // Create a default profile for demo
-              const defaultStudent: Student = {
-                id: user.id,
-                name: user.user_metadata?.full_name || 'Student',
-                age: 10,
-                grade_level: gradeLevel || 'k-3',
-                parent_id: '',
-                created_at: new Date().toISOString(),
-                avatar_url: undefined
-              };
-              
-              setCurrentStudent(defaultStudent);
-            }
-          } catch (error) {
-            console.error('Error fetching student profile:', error);
-            // Create a default profile for demo
-            const defaultStudent: Student = {
-              id: user.id,
-              name: user.user_metadata?.full_name || 'Student',
-              age: 10,
-              grade_level: gradeLevel || 'k-3',
-              parent_id: '',
-              created_at: new Date().toISOString(),
-              avatar_url: undefined
-            };
-            
-            setCurrentStudent(defaultStudent);
-          }
-        } else if (isParent && !studentId) {
-          // For parent users without a selected student, fetch all students and select the first one
-          try {
-            const { data: students } = await supabase
-              .from('students')
-              .select('*')
-              .eq('parent_id', user.id);
-            
-            if (students && students.length > 0) {
-              const firstStudent = students[0];
-              const studentData: Student = {
-                id: firstStudent.id,
-                name: firstStudent.name,
-                age: firstStudent.age || 10,
-                grade_level: firstStudent.grade_level || 'k-3',
-                parent_id: firstStudent.parent_id || user.id,
-                created_at: firstStudent.created_at || new Date().toISOString(),
-                avatar_url: firstStudent.avatar_url || undefined
-              };
-              setCurrentStudent(studentData);
-            } else {
-              setIsShowingProfile(true);
-            }
-          } catch (error) {
-            console.error('Error fetching students:', error);
-            setIsShowingProfile(true);
-          }
-        }
-      } catch (error) {
-        console.error('Error initializing learning page:', error);
-        setLoadError(language === 'id' 
-          ? 'Terjadi kesalahan saat memuat halaman pembelajaran' 
-          : 'An error occurred while loading the learning page');
-      } finally {
-        setLoading(false);
-      }
-    };
+    if (!selectedProfile && !queryParams.get('skip_profile')) {
+      toast.error(t('errors.no_profile_selected'), {
+        description: t('errors.select_profile_first'),
+      });
+      navigate('/student-profile');
+    }
+  }, [selectedProfile, navigate, t, queryParams]);
+
+  // Generate lesson content with optimized performance
+  const handleGenerateLesson = async () => {
+    if (!subject || !topic) {
+      toast.error(t('errors.missing_params'), {
+        description: t('errors.subject_topic_required'),
+      });
+      return;
+    }
     
-    fetchInitialData();
-  }, [user, isParent, isStudent, studentId, gradeLevel, language]);
-  
-  const handleStudentChange = (student: Student) => {
-    setCurrentStudent(student);
+    setIsGenerating(true);
+    
+    try {
+      // Create a unique ID for the lesson to avoid duplicate toasts
+      const notificationId = `generating-${subject}-${topic}`;
+      
+      // Show a loading toast
+      toast.loading(t('lesson.generating'), {
+        id: notificationId,
+        description: `${subject} - ${topic}`,
+      });
+      
+      // Generate the lesson using optimized AI service with improved performance
+      const fastMode = queryParams.get('fast') === 'true';
+      
+      // First, generate AI content
+      const aiResponse = await getAIEducationContent({
+        contentType: 'lesson',
+        subject,
+        topic,
+        gradeLevel,
+        subtopic,
+        studentId: selectedProfile?.id || 'guest',
+        skipMediaSearch: true, // Skip media search for faster generation
+        fastMode // Use fast mode for < 10 second loading
+      });
+      
+      // Then store in database using lessonService
+      let result: LessonResult = { lessonId: null, error: null };
+      if (aiResponse && aiResponse.content) {
+        try {
+          const lessonMaterial = await lessonService.generateAndStoreLessonMaterial(
+            subject,
+            topic,
+            gradeLevel,
+            subtopic
+          );
+          if (lessonMaterial?.id) {
+            result = { 
+              lessonId: lessonMaterial.id,
+              error: null
+            };
+          }
+        } catch (error) {
+          console.error("Error storing lesson:", error);
+          result = {
+            lessonId: null,
+            error: "Failed to store lesson"
+          };
+        }
+      } else {
+        result = {
+          lessonId: null,
+          error: "Failed to generate lesson content"
+        };
+      }
+      
+      if (result.error) {
+        toast.error(t('errors.lesson_generation_failed'), {
+          id: notificationId,
+          description: result.error,
+        });
+      } else {
+        toast.success(t('lesson.generation_complete'), {
+          id: notificationId,
+          description: `${subject} - ${topic}`,
+        });
+        
+        // Store the lesson ID and redirect to the lesson viewer
+        if (result.lessonId) {
+          setLessonId(result.lessonId);
+          navigate(`/lessons?id=${result.lessonId}`);
+        }
+      }
+    } catch (error: any) {
+      console.error("Lesson generation error:", error);
+      toast.error(t('errors.unexpected_error'), {
+        description: error.message || t('errors.try_again_later'),
+      });
+    } finally {
+      setIsGenerating(false);
+    }
   };
   
-  // Handler function to reset content
-  const handleResetContent = () => {
-    // Reset the content and reload
-    navigate(0);
+  // Handle navigation to AI learning page
+  const goToAILearning = () => {
+    navigate('/ai-learning');
   };
 
-  // Handler for quiz completion
-  const handleQuizComplete = (score: number) => {
-    // Just a placeholder - in a real implementation this would update badges or stars
-    console.log(`Quiz completed with score: ${score}`);
-    toast.success(
-      language === 'id' 
-        ? `Kuis selesai dengan skor: ${score}` 
-        : `Quiz completed with score: ${score}`
-    );
-  };
-  
-  // Handle lesson completion
-  const handleLessonComplete = () => {
-    toast.success(
-      language === 'id' 
-        ? 'Pelajaran selesai!' 
-        : 'Lesson completed!'
-    );
-    // Additional completion logic could be added here
-  };
-  
-  // Handle tab change
-  const handleTabChange = (value: string) => {
-    setSelectedTab(value);
-    console.log(`Tab changed to: ${value}`);
-  };
-
-  // Display title with subtopic if available
-  const displayTitle = subtopic ? `${topic}: ${subtopic}` : topic;
-
-  if (!user) {
-    return (
-      <div className="min-h-screen flex flex-col">
-        <Header />
-        <div className="flex-grow flex flex-col items-center justify-center p-4">
-          <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6 text-center">
-            <h2 className="text-2xl font-bold mb-4">{language === 'id' ? 'Masuk untuk mengakses pelajaran' : 'Sign in to access lessons'}</h2>
-            <p className="mb-6 text-gray-600">
-              {language === 'id' 
-                ? 'Silakan masuk atau buat akun untuk mengakses pengalaman belajar AI yang dipersonalisasi.'
-                : 'Please sign in or create an account to access our personalized AI learning experience.'}
-            </p>
-            <Button 
-              onClick={() => navigate('/auth', { state: { returnUrl: location.pathname + location.search }})}
-              className="inline-flex items-center"
-            >
-              <LogIn className="mr-2 h-4 w-4" />
-              {language === 'id' ? 'Masuk / Daftar' : 'Sign In / Register'}
-            </Button>
-          </div>
-        </div>
-        <Footer />
-      </div>
-    );
-  }
-  
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      <div className="bg-gradient-to-b from-eduPurple-light/30 to-white">
-        <div className="container mx-auto p-4">
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4">
-            <div>
-              <h1 className="text-3xl font-bold font-display">{subject} - {displayTitle}</h1>
-              {currentStudent && (
-                <p className="text-eduPurple">{language === 'id' ? 'Belajar sebagai:' : 'Learning as:'} {currentStudent.name}</p>
-              )}
-            </div>
-            <div className="mt-2 md:mt-0">
-              <Badge variant="outline" className="mr-2">
-                {gradeLevel === 'k-3' ? 'K-3' : (gradeLevel === '4-6' ? t('topic.grade46') || 'Grade 4-6' : t('topic.grade79') || 'Grade 7-9')}
-              </Badge>
-              <Badge>{subject}</Badge>
-            </div>
-          </div>
-          
-          {/* Error state */}
-          {loadError && (
-            <div className="bg-white p-6 rounded-lg shadow-md text-center my-8">
-              <div className="flex justify-center mb-4">
-                <AlertCircle className="h-12 w-12 text-red-500" />
-              </div>
-              <h2 className="text-xl font-bold text-red-600 mb-2">{language === 'id' ? 'Kesalahan Pembelajaran AI' : 'AI Learning Error'}</h2>
-              <p className="mb-4">{loadError}</p>
-              <Button 
-                onClick={() => window.location.reload()}
-                className="bg-eduPurple hover:bg-eduPurple-dark"
-              >
-                {language === 'id' ? 'Coba Lagi' : 'Try Again'}
-              </Button>
-            </div>
-          )}
-          
-          {/* Tab Navigation - only show if no error */}
-          {!loadError && (
-            <Tabs 
-              defaultValue={selectedTab} 
-              onValueChange={handleTabChange}
-              className="mb-6"
-            >
-              <div className="border-b mb-4">
-                <TabsList className="w-full rounded-none bg-transparent h-auto p-0 justify-start mb-[-1px]">
-                  <TabsTrigger 
-                    value="lesson" 
-                    className="flex items-center gap-2 px-5 py-3 rounded-t-lg border-b-2 border-transparent data-[state=active]:border-eduPurple data-[state=active]:bg-white data-[state=active]:shadow-none data-[state=active]:text-eduPurple mb-[-1px]"
-                  >
-                    <BookOpen className="h-4 w-4" />
-                    {language === 'id' ? 'Pelajaran' : 'Lesson'}
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="quiz" 
-                    className="flex items-center gap-2 px-5 py-3 rounded-t-lg border-b-2 border-transparent data-[state=active]:border-eduPurple data-[state=active]:bg-white data-[state=active]:shadow-none data-[state=active]:text-eduPurple mb-[-1px]"
-                  >
-                    <PencilRuler className="h-4 w-4" />
-                    {language === 'id' ? 'Kuis' : 'Quiz'}
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="game" 
-                    className="flex items-center gap-2 px-5 py-3 rounded-t-lg border-b-2 border-transparent data-[state=active]:border-eduPurple data-[state=active]:bg-white data-[state=active]:shadow-none data-[state=active]:text-eduPurple mb-[-1px]"
-                  >
-                    <Gamepad className="h-4 w-4" />
-                    {language === 'id' ? 'Permainan' : 'Game'}
-                  </TabsTrigger>
-                </TabsList>
+      
+      <main className="flex-1 container mx-auto px-4 py-8">
+        <h1 className="text-3xl font-bold mb-6 text-center">
+          {t('ai_lesson.title')}
+        </h1>
+        
+        <div className="max-w-3xl mx-auto">
+          <Card className="mb-6">
+            <CardContent className="pt-6">
+              <div className="flex items-center mb-4">
+                <Brain className="w-8 h-8 text-eduPurple mr-3" />
+                <h2 className="text-xl font-semibold">
+                  {subject && topic ? `${subject}: ${topic}` : t('ai_lesson.create_lesson')}
+                </h2>
               </div>
               
-              {loading ? (
-                <div className="p-4">
-                  <Skeleton className="h-8 w-1/3 mb-4" />
-                  <Skeleton className="h-4 w-2/3 mb-2" />
-                  <Skeleton className="h-4 w-full mb-2" />
-                  <Skeleton className="h-4 w-5/6 mb-4" />
-                  <Skeleton className="h-64 w-full rounded-md" />
+              {selectedProfile ? (
+                <p className="mb-4 text-muted-foreground">
+                  {t('ai_lesson.personalized_for')} {selectedProfile.name}, {t('grade')} {selectedProfile.grade_level}
+                </p>
+              ) : (
+                <p className="mb-4 text-muted-foreground">
+                  {t('ai_lesson.guest_mode')}
+                </p>
+              )}
+              
+              {(subject && topic) ? (
+                <div className="space-y-4">
+                  <p>{t('ai_lesson.prompt_description')}</p>
+                  
+                  <div className="flex flex-wrap gap-4 justify-center mt-6">
+                    <Button
+                      size="lg"
+                      onClick={handleGenerateLesson}
+                      disabled={isGenerating}
+                      className="flex items-center"
+                    >
+                      {isGenerating ? (
+                        <>
+                          <Spinner size="sm" className="mr-2" />
+                          {t('ai_lesson.generating')}
+                        </>
+                      ) : (
+                        <>
+                          <BookOpen className="mr-2 h-5 w-5" />
+                          {t('ai_lesson.generate_lesson')}
+                        </>
+                      )}
+                    </Button>
+                    
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      onClick={goToAILearning}
+                      className="flex items-center"
+                    >
+                      <PlayCircle className="mr-2 h-5 w-5" />
+                      {t('ai_lesson.explore_other_activities')}
+                    </Button>
+                  </div>
                 </div>
               ) : (
-                <TabsContent value={selectedTab} className="m-0 p-0">
-                  {selectedTab === 'lesson' && (
-                    <AILesson
-                      subject={subject}
-                      gradeLevel={gradeLevel}
-                      topic={topic}
-                      subtopic={subtopic}
-                      studentId={currentStudent?.id}
-                      onComplete={handleLessonComplete}
-                    />
-                  )}
-                  {selectedTab === 'quiz' && (
-                    <AIQuiz
-                      subject={subject}
-                      gradeLevel={gradeLevel}
-                      topic={topic}
-                      subtopic={subtopic}
-                      studentId={currentStudent?.id}
-                      onComplete={handleQuizComplete}
-                    />
-                  )}
-                  {selectedTab === 'game' && (
-                    <AIGame
-                      subject={subject}
-                      gradeLevel={gradeLevel}
-                      topic={topic}
-                      subtopic={subtopic}
-                      studentId={currentStudent?.id}
-                      studentName={currentStudent?.name}
-                    />
-                  )}
-                </TabsContent>
+                <div className="text-center space-y-4">
+                  <p>{t('ai_lesson.select_subject_topic_first')}</p>
+                  <Button onClick={() => navigate('/subjects')}>
+                    {t('ai_lesson.choose_subject')}
+                  </Button>
+                </div>
               )}
-            </Tabs>
-          )}
+            </CardContent>
+          </Card>
+          
+          <div className="text-center text-sm text-muted-foreground">
+            <p>{t('ai_lesson.ai_disclaimer')}</p>
+          </div>
         </div>
-      </div>
-      {/* Learning Buddy floats independently, no need for props */}
-      <LearningBuddy />
+      </main>
+      
       <Footer />
     </div>
   );
 };
 
-export default AILearning;
+export default AILesson;

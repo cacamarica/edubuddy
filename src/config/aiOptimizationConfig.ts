@@ -1,3 +1,4 @@
+
 // Config for optimization of AILearning and AI Education functionality
 // Control and prevent excessive API calls
 
@@ -65,20 +66,20 @@ export const API_RATE_LIMITS = {
   }
 };
 
-// Retry configuration
+// Retry configuration with improved reliability
 export const API_RETRY_CONFIG = {
-  MAX_RETRY_ATTEMPTS: 2,
+  MAX_RETRY_ATTEMPTS: 3,     // Increased from 2 to 3
   INITIAL_RETRY_DELAY_MS: 1000,
   MAX_RETRY_DELAY_MS: 5000,
-  REQUEST_TIMEOUT_MS: 30000
+  REQUEST_TIMEOUT_MS: 45000  // Increased from 30000 to 45000 for better reliability
 };
 
-// Feature flags to disable resource-intensive or unnecessary features
+// Feature flags to enable necessary features
 export const FEATURE_FLAGS = {
-  ENABLE_VIDEO_GENERATION: false, // Disable YouTube video generation
-  ENABLE_IMAGE_GENERATION: false, // Disable DALL-E image generation
-  ENABLE_MEDIA_SEARCH: false,     // Disable media search
-  USE_PLACEHOLDERS_ONLY: true     // Use placeholder images only
+  ENABLE_VIDEO_GENERATION: false,
+  ENABLE_IMAGE_GENERATION: false,
+  ENABLE_MEDIA_SEARCH: false,
+  USE_PLACEHOLDERS_ONLY: true
 };
 
 // Default placeholder image URLs

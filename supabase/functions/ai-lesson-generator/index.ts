@@ -1,3 +1,4 @@
+
 // NOTE: This file is designed to run in Supabase Edge Functions with Deno runtime
 // These imports and globals won't be recognized in a regular Node.js environment 
 // but will work correctly when deployed to Supabase
@@ -12,6 +13,7 @@ interface RequestData {
   language?: 'en' | 'id';
   forceLongerLessons?: boolean;
   skipMediaSearch?: boolean; // New option to skip media searches
+  subtopic?: string; // Added subtopic as an optional parameter
 }
 
 interface OpenAIResponse {
@@ -53,8 +55,8 @@ interface LessonContent {
 // Cache for storing generated content
 const contentCache = new Map<string, {content: any, timestamp: number}>();
 const CACHE_TTL_HOURS = 24; // Cache TTL in hours
-const MAX_RETRY_ATTEMPTS = 2;
-const REQUEST_TIMEOUT_MS = 35000; // 35 seconds timeout
+const MAX_RETRY_ATTEMPTS = 3; // Increased from 2 to 3 for better reliability
+const REQUEST_TIMEOUT_MS = 45000; // 45 seconds timeout (increased from 35s)
 
 // Deno.env is a Deno-specific API to access environment variables
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
@@ -113,21 +115,21 @@ serve(async (req) => {
       throw new Error("Invalid request body format");
     }) as RequestData;
 
-    const { subject, gradeLevel, topic, language = 'en', skipMediaSearch = false } = requestBody;
+    const { subject, gradeLevel, topic, language = 'en', skipMediaSearch = false, subtopic = undefined } = requestBody;
     
     if (!subject || !gradeLevel || !topic) {
       throw new Error("Missing required parameters: subject, gradeLevel, or topic");
     }
 
-    console.log(`Generating lesson for ${topic} in ${subject} (grade ${gradeLevel}, language: ${language})`);
+    console.log(`Generating lesson for ${topic}${subtopic ? ' - ' + subtopic : ''} in ${subject} (grade ${gradeLevel}, language: ${language})`);
     
-    // Generate cache key based on request parameters
-    const cacheKey = `${subject}_${topic}_${gradeLevel}_${language}_${skipMediaSearch}`;
+    // Generate cache key based on request parameters including subtopic
+    const cacheKey = `${subject}_${topic}_${subtopic || ''}_${gradeLevel}_${language}_${skipMediaSearch}`;
     
     // Check cache first
     const cachedContent = contentCache.get(cacheKey);
     if (cachedContent && (Date.now() - cachedContent.timestamp < CACHE_TTL_HOURS * 60 * 60 * 1000)) {
-      console.log(`Using cached lesson for ${topic}`);
+      console.log(`Using cached lesson for ${topic}${subtopic ? ' - ' + subtopic : ''}`);
       return new Response(JSON.stringify({ content: cachedContent.content }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -139,7 +141,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ 
         error: "Rate limit exceeded. Please try again later.",
         content: {
-          title: `Learning about ${topic}`,
+          title: `Learning about ${topic}${subtopic ? ' - ' + subtopic : ''}`,
           introduction: "This content is being prepared. Please try again in a few minutes.",
           chapters: [
             {
@@ -159,8 +161,11 @@ serve(async (req) => {
     }
 
     // Create a prompt for OpenAI - optimized for faster generation and lower token usage
+    // Enhanced prompt to handle subtopics properly
     const prompt = `
-    Create a concise educational lesson about "${topic}" in ${subject} for grade ${gradeLevel} students in ${language === 'id' ? 'Indonesian' : 'English'} language.
+    Create a concise educational lesson about "${topic}${subtopic ? ': ' + subtopic : ''}" in ${subject} for grade ${gradeLevel} students in ${language === 'id' ? 'Indonesian' : 'English'} language.
+    
+    ${subtopic ? `Focus specifically on the subtopic "${subtopic}" within the broader topic of "${topic}".` : ''}
     
     Format the response as a JSON object with the following structure:
     {
@@ -228,8 +233,10 @@ serve(async (req) => {
         if (response.ok) {
           break; // Successful response, break out of retry loop
         } else {
-          lastError = await response.text().catch(() => "Unknown API error");
-          throw new Error(`OpenAI API error: ${response.status} - ${lastError}`);
+          const errorText = await response.text().catch(() => "Unknown API error");
+          lastError = new Error(`OpenAI API error: ${response.status} - ${errorText}`);
+          console.error(`OpenAI API error (attempt ${retryCount + 1}): ${lastError.message}`);
+          throw lastError;
         }
       } catch (error) {
         console.error(`Attempt ${retryCount + 1} failed:`, error);
@@ -276,8 +283,12 @@ serve(async (req) => {
       const processedContent = {
         ...lessonContent,
         chapters: lessonContent.chapters.map((chapter: any, index: number) => {
-          // Generate a simple placeholder image URL based on topic
-          const imageUrl = `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(topic)}-${index}&backgroundColor=ffdfbf,ffd5dc,c0aede,d1d4f9,b6e3f4`;
+          // Generate a simple placeholder image URL based on topic and subtopic
+          const seed = subtopic ? 
+            `${encodeURIComponent(topic)}-${encodeURIComponent(subtopic)}-${index}` : 
+            `${encodeURIComponent(topic)}-${index}`;
+          
+          const imageUrl = `https://api.dicebear.com/7.x/shapes/svg?seed=${seed}&backgroundColor=ffdfbf,ffd5dc,c0aede,d1d4f9`;
           
           if (!skipMediaSearch && chapter.image) {
             return {
@@ -305,7 +316,11 @@ serve(async (req) => {
             // We don't need to process activity images if skipMediaSearch is true
             if (skipMediaSearch) return activity;
             
-            const imageUrl = `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(topic)}-activity-${index}&backgroundColor=ffdfbf,ffd5dc,c0aede,d1d4f9,b6e3f4`;
+            const seed = subtopic ? 
+              `${encodeURIComponent(topic)}-${encodeURIComponent(subtopic)}-activity-${index}` : 
+              `${encodeURIComponent(topic)}-activity-${index}`;
+              
+            const imageUrl = `https://api.dicebear.com/7.x/shapes/svg?seed=${seed}&backgroundColor=ffdfbf,ffd5dc,c0aede,d1d4f9`;
             
             return {
               ...activity,
