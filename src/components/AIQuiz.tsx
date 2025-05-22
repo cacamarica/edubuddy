@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -31,14 +32,14 @@ export interface AIQuizProps {
   subtopic?: string;
   onComplete?: (score: number) => void;
   limitProgress?: boolean;
-  studentId?: string; // Added studentId prop to the interface
-  recommendationId?: string; // Added recommendationId prop to track recommendation source
+  studentId?: string;
+  recommendationId?: string;
 }
 
 const AIQuiz = ({ subject, gradeLevel, topic, subtopic, onComplete, limitProgress = false, studentId, recommendationId }: AIQuizProps) => {
   const [quizStarted, setQuizStarted] = useState(false);
   const [quizComplete, setQuizComplete] = useState(false);
-  const [questionCount, setQuestionCount] = useState(10); // Default to 10 questions now
+  const [questionCount, setQuestionCount] = useState(10);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
@@ -52,82 +53,7 @@ const AIQuiz = ({ subject, gradeLevel, topic, subtopic, onComplete, limitProgres
   const { language } = useLanguage();
   const navigate = useNavigate();
 
-  // Check for saved progress
-  useEffect(() => {
-    const checkSavedProgress = async () => {
-      if (!user) return;
-      
-      try {
-        // Get the current student
-        const { data: students } = await supabase
-          .from('students')
-          .select('*')
-          .eq('parent_id', user.id)
-          .limit(1);
-          
-        if (!students || students.length === 0) return;
-        const student = students[0];
-        
-        const savedProgress = await getQuizProgress(student.id, subject, topic, gradeLevel);
-        if (savedProgress && !savedProgress.is_completed) {
-          setHasSavedProgress(true);
-        }
-      } catch (error) {
-        console.error('Error checking saved progress:', error);
-      }
-    };
-    
-    if (quizStarted) return; // Only check on initial load
-    checkSavedProgress();
-  }, [user, subject, topic, gradeLevel, quizStarted]);
-
-  // First effect to log initialization props
-  useEffect(() => {
-    console.log('AIQuiz initialized with props:', {
-      subject,
-      gradeLevel,
-      topic,
-      subtopic,
-      questionCount
-    });
-  }, [subject, gradeLevel, topic, subtopic, questionCount]);
-
-  // Second effect to auto-start the quiz when needed
-  useEffect(() => {
-    // Only run this effect once when the component mounts
-    if (subject && gradeLevel && topic) {
-      console.log('Auto-starting quiz');
-      setQuizStarted(true);
-      
-      // Add a backup timeout in case fetchQuiz fails or gets stuck
-      const forceStartTimeout = setTimeout(() => {
-        if (loading) {
-          console.log('Quiz loading timed out, force starting with fallback questions');
-          forceStartQuiz();
-        }
-      }, 10000); // 10 second backup
-      
-      fetchQuiz(false).catch(() => {
-        console.error('Error in initial fetchQuiz, force starting');
-        forceStartQuiz();
-      });
-      
-      return () => clearTimeout(forceStartTimeout);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Add a debugging log for component state changes
-  useEffect(() => {
-    console.log('AIQuiz state updated:', {
-      quizStarted,
-      loading,
-      questionsLoaded: questions.length > 0,
-      error
-    });
-  }, [quizStarted, loading, questions.length, error]);
-
-  // Add forceStartQuiz as a useCallback before other useEffects
+  // Define all callbacks before any useEffects to maintain consistent hook order
   const forceStartQuiz = useCallback(() => {
     console.log('Forcing quiz to start with fallback questions');
     
@@ -142,7 +68,7 @@ const AIQuiz = ({ subject, gradeLevel, topic, subtopic, onComplete, limitProgres
           explanation: "Paris is the capital of France."
         },
         {
-          question: "What planet is known as the Red Planet?",
+          question: "What planet is known as the 'Red Planet'?",
           questionType: 'multiple-choice',
           options: ["Venus", "Mars", "Jupiter", "Saturn"],
           correctAnswer: 1,
@@ -188,25 +114,7 @@ const AIQuiz = ({ subject, gradeLevel, topic, subtopic, onComplete, limitProgres
     }
   }, [questions.length, topic, onComplete]);
 
-  // Fix the dependencies array to not include forceStartQuiz (now defined with useCallback)
-  useEffect(() => {
-    const forceVisibilityTimeout = setTimeout(() => {
-      if (!quizStarted || loading) {
-        console.log('AIQuiz: Force starting quiz display');
-        setQuizStarted(true);
-        setLoading(false);
-        
-        // If we have no questions, create fallback ones
-        if (questions.length === 0) {
-          forceStartQuiz();
-        }
-      }
-    }, 3000); // Only wait 3 seconds before forcing
-    
-    return () => clearTimeout(forceVisibilityTimeout);
-  }, [quizStarted, loading, questions.length, forceStartQuiz]);
-
-  const fetchQuiz = async (resumeProgress = false) => {
+  const fetchQuiz = useCallback(async (resumeProgress = false) => {
     setLoading(true);
     setError(null);
     
@@ -442,17 +350,9 @@ const AIQuiz = ({ subject, gradeLevel, topic, subtopic, onComplete, limitProgres
       // Make sure to clear the timeout when the function completes normally
       clearTimeout(safetyTimeout);
     }
-  };
+  }, [user, subject, gradeLevel, topic, subtopic, language, questionCount]);
 
-  const handleStartQuiz = (resumeProgress = false) => {
-    setQuizStarted(true);
-    fetchQuiz(resumeProgress);
-    
-    // Record the activity start in the database if user is logged in
-    recordActivityStart();
-  };
-  
-  const recordActivityStart = async () => {
+  const recordActivityStart = useCallback(async () => {
     if (!studentId) return;
     
     try {
@@ -471,6 +371,127 @@ const AIQuiz = ({ subject, gradeLevel, topic, subtopic, onComplete, limitProgres
     } catch (error) {
       console.error('Error recording activity start:', error);
     }
+  }, [studentId, subject, topic, recommendationId]);
+
+  // All useEffects after all callbacks
+  
+  // Check for saved progress
+  useEffect(() => {
+    const checkSavedProgress = async () => {
+      if (!user) return;
+      
+      try {
+        // Get the current student
+        const { data: students } = await supabase
+          .from('students')
+          .select('*')
+          .eq('parent_id', user.id)
+          .limit(1);
+          
+        if (!students || students.length === 0) return;
+        const student = students[0];
+        
+        const savedProgress = await getQuizProgress(student.id, subject, topic, gradeLevel);
+        if (savedProgress && !savedProgress.is_completed) {
+          setHasSavedProgress(true);
+        }
+      } catch (error) {
+        console.error('Error checking saved progress:', error);
+      }
+    };
+    
+    if (quizStarted) return; // Only check on initial load
+    checkSavedProgress();
+  }, [user, subject, topic, gradeLevel, quizStarted]);
+
+  // First effect to log initialization props
+  useEffect(() => {
+    console.log('AIQuiz initialized with props:', {
+      subject,
+      gradeLevel,
+      topic,
+      subtopic,
+      questionCount
+    });
+  }, [subject, gradeLevel, topic, subtopic, questionCount]);
+
+  // Second effect to auto-start the quiz when needed
+  useEffect(() => {
+    // Only run this effect once when the component mounts
+    if (subject && gradeLevel && topic) {
+      console.log('Auto-starting quiz');
+      setQuizStarted(true);
+      
+      // Add a backup timeout in case fetchQuiz fails or gets stuck
+      const forceStartTimeout = setTimeout(() => {
+        if (loading) {
+          console.log('Quiz loading timed out, force starting with fallback questions');
+          forceStartQuiz();
+        }
+      }, 10000); // 10 second backup
+      
+      fetchQuiz(false).catch(() => {
+        console.error('Error in initial fetchQuiz, force starting');
+        forceStartQuiz();
+      });
+      
+      return () => clearTimeout(forceStartTimeout);
+    }
+  }, [subject, gradeLevel, topic, loading, fetchQuiz, forceStartQuiz]);
+
+  // Add a debugging log for component state changes
+  useEffect(() => {
+    console.log('AIQuiz state updated:', {
+      quizStarted,
+      loading,
+      questionsLoaded: questions.length > 0,
+      error
+    });
+  }, [quizStarted, loading, questions.length, error]);
+
+  // Force visibility effect
+  useEffect(() => {
+    const forceVisibilityTimeout = setTimeout(() => {
+      if (!quizStarted || loading) {
+        console.log('AIQuiz: Force starting quiz display');
+        setQuizStarted(true);
+        setLoading(false);
+        
+        // If we have no questions, create fallback ones
+        if (questions.length === 0) {
+          forceStartQuiz();
+        }
+      }
+    }, 3000); // Only wait 3 seconds before forcing
+    
+    return () => clearTimeout(forceVisibilityTimeout);
+  }, [quizStarted, loading, questions.length, forceStartQuiz]);
+
+  // Add useEffect to handle navigation when quiz is complete
+  useEffect(() => {
+    if (quizComplete) {
+      const finalScore = calculateFinalScore();
+      
+      // Navigate to QuizResults with the necessary state
+      navigate('/quiz/results', {
+        state: {
+          studentId,
+          subject,
+          topic,
+          correctAnswers: finalScore,
+          totalQuestions: questions.length
+        },
+        replace: true
+      });
+    }
+  }, [quizComplete, navigate, studentId, subject, topic, questions.length]);
+
+  const handleStartQuiz = (resumeProgress = false) => {
+    setQuizStarted(true);
+    fetchQuiz(resumeProgress);
+    
+    // Record the activity start in the database if user is logged in
+    recordActivityStart();
   };
 
   const handleSelectAnswer = (answerIndex: number) => {
@@ -694,20 +715,7 @@ const AIQuiz = ({ subject, gradeLevel, topic, subtopic, onComplete, limitProgres
     }
   };
 
-  // Modify the if-block controlling loading display
-  if (loading) {
-    // Instead of showing a loading component, log and continue to content
-    console.log('AIQuiz is in loading state, but proceeding to content');
-    
-    // If we've been loading too long, force-start with fallback questions
-    if (questions.length === 0) {
-      console.log('No questions loaded yet, using fallback questions');
-      // Since we're not returning, the code will continue to the next check
-      // and show content if questions exist, or the QuizSetup component
-    }
-  }
-
-  // Show the appropriate component based on the current state
+  // Rendering logic
   if (!quizStarted) {
     return (
       <QuizSetup
@@ -728,25 +736,6 @@ const AIQuiz = ({ subject, gradeLevel, topic, subtopic, onComplete, limitProgres
     return <QuizError onTryAgain={fetchQuiz} error={error} />;
   }
 
-  // Add useEffect to handle navigation when quiz is complete
-  useEffect(() => {
-    if (quizComplete) {
-      const finalScore = calculateFinalScore();
-      
-      // Navigate to QuizResults with the necessary state
-      navigate('/quiz/results', {
-        state: {
-          studentId,
-          subject,
-          topic,
-          correctAnswers: finalScore,
-          totalQuestions: questions.length
-        },
-        replace: true
-      });
-    }
-  }, [quizComplete]);
-  
   if (quizComplete) {
     // Return loading state during navigation
     return <LoadingQuiz progress={100} />;
