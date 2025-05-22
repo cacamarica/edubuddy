@@ -21,7 +21,7 @@ const AILearning = () => {
   const { language } = useLanguage();
   const [subject, setSubject] = useState('Science');
   const [topic, setTopic] = useState('');
-  const [subtopic, setSubtopic] = useState('');
+  const [subtopic, setSubtopic] = useState<string>('');
   const [isNormalFlow, setIsNormalFlow] = useState(true);
   const [students, setStudents] = useState<Student[]>([]);
 

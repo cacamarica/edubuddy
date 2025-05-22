@@ -86,6 +86,24 @@ function safeParseJson<T>(jsonData: any, defaultValue: T): T {
   }
 }
 
+// Extended database response type including subtopic field
+interface LessonMaterialDBResponse {
+  id: string;
+  title: string;
+  introduction: string;
+  chapters: any;
+  conclusion: string | null;
+  summary: string | null;
+  fun_facts: any;
+  activity: any;
+  created_at: string;
+  updated_at: string;
+  grade_level: string;
+  subject: string;
+  topic: string;
+  subtopic?: string; // Make subtopic optional but defined in type
+}
+
 export const lessonService = {
   /**
    * Get a lesson by ID
@@ -113,21 +131,24 @@ export const lessonService = {
       const funFacts = safeParseJson<string[]>(data.fun_facts, []);
       const activity = safeParseJson<any>(data.activity, null);
       
+      // Cast the data to our known type that includes subtopic
+      const lessonData = data as LessonMaterialDBResponse;
+      
       return {
-        id: data.id,
-        title: data.title,
-        introduction: data.introduction,
+        id: lessonData.id,
+        title: lessonData.title,
+        introduction: lessonData.introduction,
         chapters,
-        conclusion: data.conclusion || "",
-        summary: data.summary || "",
+        conclusion: lessonData.conclusion || "",
+        summary: lessonData.summary || "",
         fun_facts: funFacts,
         activity,
-        created_at: data.created_at,
-        updated_at: data.updated_at,
-        grade_level: data.grade_level,
-        subject: data.subject,
-        topic: data.topic,
-        subtopic: data.subtopic as string | undefined // Cast to the correct type
+        created_at: lessonData.created_at,
+        updated_at: lessonData.updated_at,
+        grade_level: lessonData.grade_level,
+        subject: lessonData.subject,
+        topic: lessonData.topic,
+        subtopic: lessonData.subtopic
       };
     } catch (error) {
       console.error('Error in getLessonById:', error);
@@ -183,25 +204,28 @@ export const lessonService = {
         const funFacts = safeParseJson<string[]>(lesson.fun_facts, []);
         const activity = safeParseJson<any>(lesson.activity, null);
         
+        // Cast lesson to expected type with subtopic
+        const lessonWithSubtopic = lesson as LessonMaterialDBResponse;
+        
         return {
-          id: lesson.id,
-          title: lesson.title,
-          introduction: lesson.introduction,
+          id: lessonWithSubtopic.id,
+          title: lessonWithSubtopic.title,
+          introduction: lessonWithSubtopic.introduction,
           chapters,
-          conclusion: lesson.conclusion || "",
-          summary: lesson.summary || "",
+          conclusion: lessonWithSubtopic.conclusion || "",
+          summary: lessonWithSubtopic.summary || "",
           fun_facts: funFacts,
           activity,
-          created_at: lesson.created_at,
-          updated_at: lesson.updated_at,
-          grade_level: lesson.grade_level,
-          subject: lesson.subject,
-          topic: lesson.topic,
-          subtopic: (lesson as any).subtopic, // Type assertion to access subtopic
+          created_at: lessonWithSubtopic.created_at,
+          updated_at: lessonWithSubtopic.updated_at,
+          grade_level: lessonWithSubtopic.grade_level,
+          subject: lessonWithSubtopic.subject,
+          topic: lessonWithSubtopic.topic,
+          subtopic: lessonWithSubtopic.subtopic,
           // Add progress info
           currentChapter: progress?.current_chapter || 0,
           isCompleted: progress?.is_completed || false,
-          lastReadAt: progress?.last_read_at || lesson.created_at
+          lastReadAt: progress?.last_read_at || lessonWithSubtopic.created_at
         } as Lesson & { currentChapter: number; isCompleted: boolean; lastReadAt: string };
       });
     } catch (error) {
@@ -258,21 +282,24 @@ export const lessonService = {
           const funFacts = safeParseJson<string[]>(latestLesson.fun_facts, []);
           const activity = safeParseJson<any>(latestLesson.activity, null);
           
+          // Cast to our known type with subtopic
+          const lessonWithSubtopic = latestLesson as LessonMaterialDBResponse;
+          
           const lesson: Lesson = {
-            id: latestLesson.id,
-            title: latestLesson.title,
-            introduction: latestLesson.introduction,
+            id: lessonWithSubtopic.id,
+            title: lessonWithSubtopic.title,
+            introduction: lessonWithSubtopic.introduction,
             chapters,
-            conclusion: latestLesson.conclusion || "",
-            summary: latestLesson.summary || "",
+            conclusion: lessonWithSubtopic.conclusion || "",
+            summary: lessonWithSubtopic.summary || "",
             fun_facts: funFacts,
             activity,
-            created_at: latestLesson.created_at,
-            updated_at: latestLesson.updated_at,
-            grade_level: latestLesson.grade_level,
-            subject: latestLesson.subject,
-            topic: latestLesson.topic,
-            subtopic: (latestLesson as any).subtopic // Type assertion to access subtopic
+            created_at: lessonWithSubtopic.created_at,
+            updated_at: lessonWithSubtopic.updated_at,
+            grade_level: lessonWithSubtopic.grade_level,
+            subject: lessonWithSubtopic.subject,
+            topic: lessonWithSubtopic.topic,
+            subtopic: lessonWithSubtopic.subtopic
           };
           
           // Create progress entry for the student if not exists
@@ -387,21 +414,24 @@ export const lessonService = {
       const funFacts = safeParseJson<string[]>(createdLesson.fun_facts, []);
       const activity = safeParseJson<any>(createdLesson.activity, null);
       
+      // Cast to our known type with subtopic
+      const lessonWithSubtopic = createdLesson as LessonMaterialDBResponse;
+      
       const lesson: Lesson = {
-        id: createdLesson.id,
-        title: createdLesson.title,
-        introduction: createdLesson.introduction,
+        id: lessonWithSubtopic.id,
+        title: lessonWithSubtopic.title,
+        introduction: lessonWithSubtopic.introduction,
         chapters,
-        conclusion: createdLesson.conclusion || "",
-        summary: createdLesson.summary || "",
+        conclusion: lessonWithSubtopic.conclusion || "",
+        summary: lessonWithSubtopic.summary || "",
         fun_facts: funFacts,
         activity,
-        created_at: createdLesson.created_at,
-        updated_at: createdLesson.updated_at,
-        grade_level: createdLesson.grade_level,
-        subject: createdLesson.subject,
-        topic: createdLesson.topic,
-        subtopic: (createdLesson as any).subtopic // Type assertion to access subtopic
+        created_at: lessonWithSubtopic.created_at,
+        updated_at: lessonWithSubtopic.updated_at,
+        grade_level: lessonWithSubtopic.grade_level,
+        subject: lessonWithSubtopic.subject,
+        topic: lessonWithSubtopic.topic,
+        subtopic: lessonWithSubtopic.subtopic
       };
       
       return { lesson, isNew: true };
