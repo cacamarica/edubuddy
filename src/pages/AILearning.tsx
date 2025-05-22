@@ -1,5 +1,4 @@
 
-// Update the AILearning page to support subtopic selection
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
