@@ -69,10 +69,24 @@ function safeParseJson<T>(jsonData: Json | null, defaultValue: T): T {
   }
 }
 
-// Service functions
+// Service functions with performance optimization
 export const lessonService = {
-  // Get lesson material by subject, topic, and grade level
+  // Get lesson material by subject, topic, and grade level - optimized with caching
   async getLessonMaterial(subject: string, topic: string, gradeLevel: "k-3" | "4-6" | "7-9"): Promise<LessonMaterial | null> {
+    // Create a cache key
+    const cacheKey = `lesson_${subject}_${topic}_${gradeLevel}`;
+    
+    // Try to get from session storage first for instant loading on repeat visits
+    const cachedData = sessionStorage.getItem(cacheKey);
+    if (cachedData) {
+      try {
+        return JSON.parse(cachedData) as LessonMaterial;
+      } catch (e) {
+        console.error('Error parsing cached lesson:', e);
+        // Continue to fetch from database if cache parsing fails
+      }
+    }
+    
     try {
       // First, try to get from database
       const { data, error } = await supabase
@@ -91,11 +105,22 @@ export const lessonService = {
         
         // If not found in database, generate using AI
         console.log("Lesson not found in database, generating with AI...");
-        return await this.generateAndStoreLessonMaterial(subject, topic, gradeLevel);
+        const result = await this.generateAndStoreLessonMaterial(subject, topic, gradeLevel);
+        
+        // Cache the result if we got one
+        if (result) {
+          try {
+            sessionStorage.setItem(cacheKey, JSON.stringify(result));
+          } catch (e) {
+            console.error('Error caching lesson:', e);
+          }
+        }
+        
+        return result;
       }
 
       // Format the data to match our interface
-      return {
+      const formattedData = {
         id: data.id,
         subject: data.subject,
         topic: data.topic,
@@ -110,6 +135,15 @@ export const lessonService = {
         created_at: data.created_at || undefined,
         updated_at: data.updated_at || undefined,
       };
+      
+      // Cache the result for future use
+      try {
+        sessionStorage.setItem(cacheKey, JSON.stringify(formattedData));
+      } catch (e) {
+        console.error('Error caching lesson:', e);
+      }
+      
+      return formattedData;
     } catch (error) {
       console.error("Error in getLessonMaterial:", error);
       toast.error("Failed to load the lesson material");
@@ -117,8 +151,22 @@ export const lessonService = {
     }
   },
 
-  // Get lesson material by ID directly
+  // Get lesson material by ID directly - optimized with caching
   getLessonMaterialById: async (id: string): Promise<LessonMaterial | null> => {
+    // Create a cache key for this specific lesson ID
+    const cacheKey = `lesson_id_${id}`;
+    
+    // Try to get from session storage first for instant loading
+    const cachedData = sessionStorage.getItem(cacheKey);
+    if (cachedData) {
+      try {
+        return JSON.parse(cachedData) as LessonMaterial;
+      } catch (e) {
+        console.error('Error parsing cached lesson:', e);
+        // Continue to fetch if cache parsing fails
+      }
+    }
+    
     try {
       const { data, error } = await supabase
         .from("lesson_materials")
@@ -134,7 +182,7 @@ export const lessonService = {
         return null;
       }
 
-      return {
+      const formattedData = {
         id: data.id,
         subject: data.subject,
         topic: data.topic,
@@ -152,21 +200,31 @@ export const lessonService = {
         created_at: data.created_at || undefined,
         updated_at: data.updated_at || undefined,
       };
+      
+      // Cache the result for future use
+      try {
+        sessionStorage.setItem(cacheKey, JSON.stringify(formattedData));
+      } catch (e) {
+        console.error('Error caching lesson by ID:', e);
+      }
+      
+      return formattedData;
     } catch (error) {
       console.error("Error in getLessonMaterialById:", error);
       return null;
     }
   },
 
-  // Generate lesson material using AI and store in database
+  // Generate lesson material using AI and store in database - optimized to skip media searches
   async generateAndStoreLessonMaterial(subject: string, topic: string, gradeLevel: "k-3" | "4-6" | "7-9"): Promise<LessonMaterial | null> {
     try {
-      // Generate content using AI
+      // Generate content using AI with skipMediaSearch option for better performance
       const result = await getAIEducationContent({
         contentType: 'lesson',
         subject,
         gradeLevel,
-        topic
+        topic,
+        skipMediaSearch: true // Add this option for performance
       });
 
       if (!result || !result.content) {
@@ -185,7 +243,6 @@ export const lessonService = {
 
       if (error) {
         console.error("Error saving lesson to database:", error);
-        console.error("Payload:", JSON.stringify(processedContent, null, 2));
         throw error;
       }
 
@@ -212,30 +269,46 @@ export const lessonService = {
     }
   },
 
-  // Process AI content to ensure it matches our schema
+  // Process AI content to ensure it matches our schema - optimized for performance
   processAIContent(content: any, subject: string, topic: string, gradeLevel: "k-3" | "4-6" | "7-9"): any {
-    // Ensure chapters have the right format
+    // Ensure chapters have the right format - use simple placeholders for images instead of searching
     const chapters = Array.isArray(content.chapters) 
-      ? content.chapters.map((chapter: any) => ({
-          heading: chapter.heading,
-          text: chapter.text,
-          image: chapter.image 
-            ? {
-                url: chapter.image.url || `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(chapter.heading)}`,
-                alt: chapter.image.alt || `Image for ${chapter.heading}`,
-                caption: chapter.image.caption || chapter.image.description || ''
-              }
-            : undefined
-        }))
+      ? content.chapters.map((chapter: any, index: number) => {
+          // Create simple placeholder image for better performance
+          const placeholderImage = {
+            url: `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(chapter.heading || `chapter-${index}`)}&backgroundColor=ffdfbf`,
+            alt: `Image for ${chapter.heading || `Chapter ${index + 1}`}`,
+            caption: chapter.image?.caption || chapter.image?.description || ''
+          };
+          
+          return {
+            heading: chapter.heading || chapter.title || `Chapter ${index + 1}`,
+            text: chapter.text || chapter.content || '',
+            image: chapter.image ? {
+              url: chapter.image.url || placeholderImage.url,
+              alt: chapter.image.alt || placeholderImage.alt,
+              caption: chapter.image.caption || chapter.image.description || placeholderImage.caption
+            } : placeholderImage
+          };
+        })
       : [];
 
-    // Process activity image if needed
+    // Process activity with simple placeholder image if needed
     let activity = content.activity || { title: "Activity", instructions: "No activity available" };
-    if (activity && activity.image) {
-      activity.image = {
-        url: activity.image.url || `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(activity.title || 'activity')}`,
-        alt: activity.image.alt || `Image for ${activity.title || 'activity'}`,
-        caption: activity.image.caption || activity.image.description || ''
+    if (activity) {
+      const activityImage = {
+        url: `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(activity.title || 'activity')}&backgroundColor=ffdfbf`,
+        alt: `Image for ${activity.title || 'activity'}`,
+        caption: activity.image?.caption || activity.image?.description || ''
+      };
+      
+      activity = {
+        ...activity,
+        image: activity.image ? {
+          url: activity.image.url || activityImage.url,
+          alt: activity.image.alt || activityImage.alt,
+          caption: activity.image.caption || activity.image.description || activityImage.caption
+        } : activityImage
       };
     }
 

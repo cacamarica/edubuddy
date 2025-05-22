@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+
+import React from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import ReactMarkdown from 'react-markdown';
 import { cleanMarkdownText } from '@/utils/lessonUtils';
-import { searchImages } from '@/services/imageSearchService';
 
 interface Reference {
   title: string;
@@ -24,8 +24,6 @@ interface LessonContentProps {
 
 const LessonContent: React.FC<LessonContentProps> = ({ content, title, chapter, showReferences = true, subject, topic }) => {
   const { t } = useLanguage();
-  const [educationalImage, setEducationalImage] = useState<{url: string, alt: string} | null>(null);
-  const [imageError, setImageError] = useState(false);
   
   // Get content from either direct prop or chapter object
   const contentText = content || 
@@ -35,76 +33,6 @@ const LessonContent: React.FC<LessonContentProps> = ({ content, title, chapter, 
   
   // Extract references from chapter
   const references: Reference[] = chapter?.references || [];
-  
-  // Validate if an image URL is likely educational
-  const validateEducationalImage = (url: string): boolean => {
-    // Check for common non-educational image patterns
-    const nonEducationalPatterns = [
-      'music', 'concert', 'poster', 'flyer', 'advertisement', 
-      'fashion', 'party', 'entertainment', 'free-your-music'
-    ];
-    
-    // Check if URL contains any non-educational terms
-    const lowercaseUrl = url.toLowerCase();
-    return !nonEducationalPatterns.some(pattern => lowercaseUrl.includes(pattern));
-  };
-  
-  // Fetch relevant educational image for content
-  useEffect(() => {
-    // Only search for images if we have content and a subject/topic
-    if (contentText && (subject || topic)) {
-      // Make the search query more specific for educational content
-      const searchQuery = `${subject || ''} ${topic || ''} ${title || chapter?.title || ''} educational diagram`.trim();
-      
-      searchImages(searchQuery, contentText)
-        .then(result => {
-          if (result) {
-            // Validate that the image is educational
-            if (validateEducationalImage(result.url)) {
-              setEducationalImage(result);
-              setImageError(false);
-            } else {
-              console.log("Rejected non-educational image:", result.url);
-              setImageError(true);
-              // Try again with a more specific educational query
-              return searchImages(`${topic} educational diagram illustration`, contentText);
-            }
-          }
-          return null;
-        })
-        .then(secondResult => {
-          if (secondResult && imageError) {
-            // Validate the second result
-            if (validateEducationalImage(secondResult.url)) {
-              setEducationalImage(secondResult);
-              setImageError(false);
-            } else {
-              setImageError(true);
-            }
-          }
-        })
-        .catch(error => {
-          console.error("Error fetching educational image:", error);
-          setImageError(true);
-        });
-    }
-  }, [contentText, subject, topic, title, chapter?.title]);
-
-  // Function to format long paragraphs for better readability
-  const formatParagraph = (text: string) => {
-    // For very long paragraphs, add some visual aids
-    if (text.length < 200) return text;
-    
-    // Add subtle paragraph indentation for easier reading
-    return text;
-  };
-
-  // Handle image load errors
-  const handleImageError = () => {
-    console.log("Image failed to load, removing from display");
-    setImageError(true);
-    setEducationalImage(null);
-  };
 
   // Always use ReactMarkdown for consistent rendering
   const contentSection = (
@@ -112,18 +40,18 @@ const LessonContent: React.FC<LessonContentProps> = ({ content, title, chapter, 
       {title && <h2 className="text-2xl font-bold mb-4 pb-2 border-b border-gray-200">{title}</h2>}
       {chapter?.title && !title && <h2 className="text-2xl font-bold mb-4 pb-2 border-b border-gray-200">{chapter.title}</h2>}
       
-      {/* Educational Image (if available and valid) */}
-      {educationalImage && !imageError && (
+      {/* Simplified rendering - no image search */}
+      {chapter?.image?.url && (
         <div className="my-6 flex justify-center">
           <figure className="max-w-lg">
             <img 
-              src={educationalImage.url} 
-              alt={educationalImage.alt} 
+              src={chapter.image.url} 
+              alt={chapter.image.alt || 'Chapter illustration'} 
               className="rounded-lg shadow-md max-h-72 object-contain mx-auto"
-              onError={handleImageError}
+              loading="lazy"
             />
             <figcaption className="mt-2 text-sm text-center text-gray-500 italic">
-              {educationalImage.alt}
+              {chapter.image.alt || chapter.image.caption || ''}
             </figcaption>
           </figure>
         </div>
@@ -134,7 +62,7 @@ const LessonContent: React.FC<LessonContentProps> = ({ content, title, chapter, 
           h1: ({ node, ...props }) => <h1 className="text-2xl font-bold mb-5 mt-8 text-eduPurple-800 pb-2 border-b border-gray-200" {...props} />,
           h2: ({ node, ...props }) => <h2 className="text-xl font-bold mb-4 mt-7 text-eduPurple-700" {...props} />,
           h3: ({ node, ...props }) => <h3 className="text-lg font-bold mb-3 mt-6 text-eduPurple-600" {...props} />,
-          p: ({ node, children, ...props }) => {
+          p: ({ node, children }) => {
             const content = children ? children.toString() : '';
             const isLong = content.length > 250;
             
@@ -147,8 +75,9 @@ const LessonContent: React.FC<LessonContentProps> = ({ content, title, chapter, 
                   hyphens: 'auto',
                   wordSpacing: '0.05em'
                 }}
-                {...props} 
-              />
+              >
+                {children}
+              </p>
             );
           },
           ul: ({ node, ...props }) => <ul className="list-disc pl-6 mb-6 space-y-2" {...props} />,
@@ -156,18 +85,6 @@ const LessonContent: React.FC<LessonContentProps> = ({ content, title, chapter, 
           li: ({ node, ...props }) => <li className="mb-3 pl-1" {...props} />,
           strong: ({ node, ...props }) => <strong className="font-bold text-eduPurple-900" {...props} />,
           em: ({ node, ...props }) => <em className="italic text-eduPurple-700" {...props} />,
-          img: ({ node, ...props }) => (
-            <div className="my-6 flex justify-center">
-              <img 
-                className="rounded-md max-h-96 object-contain shadow-sm" 
-                {...props} 
-                onError={(e) => {
-                  // Hide broken images
-                  e.currentTarget.style.display = 'none';
-                }}
-              />
-            </div>
-          ),
           blockquote: ({ node, ...props }) => (
             <blockquote className="border-l-4 border-eduPurple-300 pl-4 italic my-6 text-gray-700 bg-gray-50 py-3 rounded-r-md" {...props} />
           ),
@@ -197,7 +114,7 @@ const LessonContent: React.FC<LessonContentProps> = ({ content, title, chapter, 
         }}
       >
         {/* Apply pre-processing for both markdown and plain text */}
-        {contentText}
+        {cleanMarkdownText(contentText)}
       </ReactMarkdown>
     </div>
   );

@@ -1,11 +1,13 @@
 
-import { useState, useEffect } from 'react';
-import LearningContent from './LearningContent';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import LessonTracking from '@/components/LessonTracking';
 import { supabase } from '@/integrations/supabase/client';
 import { useStudentProfile } from '@/contexts/StudentProfileContext';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
+
+// Lazy load LearningContent for better performance
+const LearningContent = lazy(() => import('./LearningContent'));
 
 interface LearningContentWrapperProps {
   subject: string;
@@ -34,10 +36,13 @@ const LearningContentWrapper = ({
   const [progress, setProgress] = useState(0);
   const [studentId, setStudentId] = useState<string | undefined>(undefined);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   
   // Get student ID from URL or state and check for existing progress
   useEffect(() => {
     const checkProgress = async () => {
+      setIsLoading(true);
+      
       // Get student from URL params
       const urlParams = new URLSearchParams(window.location.search);
       const studentIdFromUrl = urlParams.get('studentId');
@@ -47,22 +52,20 @@ const LearningContentWrapper = ({
       setStudentId(effectiveStudentId);
       
       if (effectiveStudentId) {
-        // Check if there's existing progress
         try {
+          // Check if there's existing progress using a direct query
           const { data: activities, error } = await supabase
             .from('learning_activities')
             .select('*')
             .eq('student_id', effectiveStudentId)
             .eq('subject', subject)
             .eq('topic', topic)
-            .eq('completed', true);
+            .eq('completed', true)
+            .limit(1); // Only need one record to verify completion
             
           if (error) {
             console.error('Error fetching learning activities:', error);
-            return;
-          }
-            
-          if (activities && activities.length > 0) {
+          } else if (activities && activities.length > 0) {
             setIsComplete(true);
             setProgress(100);
           }
@@ -72,6 +75,7 @@ const LearningContentWrapper = ({
       }
       
       setIsInitialized(true);
+      setIsLoading(false);
     };
     
     checkProgress();
@@ -97,14 +101,19 @@ const LearningContentWrapper = ({
     
     // Record in supabase if we have a student ID
     if (studentId) {
-      supabase.from('learning_activities').insert({
+      // Use a debounced function to avoid multiple rapid writes
+      const now = new Date().toISOString();
+      
+      supabase.from('learning_activities').upsert({
         student_id: studentId,
         activity_type: 'learning_path_completed',
         subject: subject,
         topic: topic,
         progress: 100,
         completed: true,
-        last_interaction_at: new Date().toISOString() // Convert Date to ISO string
+        last_interaction_at: now
+      }, {
+        onConflict: 'student_id,activity_type,subject,topic'
       }).then(({ error }) => {
         if (error) {
           console.error('Error recording learning activity:', error);
@@ -136,16 +145,19 @@ const LearningContentWrapper = ({
         isComplete={isComplete}
         progress={progress}
       />
-      <LearningContent 
-        subject={subject}
-        gradeLevel={gradeLevel}
-        topic={topic}
-        activeTab={activeTab}
-        onTabChange={onTabChange}
-        onReset={onReset}
-        onQuizComplete={handleQuizComplete}
-        recommendationId={recommendationId}
-      />
+      
+      <Suspense fallback={<div className="p-8 text-center">Loading learning content...</div>}>
+        <LearningContent 
+          subject={subject}
+          gradeLevel={gradeLevel}
+          topic={topic}
+          activeTab={activeTab}
+          onTabChange={onTabChange}
+          onReset={onReset}
+          onQuizComplete={handleQuizComplete}
+          recommendationId={recommendationId}
+        />
+      </Suspense>
     </>
   );
 };

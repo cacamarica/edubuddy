@@ -1,3 +1,4 @@
+
 // NOTE: This file is designed to run in Supabase Edge Functions with Deno runtime
 // These imports and globals won't be recognized in a regular Node.js environment 
 // but will work correctly when deployed to Supabase
@@ -11,6 +12,7 @@ interface RequestData {
   topic: string;
   language?: 'en' | 'id';
   forceLongerLessons?: boolean;
+  skipMediaSearch?: boolean; // New option to skip media searches
 }
 
 interface OpenAIResponse {
@@ -73,7 +75,7 @@ serve(async (req) => {
       throw new Error("Invalid request body format");
     }) as RequestData;
 
-    const { subject, gradeLevel, topic, language = 'en' } = requestBody;
+    const { subject, gradeLevel, topic, language = 'en', skipMediaSearch = false } = requestBody;
     
     if (!subject || !gradeLevel || !topic) {
       throw new Error("Missing required parameters: subject, gradeLevel, or topic");
@@ -81,85 +83,57 @@ serve(async (req) => {
 
     console.log(`Generating lesson for ${topic} in ${subject} (grade ${gradeLevel}, language: ${language})`);
 
-    // Create a prompt for OpenAI
+    // Create a prompt for OpenAI - optimized for faster generation
     const prompt = `
-    Create a comprehensive, in-depth educational lesson about "${topic}" in ${subject} for grade ${gradeLevel} students in ${language === 'id' ? 'Indonesian' : 'English'} language. 
+    Create a comprehensive educational lesson about "${topic}" in ${subject} for grade ${gradeLevel} students in ${language === 'id' ? 'Indonesian' : 'English'} language. 
     
-    This should be a substantial lesson designed to take students 60-90 minutes to read through and engage with. Include rich details, examples, and explanations appropriate for the grade level.
+    This should be a substantial lesson designed to take students 30-45 minutes to read through. Include rich details, examples, and explanations appropriate for the grade level.
     
     The lesson should include:
-    - An engaging, captivating title
-    - A thorough introduction that hooks the student (300-400 words)
-    - 10-15 detailed chapters/sections with clear headings and extensive content (at least 400-600 words per chapter)
-    - Multiple fun facts and interesting information spread throughout (at least 8-10 facts)
-    - 3-5 interactive activities or exercises
-    - Real-world applications and examples of the concepts (4-6 examples)
-    - A thoughtful conclusion that ties everything together (250-350 words)
-    - A comprehensive summary of key points (300-400 words)
-    - Challenge questions for students (5-8 questions)
+    - An engaging title
+    - A thorough introduction that hooks the student
+    - 5-7 detailed chapters/sections with clear headings and substantial content
+    - 3-5 fun facts and interesting information
+    - 1-2 interactive activities or exercises
+    - A thoughtful conclusion that ties everything together
+    - A comprehensive summary of key points
     
-    For each chapter, suggest an image description that would help illustrate the content. Be detailed in what the image should show.
+    ${skipMediaSearch ? '' : 'For each chapter, suggest an image description that would help illustrate the content.'}
     
     Format the response as a JSON object with the following structure:
     {
       "title": "Lesson Title",
-      "introduction": "Thorough introduction text (200-300 words)",
+      "introduction": "Thorough introduction text",
       "chapters": [
         {
           "heading": "Chapter 1 Title",
-          "text": "Detailed content for chapter 1 (300-500 words)...",
+          "text": "Detailed content for chapter 1...",
+          ${skipMediaSearch ? '' : `
           "image": {
-            "url": "",
-            "description": "Detailed description of an ideal image for this chapter - be specific about what should be shown",
+            "description": "Brief description of an ideal image for this chapter",
             "alt": "Alt text for accessibility"
-          }
+          }`}
         },
         // more chapters...
       ],
-      "funFacts": ["Fun fact 1", "Fun fact 2", "Fun fact 3", "Fun fact 4", "Fun fact 5"],
+      "funFacts": ["Fun fact 1", "Fun fact 2", "Fun fact 3"],
       "activities": [
         {
           "title": "Activity 1 Title",
           "instructions": "Detailed instructions for the activity...",
-          "materials": ["Item 1", "Item 2", "Item 3"],
-          "image": {
-            "url": "",
-            "description": "Description of an ideal image for this activity",
-            "alt": "Alt text for accessibility"
-          }
-        },
-        {
-          "title": "Activity 2 Title",
-          "instructions": "Detailed instructions for the second activity...",
-          "materials": ["Item 1", "Item 2", "Item 3"],
-          "image": {
-            "url": "",
-            "description": "Description of an ideal image for this activity",
-            "alt": "Alt text for accessibility"
-          }
+          "materials": ["Item 1", "Item 2", "Item 3"]
         }
       ],
-      "realWorldExamples": [
-        {
-          "title": "Example 1 Title",
-          "description": "Detailed description of a real-world example..."
-        },
-        {
-          "title": "Example 2 Title",
-          "description": "Detailed description of another real-world example..."
-        }
-      ],
-      "conclusion": "Concluding paragraph (150-200 words)",
-      "summary": "Comprehensive summary of key points (200-300 words)",
-      "challengeQuestions": ["Question 1?", "Question 2?", "Question 3?"]
+      "conclusion": "Concluding paragraph",
+      "summary": "Comprehensive summary of key points"
     }
     
-    Make the content appropriate for ${gradeLevel} grade level, engaging, educational, and accurate. Adjust language complexity appropriately for the grade level while ensuring sufficient depth and coverage of the topic.
+    Make the content appropriate for ${gradeLevel} grade level, engaging, educational, and accurate.
     `;
     
-    console.log("Sending request to OpenAI API");
+    console.log("Sending request to OpenAI API using optimized prompt");
     
-    // Call OpenAI API to generate the lesson
+    // Call OpenAI API to generate the lesson - use gpt-3.5-turbo for faster response
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -167,16 +141,16 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: 'gpt-3.5-turbo-1106', // Using faster model option
         messages: [
           { 
             role: 'system', 
-            content: 'You are an expert educational content creator specializing in creating comprehensive, engaging lessons for children. Your content is detailed, age-appropriate, and rich with examples, analogies, and connections to real-world experiences. You create lessons that take 60-90 minutes to read through and fully engage with.' 
+            content: 'You are an expert educational content creator specializing in creating engaging lessons for children. Your content is detailed, age-appropriate, and rich with examples and connections to real-world experiences.' 
           },
           { role: 'user', content: prompt }
         ],
         temperature: 0.7,
-        max_tokens: 7000,
+        max_tokens: 3500, // Reduced token count for faster response
       }),
     }).catch(error => {
       console.error("Error fetching from OpenAI:", error);
@@ -217,41 +191,46 @@ serve(async (req) => {
       const processedContent = {
         ...lessonContent,
         chapters: lessonContent.chapters.map((chapter: any, index: number) => {
-          if (chapter.image) {
-            // Generate a placeholder image URL based on the description
-            const imageUrl = `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(topic)}-${index}&backgroundColor=ffdfbf,ffd5dc,c0aede,d1d4f9,b6e3f4`;
-            
+          // Generate a simple placeholder image URL based on topic
+          const imageUrl = `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(topic)}-${index}&backgroundColor=ffdfbf,ffd5dc,c0aede,d1d4f9,b6e3f4`;
+          
+          if (!skipMediaSearch && chapter.image) {
             return {
               ...chapter,
               image: {
                 url: imageUrl,
                 alt: chapter.image.alt || `Image for ${chapter.heading}`,
-                caption: chapter.image.description || `Visual aid for ${chapter.heading}`,
-                searchQuery: `${topic} ${chapter.heading}`
+                caption: chapter.image.description || `Visual aid for ${chapter.heading}`
               }
             };
-          }
-          return chapter;
+          } 
+          
+          // If skipMediaSearch or no image in original content
+          return {
+            ...chapter,
+            image: skipMediaSearch ? undefined : {
+              url: imageUrl,
+              alt: `Image for ${chapter.heading}`,
+              caption: `Visual aid for ${chapter.heading}`
+            }
+          };
         }),
         activities: Array.isArray(lessonContent.activities) ? 
           lessonContent.activities.map((activity: any, index: number) => {
-            if (activity.image) {
-              const imageUrl = `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(topic)}-activity-${index}&backgroundColor=ffdfbf,ffd5dc,c0aede,d1d4f9,b6e3f4`;
-              
-              return {
-                ...activity,
-                image: {
-                  url: imageUrl,
-                  alt: activity.image.alt || `Image for ${activity.title}`,
-                  caption: activity.image.description || `Visual aid for this activity`,
-                  searchQuery: `${topic} ${activity.title} activity`
-                }
-              };
-            }
-            return activity;
-          }) : [],
-        realWorldExamples: lessonContent.realWorldExamples || [],
-        challengeQuestions: lessonContent.challengeQuestions || []
+            // We don't need to process activity images if skipMediaSearch is true
+            if (skipMediaSearch) return activity;
+            
+            const imageUrl = `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(topic)}-activity-${index}&backgroundColor=ffdfbf,ffd5dc,c0aede,d1d4f9,b6e3f4`;
+            
+            return {
+              ...activity,
+              image: {
+                url: imageUrl,
+                alt: activity.image?.alt || `Image for ${activity.title}`,
+                caption: activity.image?.description || `Visual aid for this activity`
+              }
+            };
+          }) : []
       };
       
       console.log("Successfully processed lesson content");
@@ -291,7 +270,6 @@ serve(async (req) => {
             instructions: "Please check back soon when our systems are working properly."
           }
         ],
-        realWorldExamples: [],
         conclusion: "We apologize for the inconvenience.",
         summary: "Error: " + (error.message || 'Unknown error occurred')
       }

@@ -18,6 +18,7 @@ interface ExtendedAILessonRequest {
   topic: string;
   gradeLevel: string;
   studentId?: string;
+  skipMediaSearch?: boolean; // Add option to skip media search
 }
 
 interface ExtendedAILessonResponse {
@@ -53,7 +54,7 @@ const AILesson: React.FC = () => {
     }
   }, [selectedProfile, navigate, t, queryParams]);
 
-  // Generate lesson content
+  // Generate lesson content with optimized performance
   const handleGenerateLesson = async () => {
     if (!subject || !topic) {
       toast.error(t('errors.missing_params'), {
@@ -74,12 +75,13 @@ const AILesson: React.FC = () => {
         description: `${subject} - ${topic}`,
       });
       
-      // Generate the lesson using AI service with extended interface
+      // Generate the lesson using AI service with extended interface and performance options
       const result = await aiEducationService.generateLesson({
         subject,
         topic,
         gradeLevel,
         studentId: selectedProfile?.id || 'guest',
+        skipMediaSearch: true // Skip media search for faster generation
       } as ExtendedAILessonRequest);
       
       if (result.error) {

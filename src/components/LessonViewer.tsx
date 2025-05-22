@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -38,9 +39,9 @@ const LessonViewer: React.FC<LessonViewerProps> = ({
   const [loadingProgress, setLoadingProgress] = useState(0);
 
   // Debug logs
-  console.log('[LessonViewer] props:', { subject, topic, subtopic, gradeLevel, student, summary, videoUrl, images, storyModeActive, storyContent });
+  console.log('[LessonViewer] props:', { subject, topic, subtopic, gradeLevel, summary, storyModeActive, storyContent });
 
-  // Loading animation progress simulation
+  // Loading animation progress simulation with faster progression
   useEffect(() => {
     if (loading) {
       const timer = setInterval(() => {
@@ -49,9 +50,10 @@ const LessonViewer: React.FC<LessonViewerProps> = ({
             clearInterval(timer);
             return prev;
           }
-          return Math.min(prev + 1, 95);
+          // Faster progress increments
+          return Math.min(prev + 5, 95);
         });
-      }, 100);
+      }, 50); // Reduced interval time for faster animation
       
       return () => clearInterval(timer);
     } else {
@@ -62,25 +64,40 @@ const LessonViewer: React.FC<LessonViewerProps> = ({
   // TTS using browser speechSynthesis
   const handleReadAloud = (text: string) => {
     if (!window.speechSynthesis) return;
+    
+    // Cancel any ongoing speech
+    window.speechSynthesis.cancel();
+    
     const utterance = new window.SpeechSynthesisUtterance(text);
     utterance.onend = () => setIsSpeaking(false);
+    
+    // Try to set a reasonable voice and rate
+    utterance.rate = 1.0;
+    try {
+      const voices = window.speechSynthesis.getVoices();
+      const preferredVoice = voices.find(voice => 
+        voice.lang.includes(language === 'id' ? 'id' : 'en')
+      );
+      if (preferredVoice) {
+        utterance.voice = preferredVoice;
+      }
+    } catch (e) {
+      console.error('Error setting voice:', e);
+    }
+    
     setIsSpeaking(true);
     window.speechSynthesis.speak(utterance);
   };
 
-  // Select appropriate theme based on topic
+  // Select appropriate theme based on topic - simplified for performance
   const getAnimationTheme = () => {
     const topicLower = topic.toLowerCase();
-    if (topicLower.includes('space') || topicLower.includes('planet') || topicLower.includes('solar')) 
+    if (topicLower.includes('space') || topicLower.includes('planet')) 
       return 'space';
-    if (topicLower.includes('ocean') || topicLower.includes('water') || topicLower.includes('marine'))
+    if (topicLower.includes('ocean') || topicLower.includes('water'))
       return 'ocean';
-    if (topicLower.includes('dinosaur') || topicLower.includes('ancient'))
-      return 'dinosaur';
-    if (topicLower.includes('robot') || topicLower.includes('machine') || topicLower.includes('computer'))
+    if (topicLower.includes('robot') || topicLower.includes('machine'))
       return 'robot';
-    if (topicLower.includes('magic') || topicLower.includes('fantasy'))
-      return 'magical';
     return 'ufo'; // default theme
   };
 
@@ -151,11 +168,11 @@ const LessonViewer: React.FC<LessonViewerProps> = ({
         </div>
       </div>
       
-      {/* Main content */}
+      {/* Main content - simplified rendering for better performance */}
       <div className="bg-white p-5 rounded-lg shadow-sm">
         <div className="text-base md:text-lg space-y-4 leading-relaxed font-sans">
           {contentToShow.split('\n\n').map((paragraph, idx) => (
-            <p key={idx}>{paragraph}</p>
+            <p key={idx} className={idx === 0 ? "first-paragraph" : ""}>{paragraph}</p>
           ))}
         </div>
       </div>
@@ -175,43 +192,20 @@ const LessonViewer: React.FC<LessonViewerProps> = ({
         </div>
       )}
       
-      {/* Video and images section */}
-      {videoUrl && (
-        <div className="my-6 bg-eduPastel-gray p-3 rounded-lg">
-          <h3 className="text-lg font-semibold mb-3">{t('lesson.videoResource') || 'Video Resource'}</h3>
-          <div className="relative aspect-video">
-            <iframe
-              className="absolute w-full h-full rounded-md"
-              src={videoUrl}
-              title={`Video about ${subtopic || topic}`}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            />
-          </div>
-        </div>
-      )}
-      
-      {images.length > 0 && (
+      {/* Only show images if explicitly provided and needed */}
+      {images && images.length > 0 && (
         <div className="mt-6">
           <h3 className="text-lg font-semibold mb-3">{t('lesson.visualResources') || 'Visual Resources'}</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {images.map((img, idx) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {images.slice(0, 2).map((img, idx) => (
               <div key={idx} className="group relative">
                 <img 
                   src={img.url} 
                   alt={img.alt} 
-                  className="rounded-md shadow-md group-hover:scale-105 transition-transform object-cover w-full aspect-square" 
+                  className="rounded-md shadow-md object-cover w-full aspect-square" 
+                  loading="lazy"
                 />
                 {img.caption && <p className="text-xs text-muted-foreground mt-1">{img.caption}</p>}
-                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/30 rounded-md">
-                  <Button 
-                    size="sm" 
-                    className="bg-white text-black hover:bg-white/90"
-                    onClick={() => window.open(img.url, '_blank')}
-                  >
-                    {t('lesson.viewImage') || 'View Full Image'}
-                  </Button>
-                </div>
               </div>
             ))}
           </div>
@@ -221,4 +215,4 @@ const LessonViewer: React.FC<LessonViewerProps> = ({
   );
 };
 
-export default LessonViewer; 
+export default LessonViewer;
