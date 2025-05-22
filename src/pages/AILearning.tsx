@@ -1,3 +1,5 @@
+
+// Update the AILearning page to support subtopic selection
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
@@ -19,7 +21,7 @@ const AILearning = () => {
   const { language } = useLanguage();
   const [subject, setSubject] = useState('Science');
   const [topic, setTopic] = useState('');
-  const [subtopic, setSubtopic] = useState(''); // Initialize with empty string instead of null
+  const [subtopic, setSubtopic] = useState('');  // Added subtopic state
   const [isNormalFlow, setIsNormalFlow] = useState(true);
   const [students, setStudents] = useState<Student[]>([]);
 
@@ -78,7 +80,7 @@ const AILearning = () => {
     if (selectedSubtopic) {
       setSubtopic(selectedSubtopic);
     } else {
-      setSubtopic(''); // Using empty string instead of null
+      setSubtopic('');
     }
 
     // Toggle back to normal flow
@@ -89,7 +91,7 @@ const AILearning = () => {
   const handleSubjectChange = useCallback((newSubject: string) => {
     setSubject(newSubject);
     setTopic('');
-    setSubtopic(''); // Using empty string instead of undefined or null
+    setSubtopic(''); // Clear subtopic when subject changes
   }, []);
 
   // Create learning content
@@ -102,14 +104,9 @@ const AILearning = () => {
     const pathParams = new URLSearchParams({
       subject,
       topic,
+      ...(selectedSubtopic && { subtopic: selectedSubtopic }),
       grade: gradeLevel
     });
-    
-    // Add subtopic to params only if it exists and is not empty
-    const subtopicToUse = selectedSubtopic || subtopic;
-    if (subtopicToUse) {
-      pathParams.append('subtopic', subtopicToUse);
-    }
     
     navigate(`/ai-lesson?${pathParams.toString()}`);
   }, [subject, topic, subtopic, gradeLevel, navigate, language]);
@@ -246,7 +243,7 @@ const AILearning = () => {
                   onSelectTopic={handleSelectTopic}
                   onBackClick={handleBackToSelector}
                   gradeLevel={gradeLevel}
-                  currentGrade={selectedProfile?.gradeLevel || undefined}
+                  currentGrade={selectedProfile?.gradeLevel}
                 />
               </div>
             )}

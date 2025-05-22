@@ -1,9 +1,8 @@
-
 export interface AIEducationContentRequest {
   contentType: 'lesson' | 'quiz' | 'game' | 'buddy';
   subject?: string;
   topic?: string;
-  subtopic?: string;
+  subtopic?: string; // Add this missing property
   gradeLevel?: 'k-3' | '4-6' | '7-9';
   questionCount?: number;
   difficultyLevel?: 'easy' | 'medium' | 'hard';
@@ -27,7 +26,7 @@ export interface LessonMetadata {
   title: string;
   subject: string;
   topic: string;
-  subtopic?: string;
+  subtopic?: string; // Add subtopic field
   gradeLevel: string;
   createdAt: string;
   updatedAt?: string;
