@@ -1,12 +1,14 @@
-import { NextApiRequest, NextApiResponse } from 'next';
+
+// This file is for an Express.js API route rather than Next.js
 import OpenAI from 'openai';
+import { Request, Response } from 'express';
 
 // Initialize OpenAI client
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(req: Request, res: Response) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -45,4 +47,4 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       details: error.message
     });
   }
-} 
+}

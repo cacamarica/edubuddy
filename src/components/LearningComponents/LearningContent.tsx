@@ -159,7 +159,6 @@ const LearningContent: React.FC<LearningContentProps> = ({
         subject={subject}
         gradeLevel={effectiveGradeLevel}
         topic={topic}
-        limitProgress={!user}
         studentId={studentId}
         recommendationId={recommendationId}
         onComplete={handleLessonComplete}
