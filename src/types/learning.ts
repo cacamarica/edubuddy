@@ -3,6 +3,7 @@ export interface AIEducationContentRequest {
   contentType: 'lesson' | 'quiz' | 'game' | 'buddy';
   subject?: string;
   topic?: string;
+  subtopic?: string; // Add this missing property
   gradeLevel?: 'k-3' | '4-6' | '7-9';
   questionCount?: number;
   difficultyLevel?: 'easy' | 'medium' | 'hard';
@@ -173,7 +174,7 @@ export interface Student {
   grade_level: string;
   parent_id: string;
   created_at: string;
-  age?: number;
+  age?: number; // Changed from number | undefined to accommodate null values
   avatar_url?: string;
 }
 
@@ -181,7 +182,8 @@ export interface StudentProfile {
   id: string;
   name: string;
   age: number;
-  gradeLevel: string;
+  gradeLevel: string; // This is camelCase
+  grade_level?: string; // Add this for compatibility with some components
   parentId: string;
   createdAt: string;
   avatarUrl?: string;
@@ -227,6 +229,7 @@ export const convertToStudentProfile = (student: Student): StudentProfile => {
     name: student.name,
     age: student.age || 10,
     gradeLevel: student.grade_level,
+    grade_level: student.grade_level, // Add this for backward compatibility
     parentId: student.parent_id,
     createdAt: student.created_at,
     avatarUrl: student.avatar_url

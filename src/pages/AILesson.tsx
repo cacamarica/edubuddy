@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Card, CardContent } from "@/components/ui/card";
@@ -39,7 +38,7 @@ const AILesson: React.FC = () => {
   
   const subject = queryParams.get('subject') || '';
   const topic = queryParams.get('topic') || '';
-  const gradeLevel = selectedProfile?.grade_level || queryParams.get('grade') || '1';
+  const gradeLevel = selectedProfile?.gradeLevel || queryParams.get('grade') || '1';
   
   const [isGenerating, setIsGenerating] = useState(false);
   const [lessonId, setLessonId] = useState<string | null>(null);
@@ -137,7 +136,7 @@ const AILesson: React.FC = () => {
               
               {selectedProfile ? (
                 <p className="mb-4 text-muted-foreground">
-                  {t('ai_lesson.personalized_for')} {selectedProfile.name}, {t('grade')} {selectedProfile.grade_level}
+                  {t('ai_lesson.personalized_for')} {selectedProfile.name}, {t('grade')} {selectedProfile.gradeLevel}
                 </p>
               ) : (
                 <p className="mb-4 text-muted-foreground">

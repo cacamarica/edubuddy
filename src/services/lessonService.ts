@@ -1,5 +1,7 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { getAIEducationContent } from "./aiEducationService";
+import { toast } from 'sonner'; // Import toast from sonner
 
 // Types for lesson materials and progress
 export interface LessonChapter {
@@ -49,7 +51,7 @@ export interface LessonProgress {
 }
 
 // Helper function to safely parse JSON data
-function safeParseJson<T>(jsonData: Json | null, defaultValue: T): T {
+function safeParseJson<T>(jsonData: any, defaultValue: T): T {
   if (jsonData === null) return defaultValue;
   
   if (typeof jsonData === 'object') {

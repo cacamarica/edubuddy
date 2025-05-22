@@ -51,8 +51,8 @@ const StudentProfileSelector: React.FC<StudentProfileSelectorProps> = ({
             grade_level: item.grade_level,
             parent_id: item.parent_id,
             created_at: item.created_at,
-            avatar_url: item.avatar_url,
-            age: item.age
+            avatar_url: item.avatar_url || undefined,
+            age: item.age || undefined  // Convert null to undefined
           }));
           
           setStudents(fetchedStudents);
