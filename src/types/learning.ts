@@ -1,4 +1,3 @@
-
 export interface AIEducationContentRequest {
   contentType: 'lesson' | 'quiz' | 'game' | 'buddy';
   subject?: string;
@@ -27,6 +26,7 @@ export interface LessonMetadata {
   title: string;
   subject: string;
   topic: string;
+  subtopic?: string; // Add subtopic field
   gradeLevel: string;
   createdAt: string;
   updatedAt?: string;

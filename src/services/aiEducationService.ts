@@ -66,17 +66,21 @@ class AIEducationService {
   async generateLesson(options: {
     subject: string;
     topic: string;
+    subtopic?: string;
     gradeLevel: string;
     studentId?: string;
     skipMediaSearch?: boolean;
   }): Promise<any> {
-    const { subject, topic, gradeLevel, studentId, skipMediaSearch = true } = options;
+    const { subject, topic, subtopic, gradeLevel, studentId, skipMediaSearch = true } = options;
     
     try {
+      console.log('Generating lesson with:', { subject, topic, subtopic, gradeLevel });
+      
       const result = await this.generateContent({
         contentType: 'lesson',
         subject,
         topic,
+        subtopic,
         gradeLevel: this.normalizeGradeLevel(gradeLevel),
         studentId,
         skipMediaSearch
@@ -87,7 +91,7 @@ class AIEducationService {
       }
       
       // Generate a unique ID for the lesson
-      const lessonId = `${subject.toLowerCase().replace(/\s+/g, '-')}_${topic.toLowerCase().replace(/\s+/g, '-')}_${Date.now()}`;
+      const lessonId = `${subject.toLowerCase().replace(/\s+/g, '-')}_${topic.toLowerCase().replace(/\s+/g, '-')}${subtopic ? '_' + subtopic.toLowerCase().replace(/\s+/g, '-') : ''}_${Date.now()}`;
       
       return {
         ...result,
@@ -107,18 +111,20 @@ class AIEducationService {
   async generateQuiz(options: {
     subject: string;
     topic: string;
+    subtopic?: string;
     gradeLevel: string;
     questionCount?: number;
     difficultyLevel?: 'easy' | 'medium' | 'hard';
     skipMediaSearch?: boolean;
   }): Promise<any> {
-    const { subject, topic, gradeLevel, questionCount = 10, difficultyLevel = 'medium', skipMediaSearch = true } = options;
+    const { subject, topic, subtopic, gradeLevel, questionCount = 10, difficultyLevel = 'medium', skipMediaSearch = true } = options;
     
     try {
       const result = await this.generateContent({
         contentType: 'quiz',
         subject,
         topic,
+        subtopic,
         gradeLevel: this.normalizeGradeLevel(gradeLevel),
         questionCount,
         difficultyLevel,
@@ -130,7 +136,7 @@ class AIEducationService {
       }
       
       // Generate a unique ID for the quiz
-      const quizId = `${subject.toLowerCase().replace(/\s+/g, '-')}_${topic.toLowerCase().replace(/\s+/g, '-')}_${Date.now()}`;
+      const quizId = `${subject.toLowerCase().replace(/\s+/g, '-')}_${topic.toLowerCase().replace(/\s+/g, '-')}${subtopic ? '_' + subtopic.toLowerCase().replace(/\s+/g, '-') : ''}_${Date.now()}`;
       
       return {
         ...result,
@@ -150,16 +156,18 @@ class AIEducationService {
   async generateGame(options: {
     subject: string;
     topic: string;
+    subtopic?: string;
     gradeLevel: string;
     gameType?: 'puzzle' | 'matching' | 'adventure' | 'quiz';
   }): Promise<any> {
-    const { subject, topic, gradeLevel, gameType = 'matching' } = options;
+    const { subject, topic, subtopic, gradeLevel, gameType = 'matching' } = options;
     
     try {
       const result = await this.generateContent({
         contentType: 'game',
         subject,
         topic,
+        subtopic,
         gradeLevel: this.normalizeGradeLevel(gradeLevel),
         gameType
       });
@@ -169,7 +177,7 @@ class AIEducationService {
       }
       
       // Generate a unique ID for the game
-      const gameId = `${subject.toLowerCase().replace(/\s+/g, '-')}_${topic.toLowerCase().replace(/\s+/g, '-')}_${Date.now()}`;
+      const gameId = `${subject.toLowerCase().replace(/\s+/g, '-')}_${topic.toLowerCase().replace(/\s+/g, '-')}${subtopic ? '_' + subtopic.toLowerCase().replace(/\s+/g, '-') : ''}_${Date.now()}`;
       
       return {
         ...result,
@@ -284,4 +292,3 @@ export const aiEducationService = new AIEducationService();
 export const getAIEducationContent = (params: ExtendedAIEducationContentRequest): Promise<AIEducationContentResponse> => {
   return aiEducationService.getAIEducationContent(params);
 };
-
