@@ -1,5 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 import { getChatCompletion } from "@/api/openai";
+import { createTokenEfficientRequest, getOptimalTokens, optimizePrompt } from "@/utils/tokenOptimizer";
+import { APICallTracker } from "@/utils/rateLimiter";
+import { TOKEN_OPTIMIZATION_CONFIG, PLACEHOLDER_IMAGES, FEATURE_FLAGS, FALLBACK_CONTENT } from "@/config/aiOptimizationConfig";
 
 // Interfaces for AI Education Service
 interface AILessonRequest {
@@ -29,6 +32,8 @@ export interface AIEducationContentRequest {
   studentId?: string;
   studentAge?: number;
   studentName?: string;
+  skipMediaSearch?: boolean; // Flag to skip media search for improved performance
+  fastMode?: boolean; // Flag to use faster generation mode
   studentProfile?: {
     age?: number;
     name?: string;
@@ -66,25 +71,93 @@ interface Reference {
   description?: string;
 }
 
+// Global content cache to reduce redundant API calls
+const contentCache = new Map<string, {data: any, timestamp: number}>();
+const CACHE_TTL_HOURS = 24; // Cache content for 24 hours
+
+// Initialize rate limiter for different content types
+const contentRateLimiter = {
+  lesson: new APICallTracker({
+    maxCallsPerMinute: TOKEN_OPTIMIZATION_CONFIG.RATE_LIMITS?.LESSONS_PER_MINUTE || 3,
+    maxCallsPerHour: TOKEN_OPTIMIZATION_CONFIG.RATE_LIMITS?.LESSONS_PER_HOUR || 20,
+    cacheDurationMinutes: TOKEN_OPTIMIZATION_CONFIG.CACHE.TTL_MINUTES
+  }),
+  quiz: new APICallTracker({
+    maxCallsPerMinute: TOKEN_OPTIMIZATION_CONFIG.RATE_LIMITS?.QUIZZES_PER_MINUTE || 5,
+    maxCallsPerHour: TOKEN_OPTIMIZATION_CONFIG.RATE_LIMITS?.QUIZZES_PER_HOUR || 30,
+    cacheDurationMinutes: TOKEN_OPTIMIZATION_CONFIG.CACHE.TTL_MINUTES
+  }),
+  game: new APICallTracker({
+    maxCallsPerMinute: TOKEN_OPTIMIZATION_CONFIG.RATE_LIMITS?.GAMES_PER_MINUTE || 3,
+    maxCallsPerHour: TOKEN_OPTIMIZATION_CONFIG.RATE_LIMITS?.GAMES_PER_HOUR || 20,
+    cacheDurationMinutes: TOKEN_OPTIMIZATION_CONFIG.CACHE.TTL_MINUTES
+  }),
+  chat: new APICallTracker({
+    maxCallsPerMinute: TOKEN_OPTIMIZATION_CONFIG.RATE_LIMITS?.CHATS_PER_MINUTE || 8,
+    maxCallsPerHour: TOKEN_OPTIMIZATION_CONFIG.RATE_LIMITS?.CHATS_PER_HOUR || 50,
+    cacheDurationMinutes: TOKEN_OPTIMIZATION_CONFIG.CACHE.TTL_MINUTES
+  })
+};
+
 export const aiEducationService = {
-  // Fetch AI-generated lesson content
+  // Fetch AI-generated lesson content - optimized for speed
   async generateLesson(params: AILessonRequest): Promise<AILessonResponse> {
     try {
-      // This is a placeholder that would normally call a Supabase function or API
-      // For now, we'll return some dummy content
-      return {
-        title: `${params.topic} - ${params.subject}`,
-        content: `This is an AI-generated lesson about ${params.topic} for ${params.gradeLevel} grade level students.`,
-        recommendations: ["Practice with related quizzes", "Explore additional resources"],
-        summary: `A summary of the ${params.topic} lesson for ${params.gradeLevel} students.`,
+      // Generate cache key for this specific request
+      const cacheKey = `ai_lesson_${params.topic}_${params.gradeLevel}_${params.language || 'en'}`;
+      
+      // Check storage cache first for fastest response
+      const cachedLesson = sessionStorage.getItem(cacheKey);
+      if (cachedLesson) {
+        console.log('Using session-cached lesson content');
+        return JSON.parse(cachedLesson);
+      }
+      
+      // Check memory cache next
+      const memoryCached = contentCache.get(cacheKey);
+      if (memoryCached && (Date.now() - memoryCached.timestamp < CACHE_TTL_HOURS * 60 * 60 * 1000)) {
+        console.log('Using memory-cached lesson content');
+        // Store in session storage for future use
+        try {
+          sessionStorage.setItem(cacheKey, JSON.stringify(memoryCached.data));
+        } catch (e) {
+          console.warn('Failed to cache lesson in session storage:', e);
+        }
+        return memoryCached.data;
+      }
+      
+      // Create simplified lesson structure
+      const lessonResponse = {
+        title: `Learning about ${params.topic}`,
+        content: `AI-generated content about ${params.topic} for ${params.gradeLevel} level students.`,
+        recommendations: [
+          "Practice with the interactive quiz to test your understanding", 
+          "Try the hands-on activity to apply your knowledge"
+        ],
+        summary: `Key points about ${params.topic} that you should remember`,
         lessonId: `lesson-${Date.now()}`
       };
+      
+      // Store in both caches
+      try {
+        sessionStorage.setItem(cacheKey, JSON.stringify(lessonResponse));
+        contentCache.set(cacheKey, {
+          data: lessonResponse,
+          timestamp: Date.now()
+        });
+      } catch (e) {
+        console.warn('Failed to cache lesson content:', e);
+      }
+      
+      return lessonResponse;
     } catch (error) {
       console.error("Error generating AI lesson:", error);
+      // Return minimal fallback content on error
       return {
-        title: "Error",
-        content: "Could not generate lesson content",
-        error: "Could not generate lesson content"
+        title: params.topic,
+        content: "Loading educational content about " + params.topic,
+        recommendations: ["Try refreshing the page"],
+        lessonId: `lesson-${Date.now()}`
       };
     }
   },
@@ -117,278 +190,84 @@ export const aiEducationService = {
 
 // Function to query OpenAI for detailed chapter content with references
 async function getEnhancedChapterContent(topic: string, chapterTitle: string, subject: string, gradeLevel: string): Promise<ChapterContent> {
+  console.log(`Generating enhanced chapter content for "${chapterTitle}" in ${topic}`);
+  
+  // Generate cache key for this specific content request
+  const cacheKey = `chapter_${topic}_${chapterTitle}_${subject}_${gradeLevel}`.replace(/\s+/g, '_');
+  
+  // Check cache first
+  const cachedContent = contentCache.get(cacheKey);
+  if (cachedContent && (Date.now() - cachedContent.timestamp < CACHE_TTL_HOURS * 60 * 60 * 1000)) {
+    console.log('Using cached chapter content');
+    return cachedContent.data;
+  }
+  
   try {
-    console.log(`Starting enhanced content generation for: ${chapterTitle}`);
+    // Create token efficient prompt for core content
+    const coreContentMessages = createTokenEfficientRequest(
+      `You are an exceptional teacher for ${gradeLevel} students. Create engaging educational content about "${chapterTitle}" in "${topic}".`,
+      `Write educational content about "${chapterTitle}" in "${topic}" for ${gradeLevel} students.
+      
+      Focus on:
+      - Clear explanations with 3-4 relatable examples
+      - Important terms in **bold**
+      - Addressing common misconceptions
+      - Connecting to students' experiences
+      
+      Make this engaging like a great teacher explaining to an interested class.`
+    );
     
-    // First request: Get core content for the chapter - improved for more engaging, conversational teacher-like content
-    const coreContentMessages = [
-      {
-        role: "system" as "system",
-        content: `You are an exceptional, passionate teacher for ${gradeLevel} students learning about ${subject}. 
-        Create engaging, clear, and conversational educational content as if you're directly speaking to your students.
-        Your content MUST be specifically about "${chapterTitle}" as it relates to "${topic}" - ensure strong topical relevance.
-        
-        IMPORTANT TEACHER GUIDELINES:
-        - Use a warm, conversational tone like a great teacher explaining to students
-        - Explain concepts clearly using simple, everyday language and relatable examples
-        - Include "I'll explain this to you..." or "Let's think about this..."
-        - Break down difficult concepts with relevant analogies students can understand
-        - Add occasional rhetorical questions to engage students (e.g., "Have you ever wondered...?")
-        - Highlight key terms and concepts in **bold** with clear explanations
-        - Use excitement and enthusiasm in your tone ("Isn't that amazing?")
-        - Include 3-4 meaningful, memorable examples students can relate to their daily lives
-        - Enhance explanations with mini stories, scenarios or thought experiments
-        - Organize content with clear section headings that spark curiosity
-        
-        Content structure must include:
-        - A warm introduction connecting to students' experiences
-        - At least 5-6 substantial, conversational paragraphs explaining core concepts
-        - Multiple real-world examples and analogies that make abstract concepts concrete
-        - Section where you directly address common student questions/misconceptions
-        - Brief summary that reinforces key learning points
-        
-        The tone should be like a skilled teacher in a classroom explaining concepts in a way that makes students excited to learn more.`
-      },
-      {
-        role: "user" as "user",
-        content: `Create engaging, teacher-like educational content for a chapter titled "${chapterTitle}" in a lesson about "${topic}" for ${gradeLevel} students.
-        
-        Write this content exactly as if you are an exceptional teacher standing in front of a classroom, explaining this topic to your students. Use a conversational, friendly tone that builds connection with students.
-        
-        Your explanation should:
-        1. Be focused specifically on "${chapterTitle}" as it relates to "${topic}"
-        2. Begin with a warm opener that sparks curiosity about the topic
-        3. Use a mix of clear explanations and engaging questions
-        4. Include 3-4 memorable, concrete examples students can relate to
-        5. Use analogies that simplify complex aspects of the topic
-        6. Highlight important vocabulary in **bold** with student-friendly definitions
-        7. Connect content to students' lives and experiences
-        8. Address 2-3 common questions or misconceptions students typically have
-        9. Include occasional moments of excitement and enthusiasm ("Isn't that fascinating?")
-        10. End with a brief summary that reinforces the main points
-        
-        Make this content genuinely engaging - as if you're teaching a lively, interesting class where students are hanging on your every word. Use the techniques great teachers use to explain concepts clearly while keeping students interested.
-        
-        Focus purely on creating teacher-like educational content. Do NOT include references in this response.`
-      }
-    ];
-
-    // Second request: Get supplementary details with real-world applications kids care about
-    const supplementaryMessages = [
-      {
-        role: "system" as "system",
-        content: `You are an inspiring, enthusiastic teacher who excels at showing ${gradeLevel} students why ${subject} matters in their world.
-        Create supplementary content that shows students why "${chapterTitle}" in "${topic}" is relevant, fascinating, and worth learning about.
-        
-        CONTENT GUIDELINES:
-        - Connect concepts to things students actually care about (games, sports, technology, social media, etc.)
-        - Include 3-4 "Did you know?" fun facts that will genuinely surprise and delight students
-        - Add real, specific examples of how this knowledge is used in careers students find exciting
-        - Incorporate mini-stories about young people using this knowledge in cool ways
-        - Consider cultural relevance to diverse student backgrounds
-        - Address "Why should I care about this?" directly with compelling answers
-        - Add interactive thought experiments students can discuss with friends
-        - Mention current trends, technologies, or issues related to the topic that students follow
-        
-        Make this content as engaging and relevant as possible - content that makes students say "Wow, I never knew this was so interesting!"`
-      },
-      {
-        role: "user" as "user",
-        content: `Create additional supplementary content for a chapter titled "${chapterTitle}" in a lesson about "${topic}" for ${gradeLevel} students that shows them why this topic is actually interesting and relevant to their lives.
-        
-        Include:
-        1. 3-4 "Did you know?" fascinating facts that will genuinely surprise and interest students
-        2. Real examples connecting "${chapterTitle}" to things students actually care about (games, music, sports, social media, etc.)
-        3. Brief stories about how real kids or teens have used knowledge of this topic in cool ways
-        4. 2-3 examples of how this knowledge is applied in careers students find exciting (game design, sports, entertainment, etc.)
-        5. A "Why This Matters To You" section with compelling reasons students should care about this topic
-        6. 1-2 thought experiments or discussion questions students would actually want to talk about with friends
-        
-        Make this content genuinely engaging to students of this age group. Focus on aspects that would make them think "I never knew this topic was so cool!" Use an enthusiastic, relatable tone throughout.`
-      }
-    ];
-
-    // Third request: Get references with detailed citations
-    const referencesMessages = [
-      {
-        role: "system" as "system",
-        content: `You are an expert educational researcher with access to all major academic and educational resources about ${subject}.
-        Create a comprehensive list of high-quality references related to "${topic}" and specifically "${chapterTitle}".
-        Include a mix of textbooks, academic papers, educational websites, videos, and other resources appropriate for ${gradeLevel} students.
-        Each reference should have complete citation information.
-        IMPORTANT: All references MUST be directly relevant to both "${topic}" and "${chapterTitle}" - avoid generic references.`
-      },
-      {
-        role: "user" as "user",
-        content: `Create a comprehensive list of 5-8 high-quality references specifically about "${chapterTitle}" in the context of ${topic} in ${subject}.
-        
-        For each reference, include:
-        1. Title (exact publication title)
-        2. Author(s) full name
-        3. Year of publication/creation
-        4. URL (if available online)
-        5. Publisher/publication name
-        6. Brief description of how this reference relates to "${chapterTitle}" and "${topic}"
-        
-        Return the data as a valid JSON array of reference objects with these fields, suitable for direct parsing.`
-      }
-    ];
-
-    // Make all requests in parallel for better performance
-    console.log(`Making parallel OpenAI requests for ${chapterTitle}`);
-    const [coreCompletion, supplementaryCompletion, referencesCompletion] = await Promise.all([
-      getChatCompletion(coreContentMessages).catch(error => {
+    // Simplified prompt for "why this is cool" section
+    const supplementaryMessages = createTokenEfficientRequest(
+      `You are an inspiring teacher showing ${gradeLevel} students why ${subject} matters in their world.`,
+      `Create content showing why "${chapterTitle}" in "${topic}" is relevant and fascinating.
+      
+      Include:
+      - 2-3 "Did you know?" fun facts
+      - Connections to things students care about (games, sports, technology)
+      - How this knowledge is used in cool careers
+      - Why this matters to students' lives`
+    );
+    
+    // Make parallel requests with optimized tokens
+    const [coreContent, supplementaryContent] = await Promise.all([
+      getChatCompletion(coreContentMessages, {
+        maxTokens: getOptimalTokens('chapter', 'gpt-3.5-turbo'),
+        model: 'gpt-3.5-turbo'
+      }).catch(error => {
         console.error(`Error in core content generation: ${error}`);
-        return { content: `# ${chapterTitle}\n\nCore content unavailable. Please try again later.` };
+        return { content: `# ${chapterTitle}\n\nContent temporarily unavailable. Please check back later.` };
       }),
-      getChatCompletion(supplementaryMessages).catch(error => {
+      getChatCompletion(supplementaryMessages, {
+        maxTokens: 800, 
+        model: 'gpt-3.5-turbo'
+      }).catch(error => {
         console.error(`Error in supplementary content generation: ${error}`);
         return { content: '' };
-      }),
-      getChatCompletion(referencesMessages).catch(error => {
-        console.error(`Error in references generation: ${error}`);
-        return { content: '[]' };
       })
     ]);
     
-    // Validate topic relevance in the generated content
-    const coreContent = coreCompletion.content;
-    const lowerCaseContent = coreContent.toLowerCase();
-    const lowerCaseTopic = topic.toLowerCase();
-    const lowerCaseChapterTitle = chapterTitle.toLowerCase();
+    // Combine the content sections
+    const combinedText = `# ${chapterTitle}\n\n${coreContent.content}\n\n## Why This Is Actually Cool\n\n${supplementaryContent.content}`;
     
-    // Check if the content adequately mentions the topic and chapter title
-    const topicMentions = countOccurrences(lowerCaseContent, lowerCaseTopic);
-    const chapterTitleMentions = countOccurrences(lowerCaseContent, lowerCaseChapterTitle);
-    
-    // If content doesn't mention topic enough times, request improved content
-    if (topicMentions < 3 || chapterTitleMentions < 2) {
-      console.log(`Content not sufficiently relevant to topic (${topicMentions} topic mentions, ${chapterTitleMentions} chapter mentions), requesting improved content...`);
-      
-      // Request more relevant content with teacher-like approach
-      const improvedContentMessages = [
-        {
-          role: "system" as "system",
-          content: `You are a passionate, engaging teacher who explains concepts clearly and makes learning exciting.
-          The previous content did not adequately address the specific topic.
-          Create new teacher-like content that frequently and meaningfully references "${topic}" and "${chapterTitle}".
-          Use a warm, conversational tone as if speaking directly to your students, explaining this specific topic in an engaging way.`
-        },
-        {
-          role: "user" as "user",
-          content: `The following content about "${chapterTitle}" in the context of "${topic}" is not sufficiently focused on the requested topic:
-          
-          ${coreContent}
-          
-          Please rewrite this as an engaging, conversational teacher explanation that is much more focused on "${topic}" and specifically the aspect covered by "${chapterTitle}".
-          
-          Write as if you are standing in front of a classroom of ${gradeLevel} students, explaining this topic with enthusiasm and clarity. Use a friendly, conversational tone throughout.
-          
-          Your improved explanation should:
-          1. Use phrases like "Let me explain..." or "Have you ever wondered..." that a teacher would use
-          2. Frequently and meaningfully mention "${topic}" (at least 5-8 times)
-          3. Specifically address "${chapterTitle}" as an aspect of "${topic}" (at least 3-5 times)
-          4. Include 3-4 concrete, relatable examples students can easily understand
-          5. Use analogies that simplify the concept (e.g., "It's like..." or "Think of it this way...")
-          6. Address students directly with questions and encouragement
-          7. Highlight key terms in **bold** with clear, simple explanations
-          8. Include at least 5-7 substantial, conversational paragraphs
-          
-          Format the content with markdown, including appropriate headers, emphasis, and structure.`
-        }
-      ];
-      
-      try {
-        const improvedCompletion = await getChatCompletion(improvedContentMessages);
-        // Use the improved content instead
-        const updatedContent = improvedCompletion.content;
-        
-        // Combine the improved core content with supplementary content
-        const combinedText = `# ${chapterTitle}\n\n${updatedContent}\n\n## Why This Is Actually Cool\n\n${supplementaryCompletion.content}`;
-        
-        console.log(`Successfully generated improved content for ${chapterTitle} with better topic relevance`);
-        
-        // Parse references
-        let references: Reference[] = parseReferences(referencesCompletion.content);
-        
-        return {
-          text: combinedText,
-          references: references
-        };
-      } catch (error) {
-        console.error(`Error generating improved content: ${error}`);
-        // Continue with the original content
-      }
-    }
-    
-    // Check if the content has at least 5 paragraphs, if not, add additional paragraphs
-    const paragraphs = coreContent.split('\n\n').filter(para => para.trim().length > 0);
-    
-    let finalCoreContent = coreContent;
-    if (paragraphs.length < 5) {
-      console.log(`Content has only ${paragraphs.length} paragraphs, requesting additional content...`);
-      
-      // Request additional paragraphs with teacher-like approach
-      const additionalContentMessages = [
-        {
-          role: "system" as "system",
-          content: `You are an exceptional, enthusiastic teacher for ${gradeLevel} students. 
-          You need to add more to your lesson explanation to make it more engaging and comprehensive.
-          The existing content is your lesson about "${chapterTitle}" in "${topic}" for your students.
-          Add 3-4 more conversational paragraphs that expand on different aspects of the topic using a teacher's tone.
-          Focus on providing relatable examples, addressing common student questions, and making the material engaging.`
-        },
-        {
-          role: "user" as "user",
-          content: `The following is part of your lesson explanation about "${chapterTitle}" in "${topic}" for your ${gradeLevel} students, but it needs additional content:
-          
-          ${coreContent}
-          
-          Please add 3-4 more conversational teacher-like paragraphs that would make this lesson more engaging and complete. Write as if you're speaking directly to your students.
-          
-          Your additional content should include:
-          1. At least one relatable real-world example or analogy
-          2. A section addressing common questions students might have
-          3. An engaging "Did you know?" section with interesting facts
-          4. Content that makes students understand why this matters to their lives
-          
-          Keep your tone warm, enthusiastic and conversational throughout, like a great teacher explaining to their class.`
-        }
-      ];
-      
-      try {
-        const additionalCompletion = await getChatCompletion(additionalContentMessages);
-        // Extract just the new paragraphs from the response
-        const newContent = additionalCompletion.content
-          .replace(/^Here are (some )?additional paragraphs:/i, '')
-          .replace(/^I've added (some )?additional paragraphs:/i, '')
-          .trim();
-        
-        // Append the new content to the existing content
-        finalCoreContent = `${coreContent}\n\n## More Great Things to Know\n\n${newContent}`;
-        console.log(`Successfully added additional paragraphs. Total length now: ${finalCoreContent.length} chars`);
-      } catch (error) {
-        console.error(`Error generating additional paragraphs: ${error}`);
-        // Continue with the content we have
-      }
-    }
-    
-    // Parse references
-    let references: Reference[] = parseReferences(referencesCompletion.content);
-    
-    // Combine the core content and supplementary content with a more engaging title
-    const combinedText = `# ${chapterTitle}\n\n${finalCoreContent}\n\n## Why This Is Actually Cool\n\n${supplementaryCompletion.content}`;
-    
-    console.log(`Successfully generated enhanced content for ${chapterTitle} (${combinedText.length} chars, ${references.length} references)`);
-    
-    return {
+    // Create result with empty references (removed to reduce API calls)
+    const result: ChapterContent = {
       text: combinedText,
-      references: references
+      references: []
     };
+    
+    // Cache the result for future use
+    contentCache.set(cacheKey, {
+      data: result, 
+      timestamp: Date.now()
+    });
+    
+    return result;
   } catch (error) {
-    console.error("Error getting enhanced chapter content:", error);
+    console.error("Error generating enhanced chapter content:", error);
+    // Return basic fallback content
     return {
-      text: `# ${chapterTitle}\n\nDetailed content for this chapter could not be generated. Please try again later.`,
+      text: `# ${chapterTitle}\n\nContent about ${chapterTitle} in ${topic} for ${gradeLevel} students.\n\nPlease try again later.`,
       references: []
     };
   }
@@ -649,31 +528,69 @@ function generateComprehensiveFunFacts(topic: string, subject: string) {
 // Export getAIEducationContent function with enhanced content generation
 export async function getAIEducationContent(params: AIEducationContentRequest): Promise<{content: any} | null> {
   try {
-    // Log the request parameters
-    console.log("Generating AI content for:", params);
+    // Enhanced logging for debugging
+    console.log("Received params:", params);
+
+    // Validate required parameters
+    if (!params.contentType || !params.topic || !params.subject || !params.gradeLevel) {
+      console.error("Missing required parameters:", params);
+      throw new Error("Missing required parameters for content generation");
+    }
+
+    // Generate cache key based on request parameters
+    const cacheKey = `ai_content_${params.contentType}_${params.subject}_${params.topic}_${params.gradeLevel}_${params.subtopic || ''}_${params.language || 'en'}`;
     
-    // Get student profile information if available
-    const studentProfile = params.studentProfile || {
-      age: params.studentAge,
-      name: params.studentName
-    };
+    // Check session storage cache first (fastest)
+    if (TOKEN_OPTIMIZATION_CONFIG.CACHE.SESSION_STORAGE) {
+      const cachedContent = sessionStorage.getItem(cacheKey);
+      if (cachedContent) {
+        console.log('Using session-cached content');
+        return { content: JSON.parse(cachedContent) };
+      }
+    }
     
-    let content: any = {};
+    // Then check memory cache
+    const memoryCached = contentCache.get(cacheKey);
+    if (memoryCached && (Date.now() - memoryCached.timestamp < CACHE_TTL_HOURS * 60 * 60 * 1000)) {
+      console.log('Using memory-cached content');
+      
+      // Update session storage with this cached content
+      if (TOKEN_OPTIMIZATION_CONFIG.CACHE.SESSION_STORAGE) {
+        try {
+          sessionStorage.setItem(cacheKey, JSON.stringify(memoryCached.data));
+        } catch (e) {
+          console.warn('Failed to cache content in session storage:', e);
+        }
+      }
+      
+      return { content: memoryCached.data };
+    }
+    
+    // Check if we're allowed to make an API call based on rate limits
+    const rateLimiter = contentRateLimiter[params.contentType];
+    if (!rateLimiter.canMakeCall()) {
+      throw new Error('Rate limit exceeded');
+    }
+
+    // Log rate limiter state
+    if (!rateLimiter) {
+      console.error("Rate limiter not found for content type:", params.contentType);
+      throw new Error("Rate limiter configuration missing");
+    }
+    console.log("Rate limiter state:", rateLimiter);
+    
+    let content: any;
+    const studentProfile = params.studentProfile || {};
     
     if (params.contentType === 'lesson') {
-      // Create a combined context for better content generation
-      const combinedContext = params.subtopic 
-        ? `${params.subject}: ${params.topic} - ${params.subtopic}`
-        : `${params.subject}: ${params.topic}`;
-      
-      // First, generate a focused introduction to the topic
+      // Generate comprehensive lesson content with enhanced chapters
       const introductionMessages = [
         {
           role: "system" as "system",
           content: `You are an expert educational content creator for ${params.gradeLevel} students learning about ${params.subject}.
           ${params.subtopic ? 
-            `Create a focused, comprehensive introduction about "${params.subtopic}" which is a specific concept within "${params.topic}".
-            The introduction must treat "${params.subtopic}" as THE primary subject, not merely as a subtopic.` 
+            `Create a focused, comprehensive introduction about "${params.subtopic}" as a specific concept within the broader topic of "${params.topic}".
+            The introduction should be engaging and educational.` 
           : 
             `Create a focused, comprehensive introduction about "${params.topic}" that is engaging and educational.`
           }
@@ -795,11 +712,68 @@ export async function getAIEducationContent(params: AIEducationContentRequest): 
       
       // Execute all remaining API calls in parallel
       const [introductionResponse, conclusionResponse, funFactsResponse, activityResponse] = await Promise.all([
-        getChatCompletion(introductionMessages),
-        getChatCompletion(conclusionMessages),
-        getChatCompletion(funFactsMessages),
-        getChatCompletion(activityMessages)
+        getChatCompletion(introductionMessages).catch(error => {
+          console.error("Error generating introduction:", error);
+          return { content: "" };
+        }),
+        getChatCompletion(conclusionMessages).catch(error => {
+          console.error("Error generating conclusion:", error);
+          return { content: "" };
+        }),
+        getChatCompletion(funFactsMessages).catch(error => {
+          console.error("Error generating fun facts:", error);
+          return { content: "" };
+        }),
+        getChatCompletion(activityMessages).catch(error => {
+          console.error("Error generating activity:", error);
+          return { content: "" };
+        })
       ]);
+
+      console.log("Raw API responses:", {
+        introductionResponse,
+        conclusionResponse,
+        funFactsResponse,
+        activityResponse
+      });
+
+      // Add fallback content if API responses are invalid
+      if (!introductionResponse.content) {
+        introductionResponse.content = `Welcome to our lesson on ${params.topic} in ${params.subject}! This lesson will introduce you to the key concepts of ${params.topic}.`;
+      }
+      if (!conclusionResponse.content) {
+        conclusionResponse.content = `In conclusion, we've explored the fascinating aspects of ${params.topic}. Keep learning and applying these concepts in your studies!`;
+      }
+      if (!funFactsResponse.content) {
+        funFactsResponse.content = generateComprehensiveFunFacts(params.topic, params.subject).join("\n");
+      }
+      if (!activityResponse.content) {
+        activityResponse.content = JSON.stringify({
+          title: `Explore ${params.topic}`,
+          materials: ["Paper", "Pencil"],
+          instructions: ["Write down what you know about ${params.topic}", "Discuss with a partner"],
+          timeRequired: "15 minutes",
+          discussionQuestions: ["What did you learn about ${params.topic}?"],
+          learningObjectives: ["Understand the basics of ${params.topic}"]
+        });
+      }
+
+      // Log fallback content for debugging
+      console.log("Fallback content used:", {
+        introduction: introductionResponse.content,
+        conclusion: conclusionResponse.content,
+        funFacts: funFactsResponse.content,
+        activity: activityResponse.content
+      });
+
+      // Validate API responses
+      if (!introductionResponse.content || !conclusionResponse.content) {
+        console.error("Invalid API response:", {
+          introductionResponse,
+          conclusionResponse
+        });
+        throw new Error("Failed to generate lesson content");
+      }
       
       // Process fun facts - extract just the facts
       const factMatches = funFactsResponse.content.match(/Fun fact:.*?(?=\n|$)/gi) || [];
@@ -856,7 +830,7 @@ export async function getAIEducationContent(params: AIEducationContentRequest): 
         // Fall back to default activity defined above
       }
       
-      content = {
+      const content = {
         title: params.topic,
         introduction: introduction,
         mainContent: chapters,
@@ -865,6 +839,14 @@ export async function getAIEducationContent(params: AIEducationContentRequest): 
         conclusion: conclusion,
         summary: `In this lesson, we explored ${params.topic} in the context of ${params.subject}. We covered key concepts, practical applications, and much more across ${chapters.length} detailed chapters. We examined how ${params.topic} relates to real-world situations and considered its importance in ${params.subject}.`
       };
+
+      // Log final content for debugging
+      console.log("Generated content:", {
+        introduction: introductionResponse.content,
+        conclusion: conclusionResponse.content,
+        funFacts: funFactsResponse.content,
+        activity: activityResponse.content
+      });
     } else if (params.contentType === 'quiz') {
       // Enhanced quiz content with subtopic support
       const topicToFocusOn = params.subtopic || params.topic;
@@ -956,13 +938,13 @@ export async function getAIEducationContent(params: AIEducationContentRequest): 
           ];
         }
         
-        content = {
+        const content = {
           questions: parsedContent
         };
       } catch (error) {
         console.error("Error generating quiz content:", error);
         // Fallback content
-        content = {
+        const content = {
           questions: [
             {
               question: `What is a key characteristic of ${topicToFocusOn}?`,
@@ -1078,11 +1060,11 @@ export async function getAIEducationContent(params: AIEducationContentRequest): 
           };
         }
         
-        content = parsedContent;
+        const content = parsedContent;
       } catch (error) {
         console.error("Error generating game content:", error);
         // Fallback content
-        content = {
+        const content = {
           title: `${topicToFocusOn} Game`,
           objective: `Learn about ${topicToFocusOn} through play and hands-on activities`,
           materials: ["Paper", "Pencil", "Imagination"],

@@ -1,4 +1,3 @@
-
 // NOTE: This file is designed to run in Supabase Edge Functions with Deno runtime
 // These imports and globals won't be recognized in a regular Node.js environment 
 // but will work correctly when deployed to Supabase
@@ -51,6 +50,12 @@ interface LessonContent {
   challengeQuestions?: string[];
 }
 
+// Cache for storing generated content
+const contentCache = new Map<string, {content: any, timestamp: number}>();
+const CACHE_TTL_HOURS = 24; // Cache TTL in hours
+const MAX_RETRY_ATTEMPTS = 2;
+const REQUEST_TIMEOUT_MS = 35000; // 35 seconds timeout
+
 // Deno.env is a Deno-specific API to access environment variables
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
@@ -58,6 +63,39 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Rate limiting implementation
+class RateLimiter {
+  private static calls: {timestamp: number, topic: string}[] = [];
+  private static readonly MAX_CALLS_PER_MINUTE = 10;
+  private static readonly MAX_DUPLICATE_CALLS_PER_HOUR = 3;
+  
+  static canMakeCall(topic: string): boolean {
+    const now = Date.now();
+    // Clean up old calls
+    RateLimiter.calls = RateLimiter.calls.filter(call => now - call.timestamp < 3600000);
+    
+    // Check calls in last minute
+    const callsLastMinute = RateLimiter.calls.filter(call => now - call.timestamp < 60000).length;
+    if (callsLastMinute >= this.MAX_CALLS_PER_MINUTE) {
+      console.log(`Rate limit exceeded: ${callsLastMinute} calls in the last minute`);
+      return false;
+    }
+    
+    // Check duplicate topic calls in the last hour
+    const duplicateCalls = RateLimiter.calls.filter(call => call.topic === topic).length;
+    if (duplicateCalls >= this.MAX_DUPLICATE_CALLS_PER_HOUR) {
+      console.log(`Rate limit exceeded: ${duplicateCalls} duplicate calls for topic "${topic}" in the last hour`);
+      return false;
+    }
+    
+    return true;
+  }
+  
+  static recordCall(topic: string): void {
+    RateLimiter.calls.push({timestamp: Date.now(), topic});
+  }
+}
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -82,85 +120,132 @@ serve(async (req) => {
     }
 
     console.log(`Generating lesson for ${topic} in ${subject} (grade ${gradeLevel}, language: ${language})`);
+    
+    // Generate cache key based on request parameters
+    const cacheKey = `${subject}_${topic}_${gradeLevel}_${language}_${skipMediaSearch}`;
+    
+    // Check cache first
+    const cachedContent = contentCache.get(cacheKey);
+    if (cachedContent && (Date.now() - cachedContent.timestamp < CACHE_TTL_HOURS * 60 * 60 * 1000)) {
+      console.log(`Using cached lesson for ${topic}`);
+      return new Response(JSON.stringify({ content: cachedContent.content }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
+    // Check rate limits
+    if (!RateLimiter.canMakeCall(topic)) {
+      // Return a simplified error response to avoid API costs when rate limited
+      return new Response(JSON.stringify({ 
+        error: "Rate limit exceeded. Please try again later.",
+        content: {
+          title: `Learning about ${topic}`,
+          introduction: "This content is being prepared. Please try again in a few minutes.",
+          chapters: [
+            {
+              heading: "Content unavailable",
+              text: "We're currently experiencing high demand. Please try again shortly.",
+            }
+          ],
+          funFacts: ["Did you know? Our system manages requests carefully to ensure everyone gets access."],
+          activities: [],
+          conclusion: "Thank you for your patience.",
+          summary: "Please try again later."
+        }
+      }), {
+        status: 429,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
-    // Create a prompt for OpenAI - optimized for faster generation
+    // Create a prompt for OpenAI - optimized for faster generation and lower token usage
     const prompt = `
-    Create a comprehensive educational lesson about "${topic}" in ${subject} for grade ${gradeLevel} students in ${language === 'id' ? 'Indonesian' : 'English'} language. 
-    
-    This should be a substantial lesson designed to take students 30-45 minutes to read through. Include rich details, examples, and explanations appropriate for the grade level.
-    
-    The lesson should include:
-    - An engaging title
-    - A thorough introduction that hooks the student
-    - 5-7 detailed chapters/sections with clear headings and substantial content
-    - 3-5 fun facts and interesting information
-    - 1-2 interactive activities or exercises
-    - A thoughtful conclusion that ties everything together
-    - A comprehensive summary of key points
-    
-    ${skipMediaSearch ? '' : 'For each chapter, suggest an image description that would help illustrate the content.'}
+    Create a concise educational lesson about "${topic}" in ${subject} for grade ${gradeLevel} students in ${language === 'id' ? 'Indonesian' : 'English'} language.
     
     Format the response as a JSON object with the following structure:
     {
       "title": "Lesson Title",
-      "introduction": "Thorough introduction text",
+      "introduction": "Brief introduction",
       "chapters": [
         {
-          "heading": "Chapter 1 Title",
-          "text": "Detailed content for chapter 1...",
-          ${skipMediaSearch ? '' : `
-          "image": {
-            "description": "Brief description of an ideal image for this chapter",
-            "alt": "Alt text for accessibility"
-          }`}
-        },
-        // more chapters...
-      ],
-      "funFacts": ["Fun fact 1", "Fun fact 2", "Fun fact 3"],
-      "activities": [
-        {
-          "title": "Activity 1 Title",
-          "instructions": "Detailed instructions for the activity...",
-          "materials": ["Item 1", "Item 2", "Item 3"]
+          "heading": "Chapter Title",
+          "text": "Chapter content..."
         }
       ],
-      "conclusion": "Concluding paragraph",
-      "summary": "Comprehensive summary of key points"
+      "funFacts": ["Fun fact 1", "Fun fact 2"],
+      "activities": [
+        {
+          "title": "Activity Title",
+          "instructions": "Activity instructions..."
+        }
+      ],
+      "conclusion": "Brief conclusion",
+      "summary": "Key points summary"
     }
-    
-    Make the content appropriate for ${gradeLevel} grade level, engaging, educational, and accurate.
     `;
     
     console.log("Sending request to OpenAI API using optimized prompt");
-    
-    // Call OpenAI API to generate the lesson - use gpt-3.5-turbo for faster response
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-3.5-turbo-1106', // Using faster model option
-        messages: [
-          { 
-            role: 'system', 
-            content: 'You are an expert educational content creator specializing in creating engaging lessons for children. Your content is detailed, age-appropriate, and rich with examples and connections to real-world experiences.' 
-          },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.7,
-        max_tokens: 3500, // Reduced token count for faster response
-      }),
-    }).catch(error => {
-      console.error("Error fetching from OpenAI:", error);
-      throw new Error("Failed to connect to OpenAI service");
-    });
 
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => "Unknown error");
-      console.error(`OpenAI API error (${response.status}):`, errorText);
-      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
+    // Record the API call
+    RateLimiter.recordCall(topic);
+    
+    // Call OpenAI API with retry logic
+    let response;
+    let retryCount = 0;
+    let lastError;
+    
+    while (retryCount <= MAX_RETRY_ATTEMPTS) {
+      try {
+        // Create a promise that will reject after timeout
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('OpenAI request timed out')), REQUEST_TIMEOUT_MS);
+        });
+        
+        // Create the actual API call promise
+        const apiCallPromise = fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${openAIApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'gpt-3.5-turbo', // Using faster and less expensive model
+            messages: [
+              { 
+                role: 'system', 
+                content: 'You create concise, educational content for students. Focus on accurate information with minimal verbosity.' 
+              },
+              { role: 'user', content: prompt }
+            ],
+            temperature: 0.7,
+            max_tokens: 2500, // Reduced token count for faster response and lower costs
+          }),
+        });
+        
+        // Race between the timeout and the actual API call
+        response = await Promise.race([timeoutPromise, apiCallPromise]);
+        
+        if (response.ok) {
+          break; // Successful response, break out of retry loop
+        } else {
+          lastError = await response.text().catch(() => "Unknown API error");
+          throw new Error(`OpenAI API error: ${response.status} - ${lastError}`);
+        }
+      } catch (error) {
+        console.error(`Attempt ${retryCount + 1} failed:`, error);
+        lastError = error;
+        
+        if (retryCount < MAX_RETRY_ATTEMPTS) {
+          // Exponential backoff
+          const delay = 1000 * Math.pow(2, retryCount);
+          console.log(`Retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          retryCount++;
+        } else {
+          // All retries failed
+          throw error;
+        }
+      }
     }
 
     const data = await response.json().catch(error => {
@@ -234,6 +319,12 @@ serve(async (req) => {
       };
       
       console.log("Successfully processed lesson content");
+      
+      // Save to cache
+      contentCache.set(cacheKey, {
+        content: processedContent,
+        timestamp: Date.now()
+      });
       
       return new Response(JSON.stringify({ content: processedContent }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

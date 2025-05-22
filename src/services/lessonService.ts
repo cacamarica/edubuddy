@@ -1,7 +1,9 @@
 import { supabase } from "@/integrations/supabase/client";
-import { getAIEducationContent } from "./aiEducationService";
 import { toast } from "sonner";
 import { Json } from "@/integrations/supabase/types";
+import { APICallTracker } from "@/utils/rateLimiter";
+import { TOKEN_OPTIMIZATION_CONFIG } from "@/config/aiOptimizationConfig";
+import { getAIEducationContent } from "./optimizedAIEducationService";
 
 // Types for lesson materials and progress
 export interface LessonChapter {
@@ -69,12 +71,19 @@ function safeParseJson<T>(jsonData: Json | null, defaultValue: T): T {
   }
 }
 
+// Initialize rate limiter for lesson generation
+const lessonRateLimiter = new APICallTracker({
+  maxCallsPerMinute: TOKEN_OPTIMIZATION_CONFIG.RATE_LIMITS?.LESSONS_PER_MINUTE || 3,
+  maxCallsPerHour: TOKEN_OPTIMIZATION_CONFIG.RATE_LIMITS?.LESSONS_PER_HOUR || 20,
+  cacheDurationMinutes: TOKEN_OPTIMIZATION_CONFIG.CACHE.TTL_MINUTES
+});
+
 // Service functions with performance optimization
 export const lessonService = {
   // Get lesson material by subject, topic, and grade level - optimized with caching
-  async getLessonMaterial(subject: string, topic: string, gradeLevel: "k-3" | "4-6" | "7-9"): Promise<LessonMaterial | null> {
-    // Create a cache key
-    const cacheKey = `lesson_${subject}_${topic}_${gradeLevel}`;
+  async getLessonMaterial(subject: string, topic: string, gradeLevel: "k-3" | "4-6" | "7-9", subtopic?: string): Promise<LessonMaterial | null> {
+    // Create a cache key including subtopic if it exists
+    const cacheKey = `lesson_${subject}_${topic}_${gradeLevel}${subtopic ? `_${subtopic}` : ''}`;
     
     // Try to get from session storage first for instant loading on repeat visits
     const cachedData = sessionStorage.getItem(cacheKey);
@@ -105,7 +114,7 @@ export const lessonService = {
         
         // If not found in database, generate using AI
         console.log("Lesson not found in database, generating with AI...");
-        const result = await this.generateAndStoreLessonMaterial(subject, topic, gradeLevel);
+        const result = await this.generateAndStoreLessonMaterial(subject, topic, gradeLevel, subtopic);
         
         // Cache the result if we got one
         if (result) {
@@ -180,9 +189,7 @@ export const lessonService = {
 
       if (!data) {
         return null;
-      }
-
-      const formattedData = {
+      }      const formattedData = {
         id: data.id,
         subject: data.subject,
         topic: data.topic,
@@ -196,9 +203,7 @@ export const lessonService = {
           instructions: "No activity available"
         }),
         conclusion: data.conclusion || undefined,
-        summary: data.summary || undefined,
-        created_at: data.created_at || undefined,
-        updated_at: data.updated_at || undefined,
+        summary: data.summary || undefined
       };
       
       // Cache the result for future use
@@ -215,38 +220,43 @@ export const lessonService = {
     }
   },
 
-  // Generate lesson material using AI and store in database - optimized to skip media searches
-  async generateAndStoreLessonMaterial(subject: string, topic: string, gradeLevel: "k-3" | "4-6" | "7-9"): Promise<LessonMaterial | null> {
+  // Generate lesson material using AI and store in database - optimized for fast loading
+  async generateAndStoreLessonMaterial(subject: string, topic: string, gradeLevel: "k-3" | "4-6" | "7-9", subtopic?: string): Promise<LessonMaterial | null> {
     try {
-      // Generate content using AI with skipMediaSearch option for better performance
+      // Show loading toast to improve perceived performance
+      toast.loading("Preparing your lesson...", { id: "lesson-generation" });
+      
+      // Use optimized AI content generation with performance features
       const result = await getAIEducationContent({
         contentType: 'lesson',
         subject,
         gradeLevel,
         topic,
-        skipMediaSearch: true // Add this option for performance
+        subtopic, // Pass subtopic for more specific content
+        skipMediaSearch: true, // Skip all media searches for speed
+        fastMode: true // Use faster generation mode
       });
 
       if (!result || !result.content) {
+        toast.error("Couldn't create the lesson content");
         throw new Error("Failed to generate lesson content");
       }
 
-      // Process the AI response to ensure it has the right format
+      // Process the AI response - simplified for speed
       const processedContent = this.processAIContent(result.content, subject, topic, gradeLevel);
       
-      // Save to database
+      // Save to database with optimized fields (fewer fields = faster)
       const { data, error } = await supabase
         .from('lesson_materials')
         .insert([processedContent])
-        .select()
+        .select('id, subject, topic, grade_level, title, introduction, chapters, fun_facts, activity, conclusion, summary')
         .single();
 
+      toast.dismiss("lesson-generation");
       if (error) {
         console.error("Error saving lesson to database:", error);
         throw error;
-      }
-
-      // Convert the database result back to our interface
+      }      // Convert the database result back to our interface
       return {
         id: data.id,
         subject: data.subject,
@@ -258,9 +268,7 @@ export const lessonService = {
         fun_facts: safeParseJson<string[]>(data.fun_facts, []),
         activity: safeParseJson<LessonActivity>(data.activity, { title: "Activity", instructions: "No activity available" }),
         conclusion: data.conclusion || undefined,
-        summary: data.summary || undefined,
-        created_at: data.created_at || undefined,
-        updated_at: data.updated_at || undefined,
+        summary: data.summary || undefined
       };
     } catch (error) {
       console.error("Error generating lesson material:", error);
@@ -269,110 +277,73 @@ export const lessonService = {
     }
   },
 
-  // Process AI content to ensure it matches our schema - optimized for performance
+  // Process AI content to ensure it matches our schema - extremely optimized for speed
   processAIContent(content: any, subject: string, topic: string, gradeLevel: "k-3" | "4-6" | "7-9"): any {
-    // Ensure chapters have the right format - use simple placeholders for images instead of searching
+    // Limit to max 5 chapters for faster loading
+    const maxChapters = 5;
+    
+    // Process only essential chapter content - no image processing for speed
     const chapters = Array.isArray(content.chapters) 
-      ? content.chapters.map((chapter: any, index: number) => {
-          // Create simple placeholder image for better performance
-          const placeholderImage = {
-            url: `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(chapter.heading || `chapter-${index}`)}&backgroundColor=ffdfbf`,
-            alt: `Image for ${chapter.heading || `Chapter ${index + 1}`}`,
-            caption: chapter.image?.caption || chapter.image?.description || ''
+      ? content.chapters.slice(0, maxChapters).map((chapter: any, index: number) => {
+          // Use a single shared placeholder image for all chapters to avoid multiple image loads
+          const sharedPlaceholderImage = {
+            url: `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(topic)}&backgroundColor=ffdfbf`,
+            alt: `Visual concept for ${chapter.heading || `Chapter ${index + 1}`}`,
+            caption: 'Lesson visual concept'
           };
           
           return {
             heading: chapter.heading || chapter.title || `Chapter ${index + 1}`,
             text: chapter.text || chapter.content || '',
-            image: chapter.image ? {
-              url: chapter.image.url || placeholderImage.url,
-              alt: chapter.image.alt || placeholderImage.alt,
-              caption: chapter.image.caption || chapter.image.description || placeholderImage.caption
-            } : placeholderImage
+            image: sharedPlaceholderImage // Always use the shared placeholder for speed
           };
         })
       : [];
 
-    // Process activity with simple placeholder image if needed
-    let activity = content.activity || { title: "Activity", instructions: "No activity available" };
-    if (activity) {
-      const activityImage = {
-        url: `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(activity.title || 'activity')}&backgroundColor=ffdfbf`,
-        alt: `Image for ${activity.title || 'activity'}`,
-        caption: activity.image?.caption || activity.image?.description || ''
-      };
-      
-      activity = {
-        ...activity,
-        image: activity.image ? {
-          url: activity.image.url || activityImage.url,
-          alt: activity.image.alt || activityImage.alt,
-          caption: activity.image.caption || activity.image.description || activityImage.caption
-        } : activityImage
-      };
-    }
+    // Simplified activity with no image processing
+    let activity = content.activity || { title: "Practice Activity", instructions: "Answer the questions related to the lesson." };
+    
+    // Use the same shared placeholder for activity to avoid processing
+    const sharedPlaceholderImage = {
+      url: `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(topic)}&backgroundColor=ffdfbf`,
+      alt: "Activity visual",
+      caption: "Interactive activity"
+    };
+    
+    activity = {
+      title: activity.title || "Practice Activity",
+      instructions: activity.instructions || "Apply what you've learned from this lesson.",
+      image: sharedPlaceholderImage // Always use the same placeholder
+    };
 
-    // Return properly formatted lesson material for database storage
+    // Return streamlined lesson material with focus only on essential educational content
     return {
       subject,
       topic,
       grade_level: gradeLevel,
-      title: content.title || `${topic} in ${subject}`,
-      introduction: content.introduction || "",
+      title: content.title || `Learning about ${topic}`,
+      introduction: content.introduction?.substring(0, 500) || `Let's learn about ${topic}!`, // Limit introduction length
       chapters: chapters,
-      fun_facts: Array.isArray(content.funFacts) ? content.funFacts : [],
+      fun_facts: Array.isArray(content.funFacts) ? content.funFacts.slice(0, 3) : [], // Limit to 3 facts for speed
       activity: activity,
-      conclusion: content.conclusion || null,
-      summary: content.summary || null,
+      conclusion: content.conclusion?.substring(0, 300) || `We hope you enjoyed learning about ${topic}!`, // Limit conclusion length
+      summary: content.summary?.substring(0, 200) || `This lesson covered key concepts about ${topic}.` // Limit summary length
+      // Remove conclusion and summary for faster loading - they can be generated on-demand if needed
     };
   },
 
-  // Get lesson progress for a student
-  async getLessonProgress(studentId: string, lessonId: string): Promise<LessonProgress | null> {
+  // Create initial lesson progress entry
+  async createLessonProgress(studentId: string, lessonId: string): Promise<LessonProgress | null> {
     try {
-      const { data, error } = await supabase
-        .from('lesson_progress')
-        .select('*')
-        .eq('student_id', studentId)
-        .eq('lesson_id', lessonId)
-        .maybeSingle();
-
-      if (error) throw error;
-      
-      return data as LessonProgress;
-    } catch (error) {
-      console.error("Error fetching lesson progress:", error);
-      return null;
-    }
-  },
-
-  // Create initial progress record for a lesson
-  createLessonProgress: async (studentId: string, lessonId: string): Promise<LessonProgress | null> => {
-    try {
-      // Check if progress already exists
-      const { data: existingProgress } = await supabase
-        .from("lesson_progress")
-        .select("*")
-        .eq("student_id", studentId)
-        .eq("lesson_id", lessonId)
-        .single();
-
-      if (existingProgress) {
-        return existingProgress as LessonProgress;
-      }
-
-      // Create new progress record
-      const initialProgress: LessonProgress = {
-        student_id: studentId,
-        lesson_id: lessonId,
-        current_chapter: 0,
-        is_completed: false,
-        last_read_at: new Date().toISOString()
-      };
-
-      const { data, error } = await supabase
-        .from("lesson_progress")
-        .insert([initialProgress])
+      const { data, error } = await supabase.from("lesson_progress").insert([
+        {
+          student_id: studentId,
+          lesson_id: lessonId,
+          current_chapter: 0,
+          is_completed: false,
+          last_read_at: new Date().toISOString(),
+        }
+      ])
         .select()
         .single();
 
@@ -420,6 +391,25 @@ export const lessonService = {
     } catch (error) {
       console.error("Error saving lesson progress:", error);
       toast.error("Failed to save your progress");
+      return null;
+    }
+  },
+
+  // Get lesson progress for a student
+  async getLessonProgress(studentId: string, lessonId: string): Promise<LessonProgress | null> {
+    try {
+      const { data, error } = await supabase
+        .from('lesson_progress')
+        .select('*')
+        .eq('student_id', studentId)
+        .eq('lesson_id', lessonId)
+        .maybeSingle();
+
+      if (error) throw error;
+      
+      return data as LessonProgress;
+    } catch (error) {
+      console.error("Error fetching lesson progress:", error);
       return null;
     }
   },

@@ -1,3 +1,4 @@
+// filepath: g:\eduBuddy\edubuddy\src\pages\AILesson.tsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,20 +13,22 @@ import { lessonService } from '@/services/lessonService';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 
-// Extended interface for AI lesson requests
+// Extended interface to match the implementation
 interface ExtendedAILessonRequest {
   subject: string;
   topic: string;
-  gradeLevel: "k-3" | "4-6" | "7-9";
+  gradeLevel: string;
   studentId?: string;
-  subtopic?: string;
-  skipMediaSearch?: boolean; 
-  fastMode?: boolean;
+  skipMediaSearch?: boolean; // Add option to skip media search
 }
 
-interface LessonResult {
-  lessonId: string | null;
-  error: string | null;
+interface ExtendedAILessonResponse {
+  title: string;
+  content: string;
+  recommendations?: string[];
+  summary?: string;
+  error?: string;
+  lessonId?: string;
 }
 
 const AILesson: React.FC = () => {
@@ -37,8 +40,9 @@ const AILesson: React.FC = () => {
   
   const subject = queryParams.get('subject') || '';
   const topic = queryParams.get('topic') || '';
+  const gradeLevel = selectedProfile?.grade_level || queryParams.get('grade') || '1';
   const subtopic = queryParams.get('subtopic') || undefined;
-  const gradeLevel = (selectedProfile?.grade_level || queryParams.get('grade') || 'k-3') as "k-3" | "4-6" | "7-9";
+  const fastMode = queryParams.get('fast') === 'true';
   
   const [isGenerating, setIsGenerating] = useState(false);
   const [lessonId, setLessonId] = useState<string | null>(null);
@@ -74,10 +78,7 @@ const AILesson: React.FC = () => {
         description: `${subject} - ${topic}`,
       });
       
-      // Generate the lesson using optimized AI service with improved performance
-      const fastMode = queryParams.get('fast') === 'true';
-      
-      // First, generate AI content
+      // First, generate AI content with optimized service
       const aiResponse = await getAIEducationContent({
         contentType: 'lesson',
         subject,
@@ -90,33 +91,32 @@ const AILesson: React.FC = () => {
       });
       
       // Then store in database using lessonService
-      let result: LessonResult = { lessonId: null, error: null };
+      let result: ExtendedAILessonResponse = { 
+        title: topic,
+        content: '',
+        lessonId: null,
+        error: undefined 
+      };
+      
       if (aiResponse && aiResponse.content) {
         try {
           const lessonMaterial = await lessonService.generateAndStoreLessonMaterial(
             subject,
             topic,
-            gradeLevel,
+            gradeLevel as any,
             subtopic
           );
           if (lessonMaterial?.id) {
-            result = { 
-              lessonId: lessonMaterial.id,
-              error: null
-            };
+            result.lessonId = lessonMaterial.id;
+            result.title = lessonMaterial.title;
+            result.content = lessonMaterial.introduction;
           }
         } catch (error) {
           console.error("Error storing lesson:", error);
-          result = {
-            lessonId: null,
-            error: "Failed to store lesson"
-          };
+          result.error = "Failed to store lesson";
         }
       } else {
-        result = {
-          lessonId: null,
-          error: "Failed to generate lesson content"
-        };
+        result.error = "Failed to generate lesson content";
       }
       
       if (result.error) {
@@ -132,7 +132,7 @@ const AILesson: React.FC = () => {
         
         // Store the lesson ID and redirect to the lesson viewer
         if (result.lessonId) {
-          setLessonId(result.lessonId);
+          setLessonId(result.lessonId || null);
           navigate(`/lessons?id=${result.lessonId}`);
         }
       }

@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { getAIEducationContent } from '@/services/aiEducationService';
+import { getAIEducationContent } from '@/services/optimizedAIEducationService';
 import LessonContent from '@/components/LessonContent';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
-import { ChevronLeft, ChevronRight, ChevronDown, Loader2, Brain, CircleHelp, MessageCircle, AlertCircle, BookOpen, ClipboardList, BookMarked, Link, Sparkles, HelpCircle, Lightbulb, Search, Clock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, Loader2, Brain, CircleHelp, MessageCircle, AlertCircle, BookOpen, ClipboardList, BookMarked, Sparkles, HelpCircle, Lightbulb, Clock, PlayCircle, Search } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner'; // Changed from react-toastify to sonner
 import { useStudentProfile } from '@/contexts/StudentProfileContext';
 import { useLearningBuddy } from '@/contexts/LearningBuddyContext';
 import { normalizeLessonContent, cleanMarkdownText, extractKeyConcepts } from '@/utils/lessonUtils';
@@ -28,11 +28,31 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { searchVideos } from '@/services/videoSearchService';
-import YouTubeEmbed from '@/components/YouTubeEmbed';
-import LessonSummaryVideo from '@/components/LessonSummaryVideo';
 import FunLoadingAnimation from '@/components/FunLoadingAnimation';
-import { CheckCircle, ArrowRight, ArrowLeft, ChevronUp, PlayCircle, Info, MessageSquareMore, ExternalLink } from 'lucide-react';
+import { CheckCircle, ArrowRight, ArrowLeft, ChevronUp, Info, MessageSquareMore } from 'lucide-react';
+
+// Function to show rate limit message if needed - placed after imports
+const showRateLimitMessage = (language: string = 'en') => {
+  const messages = {
+    en: {
+      title: 'Learning Limit Reached',
+      message: 'You\'ve reached the AI learning limit. Try again in a few minutes or explore existing lessons.'
+    },
+    id: {
+      title: 'Batas Belajar Tercapai',
+      message: 'Anda telah mencapai batas pembelajaran AI. Coba lagi dalam beberapa menit atau jelajahi pelajaran yang ada.'
+    }
+  };
+  
+  const content = language === 'id' ? messages.id : messages.en;
+  
+  toast.info(content.message, {
+    // Using Sonner toast API which has different options than react-toastify
+    // No id parameter in Sonner, using description instead
+    description: content.title,
+    duration: 8000 // Show for 8 seconds
+  });
+};
 
 // Helper component for consistently formatted markdown content
 interface FormattedMarkdownProps {
@@ -829,15 +849,23 @@ async function getChapterVideo(chapterIndex: number, lessonContent: any, subject
   const combinedContext = `${subject}: ${chapterTitle}`;
   const searchQuery = `${combinedContext} educational video`;
   
+  // Video search functionality has been completely removed
+  // Return default video ID for educational content
+  const defaultVideoIds = [
+    'eI9NwI1VY0k', // Educational overview
+    'yi0hwFDQTSQ', // Science overview
+    'LibXH5GGGMk', // How to learn anything
+    'CmvJTmvVu8A'  // Learning strategies
+  ];
+  
+  // Use a default video instead of searching
   try {
-    // Use the enhanced searchVideos function with full chapter content
-    const videoResult = await searchVideos(searchQuery, chapterContent);
-    if (videoResult && videoResult.videoId) {
-      console.log(`Found video for "${chapterTitle}" based on content analysis:`, videoResult.title);
-      return videoResult.videoId;
-    }
+    // Select a video based on chapter index to provide variety
+    const videoIndex = chapterIndex % defaultVideoIds.length;
+    return defaultVideoIds[videoIndex];
   } catch (error) {
     console.error("Error finding chapter video:", error);
+    return defaultVideoIds[0]; // Fallback to first default video
   }
   
   // Fallback to static mappings if dynamic search fails
@@ -956,35 +984,23 @@ const SubtopicVideo: React.FC<SubtopicVideoProps> = ({
       ${subtopic.examples.join(' ')}
       ${subtopic.useCase}
     `;
-    
-    // Call the enhanced search service
-    searchVideos(searchQuery, subtopicContent)
-      .then(result => {
-        if (isMounted && result && result.videoId) {
-          console.log(`Found video for subtopic "${subtopic.title}" based on content analysis:`, result.title);
-          setVideoId(result.videoId);
-          setVideoTitle(result.title);
-        }
-      })
-      .catch(err => {
-        console.error(`Error fetching video for ${subtopic.title}:`, err);
-        // We already have a default, so no need to handle error explicitly
-      });
+      // Video search functionality removed completely
+    // No asynchronous video search needed anymore
       
     return () => { isMounted = false; };
   }, [subtopic, subject, chapterTitle]);
   
   if (!videoId) return null;
-  
-  return (
+    return (
     <div className="mb-3 sm:mb-4">
-      <YouTubeEmbed 
-        videoId={videoId} 
-        title={videoTitle || `Educational video about ${subtopic.title}`}
-        className="mb-2"
-      />
+      <div className="w-full h-48 bg-gray-100 rounded-md flex items-center justify-center mb-2">
+        <div className="text-center p-4">
+          <PlayCircle className="h-10 w-10 text-gray-400 mx-auto mb-2" />
+          <p className="text-gray-500">Video content not available</p>
+        </div>
+      </div>
       <p className="text-xs text-gray-500 italic text-center">
-        {videoTitle || 'Educational content related to this topic'}
+        Educational content related to this topic
       </p>
     </div>
   );
@@ -1064,36 +1080,24 @@ const ChapterVideo: React.FC<ChapterVideoProps> = ({
     const chapterContent = chapter?.content || chapter?.text || '';
     const chapterTitle = chapter?.heading || chapter?.title || '';
     const searchQuery = `${subject}: ${chapterTitle} educational video`;
-    
-    // Only do the enhanced search if we have enough content
-    if (chapterContent && chapterContent.length > 100) {
-      searchVideos(searchQuery, chapterContent)
-        .then(result => {
-          if (isMounted && result && result.videoId) {
-            console.log(`Found better video for "${chapterTitle}" based on content analysis:`, result.title);
-            setVideoId(result.videoId);
-          }
-        })
-        .catch(err => {
-          console.error("Error in enhanced video search:", err);
-          // We already have a static ID, so no need to set a fallback
-        });
-    }
+      // Video search functionality has been removed
+    // No need to perform any enhanced content-based search
     
     return () => { isMounted = false; };
   }, [chapter, chapterIndex, subject]);
   
   const chapterTitle = chapter?.heading || chapter?.title || 'Chapter content';
-  
-  return (
+    return (
     <>
-      <YouTubeEmbed 
-        videoId={videoId}
-        title={`Educational content: ${chapterTitle}`}
-        className="mx-auto max-w-2xl" 
-      />
+      <div className="w-full max-w-2xl h-64 bg-gray-100 rounded-md flex items-center justify-center mx-auto">
+        <div className="text-center p-4">
+          <PlayCircle className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+          <p className="text-gray-500 text-lg">Video content not available</p>
+          <p className="text-gray-400 text-sm mt-2">Video functionality has been disabled</p>
+        </div>
+      </div>
       <p className="text-sm text-gray-500 italic text-center mt-2">
-        Educational video related to {chapterTitle}
+        Educational content related to {chapterTitle}
       </p>
     </>
   );
@@ -1485,27 +1489,23 @@ const EducationalResources: React.FC<EducationalResourcesProps> = ({
               <li><span className="font-medium">Learning Goal:</span> Understand {chapterTitle} and how it relates to {subject}</li>
             </ul>
           </div>
-          
-          {/* Video Section - Will be completely removed if unavailable */}
+            {/* Video Section - Replaced with a placeholder */}
           <div className="mb-5">
             <h4 className="text-blue-700 text-sm font-medium mb-3 flex items-center">
               <span className="text-amber-500 mr-2">🎬</span> Educational Video
             </h4>
             
             <div className="mb-3 video-container">
-              <YouTubeEmbed
-                videoId={videoId || 'LibXH5GGGMk'}
-                title={`Educational video about ${chapterTitle}`}
-                className="w-full aspect-video rounded-md overflow-hidden"
-                onError={() => {
-                  // When video errors, just set the state to false and let React handle the DOM
-                  setIsVideoAvailable(false);
-                }}
-              />
+              <div 
+                className="w-full aspect-video rounded-md overflow-hidden bg-gray-100 flex flex-col items-center justify-center"
+              >
+                <PlayCircle className="h-12 w-12 text-gray-400 mb-2" />
+                <p className="text-gray-500 text-sm">Video content has been disabled</p>
+              </div>
             </div>
             
             <p className="italic text-blue-600 text-xs">
-              This video has been selected for its educational value, age-appropriate content, and relevance to this lesson.
+              Video content has been removed from this lesson.
             </p>
           </div>
           
@@ -1614,8 +1614,7 @@ const AILesson: React.FC<AILessonProps> = ({
       setLoadingProgress(10);
       // ... existing code ...
       setLoadingProgress(50); // Injecting content into DB
-      
-      // AI request
+        // AI request with optimized service
       setLoadingProgress(70); // Loading content into lesson
       const normalized = await getAIEducationContent({
         contentType: 'lesson',
@@ -1624,24 +1623,70 @@ const AILesson: React.FC<AILessonProps> = ({
         topic,
         subtopic,
         studentId: effectiveStudentId,
-        language
-      });
-      setLoadingProgress(100); // Complete
+        language,
+        skipMediaSearch: true, // Skip media search for improved performance
+        fastMode: true // Enable fast mode for <10 second loading
+      });      setLoadingProgress(100); // Complete
       setLessonContent(normalized);
       setLoading(false);
-    } catch (error) {
-      // Handle error
+    }    catch (error) {
+      console.error("Error fetching lesson content:", error);
+      setLoading(false);
+      
+      // Check if it might be a rate limit issue
+      const errorStr = String(error);
+      const isRateLimit = errorStr.includes('rate limit') || 
+                         errorStr.includes('too many requests') || 
+                         errorStr.includes('maximum calls');
+      
+      if (isRateLimit) {
+        // Show specific rate limit message
+        toast.info(
+          language === 'id'
+            ? 'Anda telah mencapai batas pembelajaran AI. Coba lagi dalam beberapa menit.'
+            : 'You\'ve reached the AI learning limit. Try again in a few minutes.'
+        );
+      } else {
+        // Show general error message
+        toast.error(
+          language === 'id'
+            ? 'Gagal memuat konten pelajaran'
+            : 'Failed to load lesson content'
+        );
+      }
+      
+      // Provide fallback content if available
+      if (!lessonContent) {
+        // Create minimal fallback content structure
+        setLessonContent({
+          content: {
+            title: topic,
+            introduction: `Learning about ${topic} in ${subject}`,
+            mainContent: [
+              { 
+                heading: `Introduction to ${topic}`,
+                text: `We're currently experiencing high demand. Please try again in a few minutes to learn about ${topic}.`
+              }
+            ],
+            funFacts: [`${topic} is an interesting subject to study.`],
+            activity: {
+              title: "Learning Activity",
+              instructions: "Try researching this topic on your own while we prepare your lesson."
+            },
+            conclusion: "We'll have more content for you soon!"
+          }
+        });
+      }
     }
   }, [subject, gradeLevel, topic, subtopic, effectiveStudentId, language]);
-
-  // Add loading message for long waits
+  // Add loading message but only if it takes longer than expected
   useEffect(() => {
     const timer = setTimeout(() => {
       if (loading) {
         toast.info(
           language === 'id' 
-            ? 'Tunggu sebentar, kami sedang menyiapkan sesuatu yang hebat...' 
-            : 'Hang in there, we are preparing something great...'
+            ? 'Konten sedang dimuat, hampir selesai...' 
+            : 'Content is loading, almost done...'
         );
       }
     }, 15000); // 15 seconds
@@ -2112,18 +2157,33 @@ const AILesson: React.FC<AILessonProps> = ({
                 </div>
               </>
             )}
-            
-            {/* Add comprehensive lesson summary video */}
+              {/* Video section replaced with text summary */}
             <Separator className="my-6" />
             <div className="space-y-4">
-              <h3 className="text-xl font-semibold">{t('lesson.video') || 'Educational Video'}</h3>
+              <h3 className="text-xl font-semibold">{t('lesson.summary') || 'Lesson Summary'}</h3>
               <div className="bg-gray-50 rounded-lg p-4">
-                <div className="my-4" id="summary-video">
-                  <LessonSummaryVideo 
-                    lessonContent={lessonContent}
-                    subject={subject}
-                    topic={topic}
-                  />
+                <div className="my-4" id="summary-content">
+                  <div className="flex flex-col items-center mb-4">
+                    <div className="w-full max-w-xl bg-gray-100 rounded-lg flex items-center justify-center p-6 mb-4">
+                      <div className="text-center">
+                        <BookMarked className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                        <p className="text-gray-600 font-medium">Video summary has been replaced with text</p>
+                      </div>
+                    </div>
+                    <p className="text-gray-600 text-center max-w-lg">
+                      This lesson covered key concepts about {topic} in {subject}. 
+                      Review the main content sections to reinforce your understanding.
+                    </p>
+                  </div>
+                  {/* Display key concepts as a summary */}
+                  <div className="bg-white rounded-lg p-4 mt-4">
+                    <h4 className="font-medium text-gray-700 mb-2">Key Concepts:</h4>
+                    <ul className="list-disc pl-5 space-y-1">
+                      {lessonContent?.content?.mainContent?.map((chapter: any, index: number) => (
+                        <li key={index} className="text-gray-600">{chapter.heading}</li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2313,7 +2373,7 @@ const AILesson: React.FC<AILessonProps> = ({
                   >
                     <span className="sr-only">Close</span>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414 1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
                     </svg>
                   </button>
                   
