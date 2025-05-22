@@ -21,7 +21,7 @@ const AILearning = () => {
   const { language } = useLanguage();
   const [subject, setSubject] = useState('Science');
   const [topic, setTopic] = useState('');
-  const [subtopic, setSubtopic] = useState<string>(''); // Changed from string | null to string
+  const [subtopic, setSubtopic] = useState(''); // Using string type with empty string default
   const [isNormalFlow, setIsNormalFlow] = useState(true);
   const [students, setStudents] = useState<Student[]>([]);
 
@@ -80,7 +80,7 @@ const AILearning = () => {
     if (selectedSubtopic) {
       setSubtopic(selectedSubtopic);
     } else {
-      setSubtopic('');  // Using empty string instead of null
+      setSubtopic(''); // Using empty string instead of undefined
     }
 
     // Toggle back to normal flow
@@ -91,7 +91,7 @@ const AILearning = () => {
   const handleSubjectChange = useCallback((newSubject: string) => {
     setSubject(newSubject);
     setTopic('');
-    setSubtopic(''); // Using empty string instead of null
+    setSubtopic(''); // Using empty string instead of undefined
   }, []);
 
   // Create learning content
@@ -104,9 +104,14 @@ const AILearning = () => {
     const pathParams = new URLSearchParams({
       subject,
       topic,
-      ...(selectedSubtopic ? { subtopic: selectedSubtopic } : {}), // Only add if defined
       grade: gradeLevel
     });
+    
+    // Add subtopic to params only if it exists and is not empty
+    const subtopicToUse = selectedSubtopic || subtopic;
+    if (subtopicToUse) {
+      pathParams.append('subtopic', subtopicToUse);
+    }
     
     navigate(`/ai-lesson?${pathParams.toString()}`);
   }, [subject, topic, subtopic, gradeLevel, navigate, language]);
