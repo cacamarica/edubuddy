@@ -12,8 +12,8 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { BookOpen, GraduationCap, UserCircle } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { toast } from 'sonner';
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 
 // Define Subject interface
 interface Subject {
