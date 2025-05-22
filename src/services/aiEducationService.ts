@@ -5,6 +5,7 @@ import { AIEducationContentRequest, AIEducationContentResponse } from '@/types/l
 
 interface ExtendedAIEducationContentRequest extends AIEducationContentRequest {
   skipMediaSearch?: boolean;
+  enhancedParams?: any;
 }
 
 /**
@@ -29,7 +30,7 @@ class AIEducationService {
         
         if (error) {
           console.error('Supabase function error:', error);
-          throw new Error(error.message);
+          throw new Error(error instanceof Error ? error.message : 'Unknown error');
         }
         
         if (data && (data.content || data.error)) {
@@ -52,7 +53,7 @@ class AIEducationService {
       console.error('AI Education Service error:', error);
       return {
         content: null,
-        error: error.message || 'Error generating educational content'
+        error: error instanceof Error ? error.message : 'Error generating educational content'
       };
     }
   }
@@ -94,7 +95,7 @@ class AIEducationService {
       };
     } catch (error) {
       console.error('Error generating lesson:', error);
-      return { error: error.message || 'Failed to generate lesson' };
+      return { error: error instanceof Error ? error.message : 'Failed to generate lesson' };
     }
   }
   
@@ -137,7 +138,7 @@ class AIEducationService {
       };
     } catch (error) {
       console.error('Error generating quiz:', error);
-      return { error: error.message || 'Failed to generate quiz' };
+      return { error: error instanceof Error ? error.message : 'Failed to generate quiz' };
     }
   }
   
@@ -176,7 +177,7 @@ class AIEducationService {
       };
     } catch (error) {
       console.error('Error generating game:', error);
-      return { error: error.message || 'Failed to generate game' };
+      return { error: error instanceof Error ? error.message : 'Failed to generate game' };
     }
   }
   
@@ -211,7 +212,30 @@ class AIEducationService {
       return result;
     } catch (error) {
       console.error('Error asking learning buddy:', error);
-      return { error: error.message || 'Failed to get response from learning buddy' };
+      return { error: error instanceof Error ? error.message : 'Failed to get response from learning buddy' };
+    }
+  }
+
+  /**
+   * Get AI educational content with enhanced parameters
+   * @param params Request parameters for content generation
+   * @returns Generated content
+   */
+  async getAIEducationContent(params: ExtendedAIEducationContentRequest): Promise<AIEducationContentResponse> {
+    // Skip media search by default for better performance
+    const enhancedParams = {
+      ...params,
+      skipMediaSearch: params.skipMediaSearch !== false, // Default to true if not specified
+    };
+    
+    try {
+      return await this.generateContent(enhancedParams);
+    } catch (error) {
+      console.error('Error generating AI education content:', error);
+      return {
+        content: null,
+        error: error instanceof Error ? error.message : 'Error generating educational content'
+      };
     }
   }
   
@@ -255,3 +279,9 @@ class AIEducationService {
 }
 
 export const aiEducationService = new AIEducationService();
+
+// Export the getAIEducationContent function for direct use in components
+export const getAIEducationContent = (params: ExtendedAIEducationContentRequest): Promise<AIEducationContentResponse> => {
+  return aiEducationService.getAIEducationContent(params);
+};
+

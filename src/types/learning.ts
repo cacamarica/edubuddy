@@ -13,6 +13,7 @@ export interface AIEducationContentRequest {
   studentId?: string;
   includeImages?: boolean;
   skipMediaSearch?: boolean;
+  enhancedParams?: any;
 }
 
 export interface AIEducationContentResponse {
@@ -163,3 +164,71 @@ export interface LearningContentWrapperProps {
   onQuizComplete?: (score: number) => void;
   recommendationId?: string;
 }
+
+// Add missing interfaces
+
+export interface Student {
+  id: string;
+  name: string;
+  grade_level: string;
+  parent_id: string;
+  created_at: string;
+  age?: number;
+  avatar_url?: string;
+}
+
+export interface StudentProfile {
+  id: string;
+  name: string;
+  age: number;
+  gradeLevel: string;
+  parentId: string;
+  createdAt: string;
+  avatarUrl?: string;
+}
+
+export interface TopicQuizHistory {
+  topic: string;
+  topicName?: string;
+  attempts: QuizAttempt[];
+}
+
+export interface QuizAttempt {
+  id: string;
+  student_id: string;
+  question_text: string;
+  student_answer: string;
+  correct_answer: string;
+  is_correct: boolean;
+  attempted_at: string;
+  quiz_id: string;
+  quiz_title?: string;
+  subject_id: string;
+  topic_id: string;
+  grade_level?: string;
+}
+
+// Add utility functions to convert between types
+export const convertToStudent = (profile: StudentProfile): Student => {
+  return {
+    id: profile.id,
+    name: profile.name,
+    grade_level: profile.gradeLevel,
+    parent_id: profile.parentId,
+    created_at: profile.createdAt,
+    age: profile.age,
+    avatar_url: profile.avatarUrl
+  };
+};
+
+export const convertToStudentProfile = (student: Student): StudentProfile => {
+  return {
+    id: student.id,
+    name: student.name,
+    age: student.age || 10,
+    gradeLevel: student.grade_level,
+    parentId: student.parent_id,
+    createdAt: student.created_at,
+    avatarUrl: student.avatar_url
+  };
+};

@@ -1,7 +1,5 @@
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from '@/integrations/supabase/client';
 import { getAIEducationContent } from "./aiEducationService";
-import { toast } from "sonner";
-import { Json } from "@/integrations/supabase/types";
 
 // Types for lesson materials and progress
 export interface LessonChapter {
