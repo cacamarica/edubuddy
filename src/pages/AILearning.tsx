@@ -21,7 +21,7 @@ const AILearning = () => {
   const { language } = useLanguage();
   const [subject, setSubject] = useState('Science');
   const [topic, setTopic] = useState('');
-  const [subtopic, setSubtopic] = useState('');  // Added subtopic state
+  const [subtopic, setSubtopic] = useState('');
   const [isNormalFlow, setIsNormalFlow] = useState(true);
   const [students, setStudents] = useState<Student[]>([]);
 
@@ -243,7 +243,7 @@ const AILearning = () => {
                   onSelectTopic={handleSelectTopic}
                   onBackClick={handleBackToSelector}
                   gradeLevel={gradeLevel}
-                  currentGrade={selectedProfile?.gradeLevel}
+                  currentGrade={selectedProfile?.gradeLevel || undefined}
                 />
               </div>
             )}

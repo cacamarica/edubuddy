@@ -127,7 +127,7 @@ export const lessonService = {
         grade_level: data.grade_level,
         subject: data.subject,
         topic: data.topic,
-        subtopic: data.subtopic // Include subtopic in the result
+        subtopic: data.subtopic as string | undefined // Cast to the correct type
       };
     } catch (error) {
       console.error('Error in getLessonById:', error);
@@ -197,7 +197,7 @@ export const lessonService = {
           grade_level: lesson.grade_level,
           subject: lesson.subject,
           topic: lesson.topic,
-          subtopic: lesson.subtopic, // Include subtopic in the result
+          subtopic: (lesson as any).subtopic, // Type assertion to access subtopic
           // Add progress info
           currentChapter: progress?.current_chapter || 0,
           isCompleted: progress?.is_completed || false,
@@ -272,7 +272,7 @@ export const lessonService = {
             grade_level: latestLesson.grade_level,
             subject: latestLesson.subject,
             topic: latestLesson.topic,
-            subtopic: latestLesson.subtopic
+            subtopic: (latestLesson as any).subtopic // Type assertion to access subtopic
           };
           
           // Create progress entry for the student if not exists
@@ -401,7 +401,7 @@ export const lessonService = {
         grade_level: createdLesson.grade_level,
         subject: createdLesson.subject,
         topic: createdLesson.topic,
-        subtopic: createdLesson.subtopic
+        subtopic: (createdLesson as any).subtopic // Type assertion to access subtopic
       };
       
       return { lesson, isNew: true };
