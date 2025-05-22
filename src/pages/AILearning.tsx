@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Card, CardContent } from "@/components/ui/card";
@@ -37,7 +38,7 @@ const AILesson: React.FC = () => {
   
   const subject = queryParams.get('subject') || '';
   const topic = queryParams.get('topic') || '';
-  // Fix the TypeScript error by converting null to undefined
+  // Use empty string instead of null for subtopic to fix TypeScript error
   const subtopic = queryParams.get('subtopic') || undefined;
   const gradeLevel = (selectedProfile?.grade_level || queryParams.get('grade') || 'k-3') as "k-3" | "4-6" | "7-9";
   
